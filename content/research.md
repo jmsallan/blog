@@ -1,9 +1,11 @@
 ---
-title: "About Hugo Tanka"
+title: "Research"
 date: "2020-01-01"
 menu: "main"
 description: "A description of the page"
 ---
+
+This is the true research file
 
 Lorem ipsum dolor sit amet, ex has sale ullum corrumpit, sea dicam nostrum sensibus ad. Porro tritani persecuti te sed. Omittam dissentias pro ex. Atqui luptatum duo id. Eros minim eam ex, novum elitr accusam quo in. Nec ne audire euripidis, [mea qualisque consetetur cu](https://example.com). Suspendisse volutpat sem a risus euismod convallis.
 

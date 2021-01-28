@@ -1,6 +1,6 @@
 baseurl: https://jmsallan.netlify.app/
-title: Hugo Tanka Theme Demo
-author: Nan Xiao
+title: Jose M Sallan blog
+author: Jose M Sallan
 canonifyurls: yes
 languagecode: en
 theme: hugo-tanka
@@ -22,7 +22,7 @@ params:
     - python
     - stan
   progressively: no
-  sitename: Hugo Tanka Theme
+  sitename: The Jose M Sallan webiste
   uselatex: yes
 markup:
   goldmark:
@@ -30,18 +30,18 @@ markup:
       unsafe: yes
 menu:
   primary:
-    - name: Home
+    - name: About
+      url: /home/
+      weight: 2
+    - name: Blog
       url: /
       weight: 1
-    - name: About
-      url: /about/
-      weight: 2
-    - name: GitHub
-      url: https://github.com/nanxstats
+    - name: Research
+      url: /research/
       weight: 3
-    - name: Twitter
-      url: https://twitter.com/nanxstats
+    - name: Teaching
+      url: /teaching/
       weight: 4
-    - name: Subscribe
-      url: /index.xml
+    - name: Contact
+      url: /contact/
       weight: 5

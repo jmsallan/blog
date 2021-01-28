@@ -1,12 +1,23 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>Hugo Tanka Theme Demo</title>
+    <title>Jose M Sallan blog</title>
     <link>https://jmsallan.netlify.app/</link>
-    <description>Recent content on Hugo Tanka Theme Demo</description>
+    <description>Recent content on Jose M Sallan blog</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en</language>
-    <lastBuildDate>Sat, 21 Nov 2020 12:00:00 +0000</lastBuildDate><atom:link href="https://jmsallan.netlify.app/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Tue, 01 Dec 2020 21:13:14 -0500</lastBuildDate><atom:link href="https://jmsallan.netlify.app/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Hello R Markdown</title>
+      <link>https://jmsallan.netlify.app/blog/2020-12-01-r-rmarkdown/</link>
+      <pubDate>Tue, 01 Dec 2020 21:13:14 -0500</pubDate>
+      
+      <guid>https://jmsallan.netlify.app/blog/2020-12-01-r-rmarkdown/</guid>
+      <description>R Markdown This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see http://rmarkdown.rstudio.com.
+You can embed an R code chunk like this:
+summary(cars) ## speed dist ## Min. : 4.0 Min. : 2.00 ## 1st Qu.:12.0 1st Qu.: 26.00 ## Median :15.0 Median : 36.00 ## Mean :15.4 Mean : 42.</description>
+    </item>
+    
     <item>
       <title>Tanka Theme Demo</title>
       <link>https://jmsallan.netlify.app/blog/hugo-tanka-theme-demo/</link>
@@ -39,11 +50,41 @@ Alerts This is a primary alert—check it out!  This is a secondary alert—chec
     </item>
     
     <item>
-      <title>About Hugo Tanka</title>
-      <link>https://jmsallan.netlify.app/about/</link>
+      <title>Contact</title>
+      <link>https://jmsallan.netlify.app/contact/</link>
       <pubDate>Wed, 01 Jan 2020 00:00:00 +0000</pubDate>
       
-      <guid>https://jmsallan.netlify.app/about/</guid>
+      <guid>https://jmsallan.netlify.app/contact/</guid>
+      <description>This is the contact page</description>
+    </item>
+    
+    <item>
+      <title>Home</title>
+      <link>https://jmsallan.netlify.app/home/</link>
+      <pubDate>Wed, 01 Jan 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://jmsallan.netlify.app/home/</guid>
+      <description>My name is José María Sallán Leyes (NBU: Jose M Sallan), and I work as Associate Professor at at the Universitat Politècnica de Catalunya - BarcelonaTech (UPC). I am attached to the Department of Management, and I am currently teaching at the School of Industrial, Aerospace and Audiovisual Engineering (ESEIAAT) and the Barcelona School of Building Construction (EPSEB).
+My research interests cover a broad range of facets of industrial organization: organizational and consumer behavior, air transport management and analysis of transportation networks.</description>
+    </item>
+    
+    <item>
+      <title>Research</title>
+      <link>https://jmsallan.netlify.app/research/</link>
+      <pubDate>Wed, 01 Jan 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://jmsallan.netlify.app/research/</guid>
+      <description>This is the true research file
+Lorem ipsum dolor sit amet, ex has sale ullum corrumpit, sea dicam nostrum sensibus ad. Porro tritani persecuti te sed. Omittam dissentias pro ex. Atqui luptatum duo id. Eros minim eam ex, novum elitr accusam quo in. Nec ne audire euripidis, mea qualisque consetetur cu. Suspendisse volutpat sem a risus euismod convallis.
+In modus congue feugait eos. In nec nonumy volutpat corrumpit, sea assentior quaerendum no, cum affert scripta ea.</description>
+    </item>
+    
+    <item>
+      <title>Teaching</title>
+      <link>https://jmsallan.netlify.app/teaching/</link>
+      <pubDate>Wed, 01 Jan 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://jmsallan.netlify.app/teaching/</guid>
       <description>Lorem ipsum dolor sit amet, ex has sale ullum corrumpit, sea dicam nostrum sensibus ad. Porro tritani persecuti te sed. Omittam dissentias pro ex. Atqui luptatum duo id. Eros minim eam ex, novum elitr accusam quo in. Nec ne audire euripidis, mea qualisque consetetur cu. Suspendisse volutpat sem a risus euismod convallis.
 In modus congue feugait eos. In nec nonumy volutpat corrumpit, sea assentior quaerendum no, cum affert scripta ea. No nihil voluptaria pro.</description>
     </item>
