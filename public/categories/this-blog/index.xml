@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>this blog on Jose M Sallan blog</title>
+    <link>https://jmsallan.netlify.app/categories/this-blog/</link>
+    <description>Recent content in this blog on Jose M Sallan blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en</language>
+    <lastBuildDate>Sat, 30 Jan 2021 00:00:00 +0000</lastBuildDate><atom:link href="https://jmsallan.netlify.app/categories/this-blog/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Blogging with static websites</title>
+      <link>https://jmsallan.netlify.app/blog/2021-01-30-blogging-with-static-websites/</link>
+      <pubDate>Sat, 30 Jan 2021 00:00:00 +0000</pubDate>
+      
+      <guid>https://jmsallan.netlify.app/blog/2021-01-30-blogging-with-static-websites/</guid>
+      <description>This is the first real post of this blog. This is a test post, written to see how the thing works.
+A wrong picture from a Spanish news TV show.
+ I am using a static website blog because:
+ It allows me to keep my contents in my computer and in my GitHub website. I can build posts including code and output in a variety of languages.  </description>
+    </item>
+    
+  </channel>
+</rss>

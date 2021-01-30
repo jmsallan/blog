@@ -11,7 +11,7 @@ description: "A description of the page"
 
 * [Tools for Decision Making](https://www.upc.edu/estudispdf/guia_docent.php?codi=205105&lang=en) (Master in Engineering and Management, ESEIAAT, fall) (responsible: Vicenc Fernandez)
 * [Airport Operations](https://www.upc.edu/content/grau/guiadocent/pdf/en/220321) (Master in Aerospace Engineering, ESEIAAT, fall) (responsible: Oriol Lordan)
-* Models i Eines de Decisió (Master in Building Construction Management, EPSEB, spring)
+* [Models i Eines de Decisió](https://www.upc.edu/content/master/guiadocent/pdf/cat/310509) (Master in Building Construction Management, EPSEB, spring)
 * [Business Analytics](https://www.upc.edu/content/grau/guiadocent/pdf/en/205117) (Master in Engineering and Management, ESEIAAT, spring)
 * [Combinatorial Optimization in Logistics](https://www.upc.edu/estudispdf/guia_docent.php?codi=205115&lang=en) (Master in Engineering and Management, ESEIAAT, spring) (responsible: Maria Albareda-Sambola)
 * Introduction to Metaheuristics for Optimization problems (Master in Industrial Engineering / Master in Aerospace Engineering, ESEIAAT, spring)
