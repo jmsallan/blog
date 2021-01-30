@@ -22,7 +22,7 @@ params:
     - python
     - stan
   progressively: no
-  sitename: The Jose M Sallan webiste
+  sitename: The Jose M Sallan static website
   uselatex: yes
 markup:
   goldmark:

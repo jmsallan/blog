@@ -55,7 +55,7 @@ Alerts This is a primary alert—check it out!  This is a secondary alert—chec
       <pubDate>Wed, 01 Jan 2020 00:00:00 +0000</pubDate>
       
       <guid>https://jmsallan.netlify.app/contact/</guid>
-      <description>This is the contact page</description>
+      <description> UPC directory, including postal address. email: jose.maria.sallan@upc.edu Twitter: @jmsallan LinkedIn: https://www.linkedin.com/in/jmsallan/  </description>
     </item>
     
     <item>
@@ -74,9 +74,10 @@ My research interests cover a broad range of facets of industrial organization: 
       <pubDate>Wed, 01 Jan 2020 00:00:00 +0000</pubDate>
       
       <guid>https://jmsallan.netlify.app/research/</guid>
-      <description>This is the true research file
-Lorem ipsum dolor sit amet, ex has sale ullum corrumpit, sea dicam nostrum sensibus ad. Porro tritani persecuti te sed. Omittam dissentias pro ex. Atqui luptatum duo id. Eros minim eam ex, novum elitr accusam quo in. Nec ne audire euripidis, mea qualisque consetetur cu. Suspendisse volutpat sem a risus euismod convallis.
-In modus congue feugait eos. In nec nonumy volutpat corrumpit, sea assentior quaerendum no, cum affert scripta ea.</description>
+      <description>Publications Here is a list of recent scientific publications. For an updated record, visit Futur UPC.
+2020
+ Lordan, O., &amp;amp; Sallan, J. M. (2020). Dynamic measures for transportation networks. Plos one, 15(12), e0242875. https://doi.org/10.1371/journal.pone.0242875 Carreras-Maide, J., Lordan, O., &amp;amp; Sallan, J. M. (2020). Cost savings from trajectory deviations in the European air space. Journal of air transport management, 88, 101887. https://doi.org/10.1016/j.jairtraman.2020.101887  2019
+ Lordan, O., &amp;amp; Sallan, J. M.</description>
     </item>
     
     <item>
@@ -85,8 +86,8 @@ In modus congue feugait eos. In nec nonumy volutpat corrumpit, sea assentior qua
       <pubDate>Wed, 01 Jan 2020 00:00:00 +0000</pubDate>
       
       <guid>https://jmsallan.netlify.app/teaching/</guid>
-      <description>Lorem ipsum dolor sit amet, ex has sale ullum corrumpit, sea dicam nostrum sensibus ad. Porro tritani persecuti te sed. Omittam dissentias pro ex. Atqui luptatum duo id. Eros minim eam ex, novum elitr accusam quo in. Nec ne audire euripidis, mea qualisque consetetur cu. Suspendisse volutpat sem a risus euismod convallis.
-In modus congue feugait eos. In nec nonumy volutpat corrumpit, sea assentior quaerendum no, cum affert scripta ea. No nihil voluptaria pro.</description>
+      <description>Courses These are the courses I am currently teaching:
+ Tools for Decision Making (Master in Engineering and Management, ESEIAAT, fall) (responsible: Vicenc Fernandez) Airport Operations (Master in Aerospace Engineering, ESEIAAT, fall) (responsible: Oriol Lordan) Models i Eines de Decisió (Master in Building Construction Management, EPSEB, spring) Business Analytics (Master in Engineering and Management, ESEIAAT, spring) Combinatorial Optimization in Logistics (Master in Engineering and Management, ESEIAAT, spring) (responsible: Maria Albareda-Sambola) Introduction to Metaheuristics for Optimization problems (Master in Industrial Engineering / Master in Aerospace Engineering, ESEIAAT, spring) Transport Aeri i Sistemes de Navegació (Master in Aerospace Engineering, ESEIAAT, spring) (responsible: Antoni Barlabé)  Materials R packages I am maintaining the following R packages for teaching (available at GitHub):</description>
     </item>
     
     <item>
