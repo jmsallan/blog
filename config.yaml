@@ -8,6 +8,9 @@ enableEmoji: yes
 hasCJKLanguage: no
 pygmentsstyle: vs
 pygmentscodefences: yes
+taxonomies:
+  category: categories
+  tag: tags
 ignoreFiles:
   - \.Rmd$
   - \.Rmarkdown$

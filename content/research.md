@@ -5,11 +5,21 @@ menu: "main"
 description: "A description of the page"
 ---
 
+## Research ID
 
+Here is a list of the different places where my publications are aggregated or indexed:
+
+* ORCID: [0000-0002-4835-0152](https://orcid.org/0000-0002-4835-0152)
+* Research ID (Web of Science - Publons): [O-8722-2014](https://publons.com/researcher/985765/jose-m-sallan/)
+* Author ID Scopus: [25931715400](https://www.scopus.com/authid/detail.uri?authorId=25931715400)
+* [Social Sciences Research Network (SSRN)](https://papers.ssrn.com/sol3/cf_dev/AbsByAuth.cfm?per_id=2197365)
+* [Google Scholar](https://scholar.google.es/citations?user=UyBUWqYAAAAJ&hl=es&oi=ao)
+* [IDEAS/RePeC](https://ideas.repec.org/f/psa1865.html)
+* [Futur UPC](https://futur.upc.edu/JoseMariaSallanLeyes)
 
 ## Publications
 
-Here is a list of recent scientific publications. For an updated record, visit Futur UPC.
+*Here is a list of recent scientific publications. For an updated record, visit [Futur UPC](https://futur.upc.edu/JoseMariaSallanLeyes).*
 
 **2020**
 
