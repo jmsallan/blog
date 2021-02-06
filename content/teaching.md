@@ -23,6 +23,7 @@ description: "A description of the page"
 
 *I am maintaining the following R packages for teaching (available at GitHub):*
 
+* [ESdata](https://github.com/jmsallan/ESdata): a package to bring Spanish statistical information into the R environment.
 * [BAdatasets](https://github.com/jmsallan/BAdatasets): datasets to illustrate machine learning algorithms in a Business Analytics course.
 * [BAdatasetsSpatial](https://github.com/jmsallan/BAdatasetsSpatial): datasets to illustrate visualisation with maps.
 * [combheuristics](https://github.com/jmsallan/combheuristics): a package including some functions implementing heuristics for combinatorial problems, and some datasets for testing.

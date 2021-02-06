@@ -7,7 +7,7 @@ description: "A description of the page"
 
 ## Research ID
 
-Here is a list of the different places where my publications are aggregated or indexed:
+*Here is a list of the different places where my publications are aggregated or indexed:*
 
 * ORCID: [0000-0002-4835-0152](https://orcid.org/0000-0002-4835-0152)
 * Research ID (Web of Science - Publons): [O-8722-2014](https://publons.com/researcher/985765/jose-m-sallan/)
