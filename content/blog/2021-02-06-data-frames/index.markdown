@@ -12,9 +12,9 @@ meta_img: images/image.png
 description: Description for the page
 ---
 
-Data frames are rectangular data structures in which each observation is stored in a row, and each variable in a column. They are different from matrices or two-dimensional arrays in that each column can be of a different type: character, numeric, categorical or others.
+Data frames are rectangular data structures where each observation is stored in a row, and each variable in a column. They are different from matrices or two-dimensional arrays in that each column can be of a different type: character, numeric, categorical or others.
 
-The data frame structure is provided in the base R language as `data.frame`. This is because one of the main purposes of R was to perform statistical computing. Other programming languages need to implement data frames with a specific library, like the pandas Python library.
+The data frame structure is provided in the base R language as a `data.frame` object. This is so because one of the main purposes of R was to perform statistical computing. Other programming languages need to implement data frames with a specific library, like the pandas Python library.
 
 A classical example of data frame is the `mtcars` Motor Trend Car Road Tests:
 
@@ -59,7 +59,7 @@ mtcars
 ## Volvo 142E          21.4   4 121.0 109 4.11 2.780 18.60  1  1    4    2
 ```
 
-Column data frames in R *must* have a name, and rows *can* have one. mtcars is an example of data frame with row names.
+Column data frames in R *must* have a name, and rows *can* have one. `mtcars` is an example of data frame with row names.
 
 ## Alternative implementations of data frames
 

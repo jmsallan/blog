@@ -1,0 +1,58 @@
+---
+title: Tidy data
+author: Jose M Sallan
+date: '2021-02-12'
+slug: tidy_data
+categories:
+  - R
+tags:
+  - data structures
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate)
+library(ESdata)
+library(kableExtra)
+```
+
+## Tidy data
+
+Data cleaning and data analysis tasks are easier if data frames are arranged as *tidy data*. According to [Hadley Wickham](https://www.jstatsoft.org/article/view/v059i10), in tidy data:
+
+1. Each variable forms a column.
+2. Each observation forms a row.
+3. Each type of observational unit forms a table.
+
+This means that tidy data are presented as *long tables*, and that a dataset of different observational units is stored as a set of relational tables.
+
+Let's examine this table, presenting Spanish population in 2015-2019 by age group:
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+epa_edad %>% 
+  filter(month(periodo) == 12 & year(periodo) >= 2015 & edad!= "total" & region == "ES" & sexo == "total" & dato == "pob") %>% 
+  mutate(year = year(periodo)) %>%
+  select(year, edad, valor) %>%
+  pivot_wider( names_from = "edad", values_from = "valor") %>%
+  kbl() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+This table is not tidy data, as it contains eight observations for each row. To tidy those data, we need to put each observation in a row, so each row of the previous data will become eight rows. Then, we need also a new variable for the age group of each row.
+
+```{r, echo=FALSE}
+epa_edad %>% 
+  filter(month(periodo) == 12 & year(periodo) >= 2015 & edad!= "total" & region == "ES" & sexo == "total" & dato == "pob") %>% 
+  mutate(year = year(periodo)) %>%
+  select(year, edad, valor) %>%
+  rename(age_group = edad, population = valor) %>%
+  kbl() %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width=FALSE)
+```
+
+The wide table shown at the beginning can be useful for humans to read, as it allows us to compare across rows and columns. But machines prefer to work with tidy data, which usually means long tables. The [tidyverse](https://www.tidyverse.org/) is a set of R packages for data science that expect tidy data to work with.
+
