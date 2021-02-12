@@ -20,7 +20,6 @@ library(ESdata)
 library(kableExtra)
 ```
 
-## Tidy data
 
 Data cleaning and data analysis tasks are easier if data frames are arranged as *tidy data*. According to [Hadley Wickham](https://www.jstatsoft.org/article/view/v059i10), in tidy data:
 
