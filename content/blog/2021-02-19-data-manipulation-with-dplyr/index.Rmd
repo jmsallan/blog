@@ -1,0 +1,84 @@
+---
+title: Data manipulation with dplyr
+author: Jose M Sallan
+date: '2021-02-19'
+slug: [dplyr-intro]
+categories:
+  - R
+tags:
+  - data structures
+  - dplyr
+meta_img: images/image.png
+description: Description for the page
+---
+
+`dplyr` is a grammar of data manipulation for efficient transformation of rectangular data stored in data frames or tibbles. `dplyr` is part of the [Tidyverse](https://www.tidyverse.org/), and its functions expect tidy data.
+
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)
+```
+
+An example of a tidy dataset is `iris`. Here we have defined a tibble version called `iris_table` for clarity, but you can use `dplyr` functions into `iris` straight.
+
+```{r, message=FALSE, warning=FALSE}
+library(tibble)
+iris_tibble <- tibble(iris)
+iris_tibble
+```
+
+## The basic verbs for data manipulation
+
+Basic `dplyr` functions are implemented as a set of verbs:
+
+* add new variables (columns) with `mutate()`
+* pick variables (columns) with `select()`
+* pick cases (rows) based on their values with `filter()`
+* obtain summary statistics of a varaible wiht `summmarise()`
+* order the rows according with variable values with `arrange()`
+
+Here are some examples of usage of basic `dplyr` verbs:
+
+```{r}
+# add a new variable
+iris_tibble <- mutate(iris_tibble, new_var = Sepal.Length/Sepal.Width)
+
+# select two columns
+select(iris_tibble, Sepal.Length, Sepal.Width)
+
+# filter observations with Sepal.Length greater than 5.5
+filter(iris_tibble, Sepal.Length > 5.5)
+
+# obtain the mean of Sepal.Width
+summarise(iris_tibble, m = mean(Sepal.Width))
+
+# order by decreasing value of Sepal.Width
+arrange(iris_tibble, desc(Sepal.Width))
+```
+
+## Piping operator
+
+We can combine several dplyr verbs in a single instruction using the piping operator `%>%`:
+
+```{r}
+# obtain the mean of Sepal.Width for observations with Sepal.Length greater than 5.5
+
+iris_tibble %>% 
+  filter(Sepal.Length > 5.5) %>% 
+  summarise(m=mean(Sepal.Width))
+```
+
+## Grouping
+
+Sometimes we want to examine the properties of a dataset for each of the levels of a categorical variable (or combinations of levels). We can do that with `group_by`. It is often useful combining grouping with summarising:
+
+```{r}
+# mean of variables for each species
+iris_tibble %>% 
+  group_by(Species) %>%
+  summarise(m_sl = mean(Sepal.Length), m_sw = mean(Sepal.Width), m_pl = mean(Petal.Length), m_pw = mean(Petal.Width))
+```
+
+## More functions
+
+`dplyr` has many other functions for data manipulation. You can find them in the [dplyr tidyverse website](https://dplyr.tidyverse.org/) or in the [dplyr cheatsheet](https://github.com/rstudio/cheatsheets/blob/master/data-transformation.pdf).
+

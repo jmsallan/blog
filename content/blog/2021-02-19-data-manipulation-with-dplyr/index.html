@@ -1,0 +1,137 @@
+---
+title: Data manipulation with dplyr
+author: Jose M Sallan
+date: '2021-02-19'
+slug: [dplyr-intro]
+categories:
+  - R
+tags:
+  - data structures
+  - dplyr
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p><code>dplyr</code> is a grammar of data manipulation for efficient transformation of rectangular data stored in data frames or tibbles. <code>dplyr</code> is part of the <a href="https://www.tidyverse.org/">Tidyverse</a>, and its functions expect tidy data.</p>
+<pre class="r"><code>library(dplyr)</code></pre>
+<p>An example of a tidy dataset is <code>iris</code>. Here we have defined a tibble version called <code>iris_table</code> for clarity, but you can use <code>dplyr</code> functions into <code>iris</code> straight.</p>
+<pre class="r"><code>library(tibble)
+iris_tibble &lt;- tibble(iris)
+iris_tibble</code></pre>
+<pre><code>## # A tibble: 150 x 5
+##    Sepal.Length Sepal.Width Petal.Length Petal.Width Species
+##           &lt;dbl&gt;       &lt;dbl&gt;        &lt;dbl&gt;       &lt;dbl&gt; &lt;fct&gt;  
+##  1          5.1         3.5          1.4         0.2 setosa 
+##  2          4.9         3            1.4         0.2 setosa 
+##  3          4.7         3.2          1.3         0.2 setosa 
+##  4          4.6         3.1          1.5         0.2 setosa 
+##  5          5           3.6          1.4         0.2 setosa 
+##  6          5.4         3.9          1.7         0.4 setosa 
+##  7          4.6         3.4          1.4         0.3 setosa 
+##  8          5           3.4          1.5         0.2 setosa 
+##  9          4.4         2.9          1.4         0.2 setosa 
+## 10          4.9         3.1          1.5         0.1 setosa 
+## # … with 140 more rows</code></pre>
+<div id="the-basic-verbs-for-data-manipulation" class="section level2">
+<h2>The basic verbs for data manipulation</h2>
+<p>Basic <code>dplyr</code> functions are implemented as a set of verbs:</p>
+<ul>
+<li>add new variables (columns) with <code>mutate()</code></li>
+<li>pick variables (columns) with <code>select()</code></li>
+<li>pick cases (rows) based on their values with <code>filter()</code></li>
+<li>obtain summary statistics of a varaible wiht <code>summmarise()</code></li>
+<li>order the rows according with variable values with <code>arrange()</code></li>
+</ul>
+<p>Here are some examples of usage of basic <code>dplyr</code> verbs:</p>
+<pre class="r"><code># add a new variable
+iris_tibble &lt;- mutate(iris_tibble, new_var = Sepal.Length/Sepal.Width)
+
+# select two columns
+select(iris_tibble, Sepal.Length, Sepal.Width)</code></pre>
+<pre><code>## # A tibble: 150 x 2
+##    Sepal.Length Sepal.Width
+##           &lt;dbl&gt;       &lt;dbl&gt;
+##  1          5.1         3.5
+##  2          4.9         3  
+##  3          4.7         3.2
+##  4          4.6         3.1
+##  5          5           3.6
+##  6          5.4         3.9
+##  7          4.6         3.4
+##  8          5           3.4
+##  9          4.4         2.9
+## 10          4.9         3.1
+## # … with 140 more rows</code></pre>
+<pre class="r"><code># filter observations with Sepal.Length greater than 5.5
+filter(iris_tibble, Sepal.Length &gt; 5.5)</code></pre>
+<pre><code>## # A tibble: 91 x 6
+##    Sepal.Length Sepal.Width Petal.Length Petal.Width Species    new_var
+##           &lt;dbl&gt;       &lt;dbl&gt;        &lt;dbl&gt;       &lt;dbl&gt; &lt;fct&gt;        &lt;dbl&gt;
+##  1          5.8         4            1.2         0.2 setosa        1.45
+##  2          5.7         4.4          1.5         0.4 setosa        1.30
+##  3          5.7         3.8          1.7         0.3 setosa        1.5 
+##  4          7           3.2          4.7         1.4 versicolor    2.19
+##  5          6.4         3.2          4.5         1.5 versicolor    2   
+##  6          6.9         3.1          4.9         1.5 versicolor    2.23
+##  7          6.5         2.8          4.6         1.5 versicolor    2.32
+##  8          5.7         2.8          4.5         1.3 versicolor    2.04
+##  9          6.3         3.3          4.7         1.6 versicolor    1.91
+## 10          6.6         2.9          4.6         1.3 versicolor    2.28
+## # … with 81 more rows</code></pre>
+<pre class="r"><code># obtain the mean of Sepal.Width
+summarise(iris_tibble, m = mean(Sepal.Width))</code></pre>
+<pre><code>## # A tibble: 1 x 1
+##       m
+##   &lt;dbl&gt;
+## 1  3.06</code></pre>
+<pre class="r"><code># order by decreasing value of Sepal.Width
+arrange(iris_tibble, desc(Sepal.Width))</code></pre>
+<pre><code>## # A tibble: 150 x 6
+##    Sepal.Length Sepal.Width Petal.Length Petal.Width Species new_var
+##           &lt;dbl&gt;       &lt;dbl&gt;        &lt;dbl&gt;       &lt;dbl&gt; &lt;fct&gt;     &lt;dbl&gt;
+##  1          5.7         4.4          1.5         0.4 setosa     1.30
+##  2          5.5         4.2          1.4         0.2 setosa     1.31
+##  3          5.2         4.1          1.5         0.1 setosa     1.27
+##  4          5.8         4            1.2         0.2 setosa     1.45
+##  5          5.4         3.9          1.7         0.4 setosa     1.38
+##  6          5.4         3.9          1.3         0.4 setosa     1.38
+##  7          5.7         3.8          1.7         0.3 setosa     1.5 
+##  8          5.1         3.8          1.5         0.3 setosa     1.34
+##  9          5.1         3.8          1.9         0.4 setosa     1.34
+## 10          5.1         3.8          1.6         0.2 setosa     1.34
+## # … with 140 more rows</code></pre>
+</div>
+<div id="piping-operator" class="section level2">
+<h2>Piping operator</h2>
+<p>We can combine several dplyr verbs in a single instruction using the piping operator <code>%&gt;%</code>:</p>
+<pre class="r"><code># obtain the mean of Sepal.Width for observations with Sepal.Length greater than 5.5
+
+iris_tibble %&gt;% 
+  filter(Sepal.Length &gt; 5.5) %&gt;% 
+  summarise(m=mean(Sepal.Width))</code></pre>
+<pre><code>## # A tibble: 1 x 1
+##       m
+##   &lt;dbl&gt;
+## 1  2.96</code></pre>
+</div>
+<div id="grouping" class="section level2">
+<h2>Grouping</h2>
+<p>Sometimes we want to examine the properties of a dataset for each of the levels of a categorical variable (or combinations of levels). We can do that with <code>group_by</code>. It is often useful combining grouping with summarising:</p>
+<pre class="r"><code># mean of variables for each species
+iris_tibble %&gt;% 
+  group_by(Species) %&gt;%
+  summarise(m_sl = mean(Sepal.Length), m_sw = mean(Sepal.Width), m_pl = mean(Petal.Length), m_pw = mean(Petal.Width))</code></pre>
+<pre><code>## # A tibble: 3 x 5
+##   Species     m_sl  m_sw  m_pl  m_pw
+## * &lt;fct&gt;      &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+## 1 setosa      5.01  3.43  1.46 0.246
+## 2 versicolor  5.94  2.77  4.26 1.33 
+## 3 virginica   6.59  2.97  5.55 2.03</code></pre>
+</div>
+<div id="more-functions" class="section level2">
+<h2>More functions</h2>
+<p><code>dplyr</code> has many other functions for data manipulation. You can find them in the <a href="https://dplyr.tidyverse.org/">dplyr tidyverse website</a> or in the <a href="https://github.com/rstudio/cheatsheets/blob/master/data-transformation.pdf">dplyr cheatsheet</a>.</p>
+</div>
