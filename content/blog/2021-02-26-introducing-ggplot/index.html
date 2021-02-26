@@ -50,12 +50,12 @@ iris_tibble</code></pre>
 <pre class="r"><code>library(ggplot2)
 ggplot(iris_tibble, aes(Sepal.Width)) + 
   geom_histogram()</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="528" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
 <p>The default value of the number of bins is 30, which are too much bins for this variable. So we have set <code>bins=15</code>. Let’s use <code>labs</code> to set the name of axis and give the plot a title:</p>
 <pre class="r"><code>ggplot(iris_tibble, aes(Sepal.Width)) + 
   geom_histogram(bins=15) +
   labs(title=&quot;Distribution of sepal width&quot;, x=&quot;sepal width&quot;, y = &quot;count&quot;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="528" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
 </div>
 <div id="a-bivariate-plot" class="section level2">
 <h2>A bivariate plot</h2>
@@ -63,7 +63,7 @@ ggplot(iris_tibble, aes(Sepal.Width)) +
 <pre class="r"><code>ggplot(iris_tibble, aes(Sepal.Length, Sepal.Width)) + 
   geom_point() +
   labs(title = &quot;Sepal length versus sepal width&quot;, x = &quot;sepal length&quot;, y = &quot;sepal width&quot;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="528" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
 <p>Let’s try know to see if there are any differences between <code>Species</code>. To do so, we’ll assign a different color to each point depending of its species. We can do that by defining:</p>
 <ul>
 <li>a specific aesthetic for the points: <code>geom_point(aes(color=Species))</code>,</li>
@@ -73,14 +73,14 @@ ggplot(iris_tibble, aes(Sepal.Width)) +
 <pre class="r"><code>ggplot(iris_tibble, aes(Sepal.Length, Sepal.Width, color=Species)) + 
   geom_point() +
   labs(title = &quot;Sepal length versus sepal width&quot;, x = &quot;sepal length&quot;, y = &quot;sepal width&quot;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="624" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
 <p>Here we see that the setosa species is quite different from the other two species.</p>
 <p>An alternative way of seeing this is by making a plot for each species using <code>facet_grid()</code>:</p>
 <pre class="r"><code>ggplot(iris_tibble, aes(Sepal.Length, Sepal.Width)) + 
   geom_point() +
   facet_grid(. ~ Species) +
   labs(title = &quot;Sepal length versus sepal width&quot;, x = &quot;sepal length&quot;, y = &quot;sepal width&quot;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="624" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
 <p>This has been a very basic introduction to what <code>ggplot</code> can do. In forthcoming ggplot-related posts we’ll see:</p>
 <ul>
 <li>how to customize colors, shapes and legends with scales,</li>

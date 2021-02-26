@@ -38,7 +38,7 @@ Let's examine the properties of the `Sepal.Width` variable with an histogram. To
 * specify the aesthetic mapping: here is a single variable `aes(Sepal.Width)`,
 * define the histogram with `geom_histogram()`.
 
-```{r, fig.width=5.5, fig.height=5.5}
+```{r}
 library(ggplot2)
 ggplot(iris_tibble, aes(Sepal.Width)) + 
   geom_histogram()
@@ -46,7 +46,7 @@ ggplot(iris_tibble, aes(Sepal.Width)) +
 
 The default value of the number of bins is 30, which are too much bins for this variable. So we have set `bins=15`. Let's use `labs` to set the name of axis and give the plot a title:
 
-```{r, fig.width=5.5, fig.height=5.5}
+```{r}
 ggplot(iris_tibble, aes(Sepal.Width)) + 
   geom_histogram(bins=15) +
   labs(title="Distribution of sepal width", x="sepal width", y = "count")
@@ -56,7 +56,7 @@ ggplot(iris_tibble, aes(Sepal.Width)) +
 
 Let's now do a scatterplot to examine the relationship between sepal width and sepal length. Now the aesthetic will be `aes(Sepal.Length, Sepal.Width)` (ggplot is learning that there are continuous variables in both axis) and as we want a point for each observation we will use `geom_point()`. We'll also add title and axis with `lab`.
 
-```{r, fig.width=5.5, fig.height=5.5}
+```{r}
 ggplot(iris_tibble, aes(Sepal.Length, Sepal.Width)) + 
   geom_point() +
   labs(title = "Sepal length versus sepal width", x = "sepal length", y = "sepal width")
@@ -69,7 +69,7 @@ Let's try know to see if there are any differences between `Species`. To do so, 
 
 Note that here we are not specifying the actual colors to plot: we are assigning a different color to each observation according to its species. We'll see that `ggplot` will assign a default color to each species, and add a legend that allows us to distinguish the Species of each observation.
 
-```{r, fig.width=6.5, fig.height=5.5}
+```{r}
 ggplot(iris_tibble, aes(Sepal.Length, Sepal.Width, color=Species)) + 
   geom_point() +
   labs(title = "Sepal length versus sepal width", x = "sepal length", y = "sepal width")
@@ -79,7 +79,7 @@ Here we see that the setosa species is quite different from the other two specie
 
 An alternative way of seeing this is by making a plot for each species using `facet_grid()`:
 
-```{r, fig.width=6.5, fig.height=5.5}
+```{r}
 ggplot(iris_tibble, aes(Sepal.Length, Sepal.Width)) + 
   geom_point() +
   facet_grid(. ~ Species) +
