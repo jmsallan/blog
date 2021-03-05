@@ -94,8 +94,8 @@ This has been a very basic introduction to what `ggplot` can do. In forthcoming 
 
 ## References
 
-Wickham, H.; Grolemund, G. R for Data Science. <https://r4ds.had.co.nz/>
+Wickham, H.; Grolemund, G. *R for Data Science.* <https://r4ds.had.co.nz/>
 
-Wickham, H.; Navarro, D.; Pedersen, T. L. ggplot2: Elegant Graphics for Data Analysis. <https://ggplot2-book.org/>
+Wickham, H.; Navarro, D.; Pedersen, T. L. *ggplot2: Elegant Graphics for Data Analysis.* <https://ggplot2-book.org/>
 
 Wilkinson, L. (2005). *The Grammar of Graphics.* Springer. Statistics and computing series. <https://www.springer.com/gp/book/9780387245447>
