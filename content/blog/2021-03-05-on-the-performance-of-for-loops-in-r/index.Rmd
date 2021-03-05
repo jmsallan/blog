@@ -165,7 +165,7 @@ benchmark(looping_mean(vectors),
           replications = 100)
 ```
 
-In this case, the three implementations have a similar performance. Functions of the `apply` family seem to be marginally more efficient than the `for` loop. 
+In this case, the three implementations have a similar performance. 
 
 ## When to avoid for loops in R
 
