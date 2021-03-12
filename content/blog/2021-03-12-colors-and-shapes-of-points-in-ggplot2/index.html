@@ -1,0 +1,88 @@
+---
+title: Colors and shapes of points in ggplot2
+author: Jose M Sallan
+date: '2021-03-12'
+slug: [colors-shapes-points]
+categories:
+  - R
+tags:
+  - ggplot
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p><code>ggplot</code> function returns plots with convenient default settings, at least for a first glance of results. If we want a prettier presentation, we can change those settings to suit our needs. Here we see an example of changing colors of an histogram: <code>fill</code> is the color of the bars, and <code>color</code> is the border of the bars:</p>
+<pre class="r"><code>library(ggplot2)
+ggplot(iris, aes(Sepal.Length)) + 
+  geom_histogram(bins=20, 
+                 fill=&quot;blue&quot;, 
+                 color=&quot;red&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
+<p>This use of <code>fill</code> and <code>color</code> can be useful in some situations, but it is more frequent that we use colors and shapes to distinguish different levels of a categorical variable. Let’s see some examples of this usage in scatterplots.</p>
+<div id="points-with-colors" class="section level2">
+<h2>Points with colors</h2>
+<p>Let’s do a scatterplot of two variables of <code>iris</code>. I will use the color of the dots to distinguish observations of each species. To see the colors better, I have added a theme <code>theme_bw()</code> and increased the <code>size</code> of the points. I am doing by that specifying in the aesthetic mapping <code>aes</code> that the color of each observation is determined by its value of <code>Species</code>:</p>
+<pre class="r"><code>ggplot(iris, aes(Sepal.Length, Sepal.Width, color=Species)) +
+  geom_point(size=2) +
+  theme_bw()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<p>When a parameter like <code>color</code> is <strong>inside the aesthetics</strong>, we are not fixing what colors to use, but <strong>what is the use of the color</strong> in the plot (here, examining differences across the <code>Species</code> categorical variable).</p>
+<p>To make the plot, <code>ggplot</code> uses a default palette of colors. If we are not happy with the result, we can change them with a <strong>scale</strong> (see a systematic presentation of scales at the <a href="https://ggplot2-book.org/scales.html">ggplot book</a>).</p>
+<p>Here I am using <code>scale_color_manual</code>, meaning that I will use a <code>manual</code> palette to define the colors for each value of <code>Species</code>. In the scale is also specified:</p>
+<ul>
+<li>the <code>name</code> of the legend,</li>
+<li>the <code>labels</code> to appear in the legend for each level of the categorical variable</li>
+<li>and the <code>values</code> of colors for each level of the categorical variable.</li>
+</ul>
+<p>I have changed the three default values in this scale, using three different shades of blue to color the points.</p>
+<pre class="r"><code>ggplot(iris, aes(Sepal.Length, Sepal.Width, color=Species)) +
+  geom_point(size=2) +
+  theme_bw() +
+  scale_color_manual(name = &quot;iris species&quot;, 
+                     labels = c(&quot;iris setosa&quot;, &quot;iris versicolor&quot;, &quot;iris virginica&quot;), 
+                     values = c(&quot;#000099&quot;, &quot;#0080FF&quot;, &quot;#99CCFF&quot;))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+</div>
+<div id="points-with-shapes" class="section level2">
+<h2>Points with shapes</h2>
+<p>If your plot is in black and white, you might want to distinguish the categories with a shape. Shapes in points in R are defined with a number going from 0 to 25. You can learn about them in <a href="https://blog.albertkuo.me/post/point-shape-options-in-ggplot/">this post</a> of Alberts Kuo’s blog.</p>
+<p>Here is the plot with the default values of shapes of points:</p>
+<pre class="r"><code>ggplot(iris, aes(Sepal.Length, Sepal.Width, shape=Species)) +
+  geom_point(size=2) +
+  theme_bw()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+<p>We can change those default shapes with <code>scale_shape_manual</code>.</p>
+<pre class="r"><code>ggplot(iris, aes(Sepal.Length, Sepal.Width, shape=Species)) +
+  geom_point(size=2) +
+  theme_bw() +
+  scale_shape_manual(name = &quot;iris species&quot;, 
+                     labels = c(&quot;iris setosa&quot;, &quot;iris versicolor&quot;, &quot;iris virginica&quot;), 
+                     values = c(0, 3, 4))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
+<p>We are seeing asterisks in some places because two observations of categories represented with <a href="https://github.com/tidyverse/ggplot2/issues/2075">plus and cross</a> signs a are overlaid.</p>
+</div>
+<div id="points-with-shapes-and-colors" class="section level2">
+<h2>Points with shapes and colors</h2>
+<p>We can assign a shape and a color to each category using a scale for each. If we use the same variable in both scales, we obtain a single legend. I have also enlarged point size to see the shapes better:</p>
+<pre class="r"><code>ggplot(iris, aes(Sepal.Length, Sepal.Width, color=Species, shape=Species)) +
+  geom_point(size=2) +
+  theme_bw() +
+  scale_shape_manual(name = &quot;iris species&quot;, 
+                     labels = c(&quot;iris setosa&quot;, &quot;iris versicolor&quot;, &quot;iris virginica&quot;), 
+                     values = c(0, 3, 4)) +
+  scale_color_manual(name = &quot;iris species&quot;, 
+                     labels = c(&quot;iris setosa&quot;, &quot;iris versicolor&quot;, &quot;iris virginica&quot;), 
+                     values=c(&quot;#FF0000&quot;, &quot;#009900&quot;, &quot;#0000FF&quot;))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+<p><em>(For a listing of colors available through the <a href="https://en.wikipedia.org/wiki/Web_colors#Hex_triplet">hex triplet</a> syntax, visit this <a href="https://www.rapidtables.com/web/color/RGB_Color.html">RapidTables</a> page, or the <a href="https://en.wikipedia.org/wiki/Web_colors">Web colors</a> Wikipedia page.)</em></p>
+</div>
+<div id="colors-and-shapes-in-ggplot" class="section level2">
+<h2>Colors and shapes in ggplot</h2>
+<p>We can use colors and shapes to distinguish between elements of different values of a category introducing them in an aesthetic. We must keep in mind that we are <strong>not specifying which colors to use, but defining the use of the color</strong> in the plot If we are not satisfied with the default colors or shapes, we cqn add a scale to customize them.</p>
+<p>I have presented how to control the appearance of scatterplots built with <code>geom_point()</code> presenting different colors and shapes for the levels of a categorical variable. I have used <code>scale_color_manual</code> for colors, and <code>scale_shape_manual</code> for shapes.</p>
+<p>Scales not only control the <code>values</code> of colors that we assign to each category, but also legend parameters like its <code>name</code> or title or the <code>labels</code> we assign to each category.</p>
+</div>
