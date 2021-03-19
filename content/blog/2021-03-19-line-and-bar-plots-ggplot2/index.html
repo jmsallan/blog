@@ -1,0 +1,193 @@
+---
+title: Line and bar plots in ggplot2
+author: Jose M Sallan
+date: '2021-03-19'
+slug: line_and_bar_plots_ggplot2
+categories:
+  - R
+tags:
+  - ggplot
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>It is frequent that we need to visualize relationships between variables with a <strong>dependence relationship</strong>, where the independent variable is in the horizontal axis, and the dependent variable in the vertical axis. Sometimes we are interested in the <strong>absolute magnitude</strong> of the dependent variable, and in other occasions in showing how the dependent variable <strong>changes</strong> as the independent variable changes. To plan our plots, we can take two recommendations from <em>Calling Bullshit</em> (Bergstronm and West, 2020). The first is about the type of chart to use:</p>
+<blockquote>
+<p>By its design, a bar graph emphasizes the absolute magnitude of values associated with each category, whereas a line graph emphasizes the change in the dependent variable (usually the y value) as the independent variable (usually the x value) changes. (Bergstronm and West, 2020:157).</p>
+</blockquote>
+<p>The second is about vertical axis limits:</p>
+<blockquote>
+<p>While the bars in a bar chart should extend to zero, a line graph does not need to include zero in the dependent variable axis (Bergstronm and West, 2020:156-157).</p>
+</blockquote>
+<p>In this post, we will see how can plot line and bar charts in <code>ggplot</code>, and how to include a categorical variable in those charts. To do so, I will use a time series of Spanish population data taken from the <a href="https://en.wikipedia.org/wiki/Instituto_Nacional_de_Estad%C3%ADstica_(Spain)">Instituto Nacional de Estadística</a> (INE).</p>
+<div id="line-charts-to-emphasize-changes-in-the-dependent-variable" class="section level2">
+<h2>Line charts to emphasize changes in the dependent variable</h2>
+<p>Let’s pick a series of population data taken from the Spanish Labor Force Survey:</p>
+<pre class="r"><code>library(tidyverse) #to load ggplot and dplyr
+library(ESdata)    #to get the data
+pop_quarterly &lt;- epa_edad %&gt;% 
+  filter(region==&quot;ES&quot;, edad==&quot;total&quot;, sexo==&quot;total&quot;, dato==&quot;pob&quot;)
+pop_quarterly</code></pre>
+<pre><code>## # A tibble: 75 x 6
+##    periodo    region edad  sexo  dato   valor
+##    &lt;date&gt;     &lt;chr&gt;  &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;  &lt;dbl&gt;
+##  1 2020-09-30 ES     total total pob   46904.
+##  2 2020-06-30 ES     total total pob   46896.
+##  3 2020-01-31 ES     total total pob   46874.
+##  4 2019-12-31 ES     total total pob   46794.
+##  5 2019-09-30 ES     total total pob   46702.
+##  6 2019-06-30 ES     total total pob   46599 
+##  7 2019-01-31 ES     total total pob   46523.
+##  8 2018-12-31 ES     total total pob   46435.
+##  9 2018-09-30 ES     total total pob   46326.
+## 10 2018-06-30 ES     total total pob   46241 
+## # … with 65 more rows</code></pre>
+<p><code>pop_quarterly</code> is a data frame with 75 observations. e will plot the independent variable <code>periodo</code> (in <code>Date</code> format) in the horizontal axis, and the dependent variable <code>valor</code> in the vertical axis, so that the aesthetic is <code>aes(periodo, valor)</code>.</p>
+<p>We use <code>geom_line()</code> to plot line charts to emphasize <strong>changes</strong> of the dependent variable as the independent variable changes. <code>ggplot</code> is building by default a vertical axis that does not start from zero, following Bergstrom and West’s recommendations. I have changed axis names and presented a title with <code>labs</code>, and changed the default theme to <code>theme_bw()</code>.</p>
+<pre class="r"><code>pop_quarterly %&gt;%
+  ggplot(aes(periodo, valor)) +
+  geom_line() +
+  labs(title=&quot;Evolution of Spanish population&quot;, x=&quot;&quot;, y=&quot;population (thousands)&quot;) +
+  theme_bw()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<p>We observe Spanish population increased steadily from 2004 to approximately 2012, and that has started recovering by 2017 but with a slower pace than the previous growth cycle. Vertical axis ranges between 41 and 46 million people, which is the variation of population for this temporal series.</p>
+<p>We are now interested in analyzing the evolution of Spanish population by gender. We need a dataset including the value of male and female Spanish population for each observation:</p>
+<pre class="r"><code>pop_quarterly_gender &lt;- epa_edad %&gt;% 
+  filter(region==&quot;ES&quot;, edad==&quot;total&quot;, sexo!=&quot;total&quot;, dato==&quot;pob&quot;)
+pop_quarterly_gender</code></pre>
+<pre><code>## # A tibble: 150 x 6
+##    periodo    region edad  sexo    dato   valor
+##    &lt;date&gt;     &lt;chr&gt;  &lt;chr&gt; &lt;chr&gt;   &lt;chr&gt;  &lt;dbl&gt;
+##  1 2020-09-30 ES     total hombres pob   23016.
+##  2 2020-06-30 ES     total hombres pob   23013.
+##  3 2020-01-31 ES     total hombres pob   23004.
+##  4 2019-12-31 ES     total hombres pob   22966 
+##  5 2019-09-30 ES     total hombres pob   22924.
+##  6 2019-06-30 ES     total hombres pob   22874.
+##  7 2019-01-31 ES     total hombres pob   22836.
+##  8 2018-12-31 ES     total hombres pob   22792.
+##  9 2018-09-30 ES     total hombres pob   22740.
+## 10 2018-06-30 ES     total hombres pob   22699.
+## # … with 140 more rows</code></pre>
+<p>The pop_quarterly_gender data frame has 150, twice the rows of the previous table. This is a dataset in <strong>long format</strong>, and it is <a href="https://jmsallan.netlify.app/blog/tidy_data/">tidy data</a> because each row represents an observation. Remember that <code>tidyverse</code> functions expect tidy data to work.</p>
+<p>By adding a <code>color</code> parameter to the aesthetic, <code>ggplot</code> will plot a line for each category. The value of <code>color</code> should be the variable defining the level of the categorical variable for each observation, which here is <code>sexo</code>. Now the aesthetic is <code>aes(periodo, valor, color=sexo)</code>.</p>
+<p>By introducing the <code>color</code>in the aesthetic, we are not defining the colors, but defining what is the use of the color in the plot. To override <code>ggplot</code> defaults I have used <code>scale_color_manual</code> to change the legend title, the value of labels for each level of the categorical variable and the color of each line. I have used <code>theme(legend.position = "bottom")</code> to put the legend at the bottom of the plot, so that the chart can be seen larger than in the default legend position at the right.</p>
+<pre class="r"><code>pop_quarterly_gender %&gt;%
+  ggplot(aes(periodo, valor, color=sexo)) +
+  geom_line() +
+  labs(title=&quot;Evolution of Spanish population by gender&quot;, x=&quot;&quot;, y=&quot;population (thousands)&quot;) +
+  scale_color_manual(name=&quot;gender&quot;, labels=c(&quot;men&quot;, &quot;women&quot;), values =c(&quot;#0066CC&quot;, &quot;#CC0000&quot;)) +
+  theme_bw() +
+  theme(legend.position = &quot;bottom&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+<p>In this line chart we observe that there are consistently more women than men living in Spain, and that the decrease of population has been slightly larger for men than for women.</p>
+</div>
+<div id="bar-charts-to-emphasize-absolute-magnitude-of-the-dependent-variable" class="section level2">
+<h2>Bar charts to emphasize absolute magnitude of the dependent variable</h2>
+<p>Let’s examine now the evolution of <strong>absolute</strong> values of Spanish population. Instead of quarterly data, we will use a yearly dataset including the last observation of each year:</p>
+<pre class="r"><code>library(lubridate) #to get the year of each observation
+pop_yearly &lt;- epa_edad %&gt;% 
+  filter(region==&quot;ES&quot;, edad==&quot;total&quot;, sexo==&quot;total&quot;, dato==&quot;pob&quot;) %&gt;%
+  mutate(year=year(periodo)) %&gt;%
+  group_by(year) %&gt;%
+  summarise(pop = last(valor), .groups = &quot;drop&quot;)
+pop_yearly</code></pre>
+<pre><code>## # A tibble: 19 x 2
+##     year    pop
+##    &lt;dbl&gt;  &lt;dbl&gt;
+##  1  2002 40876.
+##  2  2003 41636.
+##  3  2004 42314.
+##  4  2005 43060.
+##  5  2006 43745 
+##  6  2007 44550.
+##  7  2008 45368.
+##  8  2009 45870.
+##  9  2010 46087.
+## 10  2011 46248.
+## 11  2012 46356.
+## 12  2013 46247.
+## 13  2014 45977.
+## 14  2015 45986.
+## 15  2016 45953.
+## 16  2017 46038.
+## 17  2018 46183.
+## 18  2019 46523.
+## 19  2020 46874.</code></pre>
+<p>To examinethe absolute magnitude of the dependent variable, we build a bar plot using <code>geom_col()</code>. I have used <code>labs</code> and <code>theme_bw()</code> like in the previous plots and changed the color of the bars for aesthetic reasons with the <code>fill</code> parameter.</p>
+<pre class="r"><code>pop_yearly %&gt;% 
+  ggplot(aes(year, pop)) +
+  geom_col(fill=&quot;#808080&quot;) +
+  labs(title=&quot;Evolution of Spanish population&quot;, x=&quot;&quot;, y=&quot;population (thousands)&quot;) +
+  theme_bw()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+<p>With this bar plot, we focus on <strong>absolute magnitudes</strong> so we put changes in perspective. We realize that the variations of total population are relatively small respect to the total population.</p>
+<p>Let’s examine the yearly evolution of Spanish population by gender, building the adequate dataset in long format:</p>
+<pre class="r"><code>pop_yearly_gender &lt;- epa_edad %&gt;% 
+  filter(region==&quot;ES&quot;, edad==&quot;total&quot;, sexo!=&quot;total&quot;, dato==&quot;pob&quot;) %&gt;%
+  mutate(year=year(periodo)) %&gt;%
+  group_by(year, sexo) %&gt;%
+  summarise(pop = last(valor), .groups = &quot;drop&quot;)
+pop_yearly_gender</code></pre>
+<pre><code>## # A tibble: 38 x 3
+##     year sexo       pop
+##    &lt;dbl&gt; &lt;chr&gt;    &lt;dbl&gt;
+##  1  2002 hombres 20071 
+##  2  2002 mujeres 20805.
+##  3  2003 hombres 20478 
+##  4  2003 mujeres 21158.
+##  5  2004 hombres 20837.
+##  6  2004 mujeres 21478.
+##  7  2005 hombres 21247.
+##  8  2005 mujeres 21813.
+##  9  2006 hombres 21609.
+## 10  2006 mujeres 22136.
+## # … with 28 more rows</code></pre>
+<p>To distinguish by gender, I have added <code>fill</code> to the aesthetic, and I have used <code>scale_fill_manual</code> to customize the plot. I have chosen now slightly paler shades of blue and red for aesthetic convenience.</p>
+<pre class="r"><code>pop_yearly_gender %&gt;%
+  ggplot(aes(year, pop, fill=sexo)) +
+  geom_col() +
+  labs(title=&quot;Evolution of Spanish population by gender&quot;, x=&quot;&quot;, y=&quot;population (thousands)&quot;) +
+  scale_fill_manual(name=&quot;gender&quot;, labels=c(&quot;men&quot;, &quot;women&quot;), values =c(&quot;#3399FF&quot;, &quot;#FF3333&quot;)) +
+  theme_bw() +
+  theme(legend.position = &quot;bottom&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+<p>In this barplot bars are <strong>stacked</strong>, meaning that we have a bar for each year with two colors, one for each category. This representation is adequate here, because the sum of both categories accounts for the total population. If we want to compare the values for each category in each year plotting bars for each category side by side, we can specify <code>position = "dodge"</code> inside <code>geom_col()</code>:</p>
+<pre class="r"><code>pop_yearly_gender %&gt;%
+  ggplot(aes(year, pop, fill=sexo)) +
+  geom_col(position = &quot;dodge&quot;) +
+  labs(title=&quot;Evolution of Spanish population by gender&quot;, x=&quot;&quot;, y=&quot;population (thousands)&quot;) +
+  scale_fill_manual(name=&quot;gender&quot;, labels=c(&quot;men&quot;, &quot;women&quot;), values =c(&quot;#3399FF&quot;, &quot;#FF3333&quot;)) +
+  theme_bw() +
+  theme(legend.position = &quot;bottom&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
+</div>
+<div id="area-charts-to-emphasize-the-absolute-magnitude-of-the-depedent-variable" class="section level2">
+<h2>Area charts to emphasize the absolute magnitude of the depedent variable</h2>
+<p>To build the column plots, we have picked an observation for each year, as a bar plot with quarterly values has too many bars to visualize them correctly. An alternative to visualize absolute magnitude of a dependent variable with many observations is <code>geom_area()</code>. Let’s examine the absolute magnitude of men and women population with an area plot:</p>
+<pre class="r"><code>pop_quarterly_gender %&gt;%
+  ggplot(aes(periodo, valor, fill=sexo)) +
+  geom_area() +
+  labs(title=&quot;Evolution of Spanish population by gender&quot;, x=&quot;&quot;, y=&quot;population (thousands)&quot;) +
+  scale_fill_manual(name=&quot;gender&quot;, labels=c(&quot;men&quot;, &quot;women&quot;), values =c(&quot;#3399FF&quot;, &quot;#FF3333&quot;)) +
+  theme_bw() +
+  theme(legend.position = &quot;bottom&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="672" /></p>
+<p>We have used <code>geom_area()</code> to examine the absolute magnitude of temporal evolution of population with <code>pop_quarterly_gender</code>, introducing <code>fill</code> in the aesthetic.</p>
+</div>
+<div id="examining-relationships-between-dependent-and-independent-variables" class="section level2">
+<h2>Examining relationships between dependent and independent variables</h2>
+<p>Whenever we are examining the relationship between two variables, the first thing we need to ask ourselves is if there is an evident dependence relatiosnship between them If there is not, it may be adequate to use a <a href="https://jmsallan.netlify.app/blog/2021-03-12-colors-and-shapes-of-points-in-ggplot2/">scatterplot</a> to represent them. If the dependence relationship exists, the representation to choose will depend on our intentions:</p>
+<ul>
+<li>If we intend to examine <strong>changes</strong> of the dependent variable, we will use <strong>line plots</strong>. We can do that with <code>geom_line()</code> and examine different levels of a categorical variable including <code>color</code> in the aesthetic.</li>
+<li>If we want to examine the <strong>absolute magnitude</strong> of the dependent variable we will use <strong>bar plots</strong> with <code>geom_col()</code>, or <strong>area plots</strong> with <code>geom_area()</code>. In these plots, we use <code>fill</code> to examine the evolution of different levels of a categorical variable.</li>
+</ul>
+<p>In both cases, <code>ggplot</code> will set by default the adequate range of values for the vertical axis. In line plots, vertical axis will be set to the range of values where change takes place. In bar and area plots, the vertical axis will start from zero.</p>
+</div>
+<div id="reference" class="section level2">
+<h2>Reference</h2>
+<p>Bergstrm, Carl T. &amp; West, Jevin D. (2020). <em>Calling bullshit: The art of skepticism in a data-driven world.</em> Random House, New York.</p>
+</div>
