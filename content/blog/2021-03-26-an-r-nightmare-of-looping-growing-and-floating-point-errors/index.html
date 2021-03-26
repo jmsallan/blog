@@ -1,0 +1,143 @@
+---
+title: An R nightmare of looping, growing and floating point errors
+author: Jose M Sallan
+date: '2021-03-26'
+slug: an-R-nightmare-of-looping,-growing-and-floating-point-errors
+categories:
+  - R
+tags:
+  - optimization
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>Let’s do a simple task: generating the <em>n</em> first terms of a <strong>geometric progression</strong> of ratio <span class="math inline">\(r\)</span> and scale <span class="math inline">\(a\)</span>. The elements of this progression can be defined for <span class="math inline">\(n &gt; 0\)</span> as:</p>
+<p><span class="math display">\[ a_n = ar^{n-1}  \]</span></p>
+<p>or recursively as:</p>
+<p><span class="math display">\[ a_{n} = ra_{n-1} \]</span></p>
+<p>with <span class="math inline">\(a_1 = a\)</span>.</p>
+<p>Specifically, I am interested in the case <span class="math inline">\(0 &lt; r &lt; 1\)</span>.</p>
+<p>Let’s see three ways of defining this geometric progression, that will allow us to examine the problems of:</p>
+<ul>
+<li>growing objects without allocating memory first,</li>
+<li>iterating instead of using vectorized expressions,</li>
+<li>not considering numerical error when comparing real numbers.</li>
+</ul>
+<p>We were warned about those problems by Patrick Burns in his <em>The R Inferno book</em>. Here we can see how they emerge when doing a simple task, and how to control them.</p>
+<div id="three-ways-of-building-a-geometric-progression" class="section level2">
+<h2>Three ways of building a geometric progression</h2>
+<p>Let’s define three functions to generate the <code>n</code> first terms of a geometric progression of ratio <code>r</code> and scale <code>a</code>. We are tempted of looping because of the recursive nature of the progression:</p>
+<pre class="r"><code>f1 &lt;- function(n, a, r){
+  result &lt;- a
+  for(i in 1:(n-1)) result &lt;- c(result, r*result[i])
+  return(result)
+}</code></pre>
+<p>Once we are done, we think that maybe there is something wrong in making an object grow in each iteration. In this second function I allocate memory first, and then assign each element recursively:</p>
+<pre class="r"><code>f2 &lt;- function(n, a, r){
+  result &lt;- numeric(n)
+  result[1] &lt;- a
+  for(i in 2:n) result[i] &lt;- result[i-1]*r
+  return(result)
+}</code></pre>
+<p>But finally, I remember that R is a vectorial language, and that looping in a vectorial language can be a bad idea. So I use that <span class="math inline">\(a_{n} = ra_{n-1}\)</span> to define the sequence vectorially:</p>
+<pre class="r"><code>f3 &lt;- function(n, a, r) return(a * r^seq(0, n-1, 1))</code></pre>
+<p>Let’s examine the results of each function with a small sequence:</p>
+<pre class="r"><code>f1(50, 10, 0.9)</code></pre>
+<pre><code>##  [1] 10.00000000  9.00000000  8.10000000  7.29000000  6.56100000  5.90490000
+##  [7]  5.31441000  4.78296900  4.30467210  3.87420489  3.48678440  3.13810596
+## [13]  2.82429536  2.54186583  2.28767925  2.05891132  1.85302019  1.66771817
+## [19]  1.50094635  1.35085172  1.21576655  1.09418989  0.98477090  0.88629381
+## [25]  0.79766443  0.71789799  0.64610819  0.58149737  0.52334763  0.47101287
+## [31]  0.42391158  0.38152042  0.34336838  0.30903154  0.27812839  0.25031555
+## [37]  0.22528400  0.20275560  0.18248004  0.16423203  0.14780883  0.13302795
+## [43]  0.11972515  0.10775264  0.09697737  0.08727964  0.07855167  0.07069650
+## [49]  0.06362685  0.05726417</code></pre>
+<pre class="r"><code>f2(50, 10, 0.9)</code></pre>
+<pre><code>##  [1] 10.00000000  9.00000000  8.10000000  7.29000000  6.56100000  5.90490000
+##  [7]  5.31441000  4.78296900  4.30467210  3.87420489  3.48678440  3.13810596
+## [13]  2.82429536  2.54186583  2.28767925  2.05891132  1.85302019  1.66771817
+## [19]  1.50094635  1.35085172  1.21576655  1.09418989  0.98477090  0.88629381
+## [25]  0.79766443  0.71789799  0.64610819  0.58149737  0.52334763  0.47101287
+## [31]  0.42391158  0.38152042  0.34336838  0.30903154  0.27812839  0.25031555
+## [37]  0.22528400  0.20275560  0.18248004  0.16423203  0.14780883  0.13302795
+## [43]  0.11972515  0.10775264  0.09697737  0.08727964  0.07855167  0.07069650
+## [49]  0.06362685  0.05726417</code></pre>
+<pre class="r"><code>f3(50, 10, 0.9)</code></pre>
+<pre><code>##  [1] 10.00000000  9.00000000  8.10000000  7.29000000  6.56100000  5.90490000
+##  [7]  5.31441000  4.78296900  4.30467210  3.87420489  3.48678440  3.13810596
+## [13]  2.82429536  2.54186583  2.28767925  2.05891132  1.85302019  1.66771817
+## [19]  1.50094635  1.35085172  1.21576655  1.09418989  0.98477090  0.88629381
+## [25]  0.79766443  0.71789799  0.64610819  0.58149737  0.52334763  0.47101287
+## [31]  0.42391158  0.38152042  0.34336838  0.30903154  0.27812839  0.25031555
+## [37]  0.22528400  0.20275560  0.18248004  0.16423203  0.14780883  0.13302795
+## [43]  0.11972515  0.10775264  0.09697737  0.08727964  0.07855167  0.07069650
+## [49]  0.06362685  0.05726417</code></pre>
+</div>
+<div id="are-the-results-equal" class="section level2">
+<h2>Are the results equal?</h2>
+<p>Although results are apparently equal, it is a good thing to examine that they are <em>really</em> equal with <code>identical</code>:</p>
+<pre class="r"><code>identical(f1(50, 10, 0.9), f2(50, 10, 0.9))</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<pre class="r"><code>identical(f1(50, 10, 0.9), f3(50, 10, 0.9))</code></pre>
+<pre><code>## [1] FALSE</code></pre>
+<p>How can be that the results of <code>f1</code> and <code>f3</code> are different, if they look pretty much the same? Let’s make the difference between the results of both, that should be exactly zero in each component:</p>
+<pre class="r"><code>f3(50, 10, 0.9) - f1(50, 10, 0.9)</code></pre>
+<pre><code>##  [1] 0.000000e+00 0.000000e+00 1.776357e-15 8.881784e-16 0.000000e+00
+##  [6] 0.000000e+00 0.000000e+00 0.000000e+00 8.881784e-16 4.440892e-16
+## [11] 4.440892e-16 4.440892e-16 8.881784e-16 4.440892e-16 8.881784e-16
+## [16] 8.881784e-16 6.661338e-16 8.881784e-16 6.661338e-16 8.881784e-16
+## [21] 6.661338e-16 6.661338e-16 5.551115e-16 6.661338e-16 4.440892e-16
+## [26] 4.440892e-16 4.440892e-16 3.330669e-16 4.440892e-16 3.885781e-16
+## [31] 3.330669e-16 2.775558e-16 2.775558e-16 2.220446e-16 1.665335e-16
+## [36] 1.665335e-16 1.665335e-16 1.387779e-16 1.387779e-16 1.110223e-16
+## [41] 1.110223e-16 8.326673e-17 6.938894e-17 5.551115e-17 6.938894e-17
+## [46] 5.551115e-17 5.551115e-17 5.551115e-17 4.163336e-17 3.469447e-17</code></pre>
+<p>In some components, there are very small differences between the results. This is caused by <strong>numerical error</strong>, coming from representing real numbers with a limited amount of space usign <strong>floating point arithmetic</strong>. Quoting Patrick Burn’s <em>The R inferno</em>:</p>
+<blockquote>
+<p>Do not confuse numerical error with an error. An error is when a computation is wrongly performed. Numerical error is when there is visible noise resulting from the finite representation of numbers. It is numerical error—not an error—when one-third is represented as 33%.</p>
+</blockquote>
+<p>A possible way of managing this is not to look for exact numerical equality, but allow a small <strong>tolerance</strong> instead:</p>
+<pre class="r"><code>tol &lt;- 1e-8
+all(f3(50, 10, 0.9) - f1(50, 10, 0.9) &lt; tol)</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<p>Take this issue into account whenever you have to compare real numbers, as the problem may arise also for inequalities.</p>
+</div>
+<div id="benchmarking-the-three-functions" class="section level2">
+<h2>Benchmarking the three functions</h2>
+<p>Let’s examine the performance of the three functions using <code>rbenchmark</code>:</p>
+<pre class="r"><code>geom_benchmark &lt;- rbenchmark::benchmark(f1(1000, 10, 0.9), f2(1000, 10, 0.9), f3(100, 10, 0.9),
+                      replications=100,
+                      order = &quot;relative&quot;,
+                      columns = c(&quot;test&quot;, &quot;replications&quot;, &quot;elapsed&quot;, &quot;relative&quot;))
+geom_benchmark</code></pre>
+<pre><code>##                test replications elapsed relative
+## 3  f3(100, 10, 0.9)          100   0.002      1.0
+## 2 f2(1000, 10, 0.9)          100   0.008      4.0
+## 1 f1(1000, 10, 0.9)          100   0.303    151.5</code></pre>
+<p>The most effective function is the vectorized <code>f3</code>. We also observe that:</p>
+<ul>
+<li>performance is 4 worse when using <code>for</code> loops</li>
+<li>and is 37.875 times worse when growing the vector in each iteration instead of allocating memory at first (performance results vary in each system and each run).</li>
+</ul>
+<p>Growing objects can be even worse than looping. Let’s quote Patrick Burns again:</p>
+<blockquote>
+<p>You may wonder why growing objects is so slow. It is the computational equivalent of suburbanization. When a new size is required, there will not be enough room where the object is; so it needs to move to a more open space. (…) You end up with lots of small pieces of available memory, but no large pieces. This is called fragmenting memory.</p>
+</blockquote>
+</div>
+<div id="recommendations" class="section level2">
+<h2>Recommendations</h2>
+<p>From this simple example, we have learned that:</p>
+<ul>
+<li>we must <strong>avoid looping</strong> when posible in vectorized operations,</li>
+<li>but also avoid <strong>growing objects</strong> without allocating memory,</li>
+<li>and compare real numbers using a <strong>tolerance</strong> value.</li>
+</ul>
+</div>
+<div id="reference" class="section level2">
+<h2>Reference</h2>
+<p>Burns, Patrick (2011). The R Inferno. Avaiable at: <a href="https://www.burns-stat.com/pages/Tutor/R_inferno.pdf" class="uri">https://www.burns-stat.com/pages/Tutor/R_inferno.pdf</a></p>
+</div>
