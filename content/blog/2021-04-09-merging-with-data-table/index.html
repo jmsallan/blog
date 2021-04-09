@@ -1,0 +1,264 @@
+---
+title: Merging with data.table
+author: Jose M Sallan
+date: '2021-04-09'
+slug: merging-with-data-table
+categories:
+  - R
+tags:
+  - R
+  - data structures
+  - data.table
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>When performing tasks of exploratory data analysis, sometimes we need to join tables by common variables. This is an operation similar to the defined in <a href="https://en.wikipedia.org/wiki/Relational_algebra">relational algebra</a>, although joining variables may not represent a unique ID for each row. Here I will illustrate how to merge tables using the <code>data.table</code> package, that allows handling large datasets in R effectively.</p>
+<pre class="r"><code>library(data.table)</code></pre>
+<p>Let’s consider the following tables.</p>
+<pre class="r"><code>table1</code></pre>
+<pre><code>##    id v       date
+## 1:  a 1 2021-01-01
+## 2:  a 2 2021-03-23
+## 3:  b 3 2021-02-13
+## 4:  b 4 2021-05-28
+## 5:  c 5 2021-12-17
+## 6:  e 6 2021-12-31</code></pre>
+<pre class="r"><code>table2</code></pre>
+<pre><code>##    id w
+## 1:  a 1
+## 2:  b 2
+## 3:  c 3
+## 4:  d 4</code></pre>
+<p><code>table1</code> and <code>table2</code> can be merged by the column <code>id</code>. The most generic function to perform joins in <code>data.table</code> is <code>merge</code>, similar to the R base function of the same name. Let’s see how to perform different merges with these two tables.</p>
+<div id="inner-join" class="section level3">
+<h3>Inner join</h3>
+<p>The result of an <em>inner join</em> is a table with the rows with values of merging variables existing in both tables. This is the default mode of <code>merge</code>, with <code>all.x = FALSE</code> and <code>all.y = FALSE</code>.</p>
+<pre class="r"><code>merge(table1, table2)</code></pre>
+<pre><code>##    id v       date w
+## 1:  a 1 2021-01-01 1
+## 2:  a 2 2021-03-23 1
+## 3:  b 3 2021-02-13 2
+## 4:  b 4 2021-05-28 2
+## 5:  c 5 2021-12-17 3</code></pre>
+<p><code>merge</code> has chosen the variables to merge picking the ones that have the same name in both tables. In <code>data.table</code>, we can control which are the merging variables using <code>setkey</code>:</p>
+<pre class="r"><code>table1_keyed &lt;- copy(table1)
+table2_keyed &lt;- copy(table2)
+setkey(table1_keyed, &quot;id&quot;)
+setkey(table2_keyed, &quot;id&quot;)
+merge(table1_keyed, table2_keyed)</code></pre>
+<pre><code>##    id v       date w
+## 1:  a 1 2021-01-01 1
+## 2:  a 2 2021-03-23 1
+## 3:  b 3 2021-02-13 2
+## 4:  b 4 2021-05-28 2
+## 5:  c 5 2021-12-17 3</code></pre>
+<p>Let’s see if we gain speed setting the key variables:</p>
+<pre class="r"><code>rbenchmark::benchmark(merge(table1, table2),
+                      merge(table1_keyed, table2_keyed),
+                      order = &quot;relative&quot;,
+                      columns = c(&quot;test&quot;, &quot;replications&quot;, &quot;elapsed&quot;, &quot;relative&quot;))</code></pre>
+<pre><code>##                                test replications elapsed relative
+## 2 merge(table1_keyed, table2_keyed)          100   0.084     1.00
+## 1             merge(table1, table2)          100   0.121     1.44</code></pre>
+<p>Seeing the results, we better set the keys of <code>table1</code> and <code>table2</code>.</p>
+<pre class="r"><code>setkey(table1, &quot;id&quot;)
+setkey(table2, &quot;id&quot;)</code></pre>
+</div>
+<div id="left-join" class="section level3">
+<h3>Left join</h3>
+<p>The result of a <em>left join</em> is a table with all the rows of the first table (the one on the left). The columns of the second table (on the right) with no correspondence with the first have <code>NA</code> in the merged table. We can perform a left join with <code>data.table</code> using <code>merge</code> with <code>all.x = TRUE</code>.</p>
+<pre class="r"><code>merge(table1, table2, all.x = TRUE)</code></pre>
+<pre><code>##    id v       date  w
+## 1:  a 1 2021-01-01  1
+## 2:  a 2 2021-03-23  1
+## 3:  b 3 2021-02-13  2
+## 4:  b 4 2021-05-28  2
+## 5:  c 5 2021-12-17  3
+## 6:  e 6 2021-12-31 NA</code></pre>
+</div>
+<div id="right-join" class="section level2">
+<h2>Right join</h2>
+<p>The <em>right join</em> is analogous to the left join, but the resulting table contains all the rows of the second table:</p>
+<pre class="r"><code>merge(table1, table2, all.y = TRUE)</code></pre>
+<pre><code>##    id  v       date w
+## 1:  a  1 2021-01-01 1
+## 2:  a  2 2021-03-23 1
+## 3:  b  3 2021-02-13 2
+## 4:  b  4 2021-05-28 2
+## 5:  c  5 2021-12-17 3
+## 6:  d NA       &lt;NA&gt; 4</code></pre>
+<p>In <code>data.table</code>, we have an alternative syntax for right joins using the <code>on</code> operator:</p>
+<pre class="r"><code>table1[table2, on = .(id)]</code></pre>
+<pre><code>##    id  v       date w
+## 1:  a  1 2021-01-01 1
+## 2:  a  2 2021-03-23 1
+## 3:  b  3 2021-02-13 2
+## 4:  b  4 2021-05-28 2
+## 5:  c  5 2021-12-17 3
+## 6:  d NA       &lt;NA&gt; 4</code></pre>
+<p>we can get rid of the <code>on</code> operator if we define the keys of each table with <code>setkey</code>:</p>
+<pre class="r"><code>table1[table2]</code></pre>
+<pre><code>##    id  v       date w
+## 1:  a  1 2021-01-01 1
+## 2:  a  2 2021-03-23 1
+## 3:  b  3 2021-02-13 2
+## 4:  b  4 2021-05-28 2
+## 5:  c  5 2021-12-17 3
+## 6:  d NA       &lt;NA&gt; 4</code></pre>
+</div>
+<div id="outer-or-full-join" class="section level2">
+<h2>Outer or full join</h2>
+<p>The result of a <em>full</em> or <em>outer join</em> is a table containing all the rows of both tables:</p>
+<pre class="r"><code>merge(table1, table2, all.x = TRUE, all.y = TRUE)</code></pre>
+<pre><code>##    id  v       date  w
+## 1:  a  1 2021-01-01  1
+## 2:  a  2 2021-03-23  1
+## 3:  b  3 2021-02-13  2
+## 4:  b  4 2021-05-28  2
+## 5:  c  5 2021-12-17  3
+## 6:  d NA       &lt;NA&gt;  4
+## 7:  e  6 2021-12-31 NA</code></pre>
+</div>
+<div id="cartesian-join" class="section level2">
+<h2>Cartesian join</h2>
+<p>A relational algebra requires that the columns used to merge variables have an unique value for each row. This is not always the case when we merge tables: we have seen than <code>table1</code> has several rows with <code>id</code> equal to <code>a</code> or <code>b</code>. Let’s see what happens when we perform an inner join with a table3 with repeated values in its <code>id</code> column:</p>
+<pre class="r"><code>table1</code></pre>
+<pre><code>##    id v       date
+## 1:  a 1 2021-01-01
+## 2:  a 2 2021-03-23
+## 3:  b 3 2021-02-13
+## 4:  b 4 2021-05-28
+## 5:  c 5 2021-12-17
+## 6:  e 6 2021-12-31</code></pre>
+<pre class="r"><code>table3</code></pre>
+<pre><code>##    id  g
+## 1:  a 21
+## 2:  a 22
+## 3:  a 23
+## 4:  b 24
+## 5:  c 25
+## 6:  f 26</code></pre>
+<pre class="r"><code>setkey(table3, &quot;id&quot;)
+merge(table1, table3)</code></pre>
+<pre><code>##    id v       date  g
+## 1:  a 1 2021-01-01 21
+## 2:  a 1 2021-01-01 22
+## 3:  a 1 2021-01-01 23
+## 4:  a 2 2021-03-23 21
+## 5:  a 2 2021-03-23 22
+## 6:  a 2 2021-03-23 23
+## 7:  b 3 2021-02-13 24
+## 8:  b 4 2021-05-28 24
+## 9:  c 5 2021-12-17 25</code></pre>
+<p><code>merge</code> returns a table with all combinations of variables in the <code>id</code> column. The resulting table has more rows than any of the two rows. This is something similar to the <a href="https://www.tutorialspoint.com/sql/sql-cartesian-joins.htm">cartesian join in SQL</a>, but here the cartesian product is only between rows of both tables with the same value in the merging columns.</p>
+<p>Let’s consider a <code>table4</code> to <code>merge</code> with <code>table3</code>.</p>
+<pre class="r"><code>table4</code></pre>
+<pre><code>##    id  h
+## 1:  a 31
+## 2:  a 32
+## 3:  a 33
+## 4:  a 34
+## 5:  a 35
+## 6:  b 36
+## 7:  b 37
+## 8:  b 38
+## 9:  c 39</code></pre>
+<pre class="r"><code>setkey(table4, &quot;id&quot;)</code></pre>
+<p>If we try to perform <code>merge(table3, table4)</code>, <code>data.table</code> returns an error, because the number of rows of the merged table is larger than the sum of the rows of merged tables: <code>table3</code> has 6 rows, <code>table4</code> has 9 rows and the merged table has 19 rows. This is not exactly an error, but a warning that the size of the merged table can be too large. We must explicitly set <code>allow.cartesian = TRUE</code> to tell <code>data.table</code> that we are performing a cartesian join.</p>
+<pre class="r"><code>merge(table3, table4, allow.cartesian = TRUE)</code></pre>
+<pre><code>##     id  g  h
+##  1:  a 21 31
+##  2:  a 21 32
+##  3:  a 21 33
+##  4:  a 21 34
+##  5:  a 21 35
+##  6:  a 22 31
+##  7:  a 22 32
+##  8:  a 22 33
+##  9:  a 22 34
+## 10:  a 22 35
+## 11:  a 23 31
+## 12:  a 23 32
+## 13:  a 23 33
+## 14:  a 23 34
+## 15:  a 23 35
+## 16:  b 24 36
+## 17:  b 24 37
+## 18:  b 24 38
+## 19:  c 25 39</code></pre>
+<p>We can use the on syntax for cartesian merges (we <code>table3[table4, on =.(id), allow.cartesian = TRUE]</code> if the merging variables are not defined with <code>setkey</code>):</p>
+<pre class="r"><code>table3[table4, allow.cartesian = TRUE]</code></pre>
+<pre><code>##     id  g  h
+##  1:  a 21 31
+##  2:  a 22 31
+##  3:  a 23 31
+##  4:  a 21 32
+##  5:  a 22 32
+##  6:  a 23 32
+##  7:  a 21 33
+##  8:  a 22 33
+##  9:  a 23 33
+## 10:  a 21 34
+## 11:  a 22 34
+## 12:  a 23 34
+## 13:  a 21 35
+## 14:  a 22 35
+## 15:  a 23 35
+## 16:  b 24 36
+## 17:  b 24 37
+## 18:  b 24 38
+## 19:  c 25 39</code></pre>
+</div>
+<div id="rolling-join" class="section level2">
+<h2>Rolling join</h2>
+<p><code>data.table</code> has an additional feature to merge tables when we merge tables with dates or times. To illustrate that, let’s consider merging <code>table1</code> and a new <code>table5</code>:</p>
+<pre class="r"><code>table1</code></pre>
+<pre><code>##    id v       date
+## 1:  a 1 2021-01-01
+## 2:  a 2 2021-03-23
+## 3:  b 3 2021-02-13
+## 4:  b 4 2021-05-28
+## 5:  c 5 2021-12-17
+## 6:  e 6 2021-12-31</code></pre>
+<pre class="r"><code>setkey(table1, &quot;id&quot;, &quot;date&quot;)
+table5</code></pre>
+<pre><code>##    id  h       date
+## 1:  a 31 2021-01-01
+## 2:  a 32 2021-02-04
+## 3:  a 33 2021-03-23
+## 4:  a 34 2021-06-03
+## 5:  a 35 2021-08-15
+## 6:  b 36 2021-02-13
+## 7:  b 37 2021-05-28
+## 8:  b 38 2021-07-12
+## 9:  c 39 2021-12-17</code></pre>
+<pre class="r"><code>setkey(table5, &quot;id&quot;, &quot;date&quot;)</code></pre>
+<p>When we perform a merge with the <code>on</code> syntax, we have <code>NA</code> in the columns of <code>table1</code> (what we have performed is equivalent to <code>table3[table4, on =.(id), allow.cartesian = TRUE]</code>):</p>
+<pre class="r"><code>table1[table5]</code></pre>
+<pre><code>##    id  v       date  h
+## 1:  a  1 2021-01-01 31
+## 2:  a NA 2021-02-04 32
+## 3:  a  2 2021-03-23 33
+## 4:  a NA 2021-06-03 34
+## 5:  a NA 2021-08-15 35
+## 6:  b  3 2021-02-13 36
+## 7:  b  4 2021-05-28 37
+## 8:  b NA 2021-07-12 38
+## 9:  c  5 2021-12-17 39</code></pre>
+<p>Both tables have a column of temporal values. If we interpret that <code>date</code> is the moment when the variable <code>v</code> changes in <code>table1</code>, then the value of <code>v</code> in the second row of the merged table is <code>1</code>, <code>2</code> in rows 4 and 5 and <code>4</code> in row 8. We can implement that doing <code>roll = TRUE</code>:</p>
+<pre class="r"><code>table1[table5, on = .(id, date), roll = TRUE]</code></pre>
+<pre><code>##    id v       date  h
+## 1:  a 1 2021-01-01 31
+## 2:  a 1 2021-02-04 32
+## 3:  a 2 2021-03-23 33
+## 4:  a 2 2021-06-03 34
+## 5:  a 2 2021-08-15 35
+## 6:  b 3 2021-02-13 36
+## 7:  b 4 2021-05-28 37
+## 8:  b 4 2021-07-12 38
+## 9:  c 5 2021-12-17 39</code></pre>
+</div>
