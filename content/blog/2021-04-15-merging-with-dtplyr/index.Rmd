@@ -1,0 +1,171 @@
+---
+title: "Merging with dtplyr"
+author: Jose M Sallan
+date: '2021-04-15'
+slug: merging-with-dtplyr
+categories:
+  - R
+tags:
+  - R
+  - data.table
+  - dplyr
+  - data structures
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+[In a recent post](https://jmsallan.netlify.app/blog/merging-with-data-table/), I illustrated how to merge tables in R using the `data.table` package. This package handles large tabular data effectively, although some find its syntax somewhat arcane. That's why Hadley Wickham has developed `dtplyr` "a `data.table` backend for `dplyr`, allowing you to write `dplyr` code that is automatically translated to the equivalent `data.table` code."
+
+For `dtplyr` to work, we need to load also `dplyr`, and it is convenient to load `data.table` as well:
+
+```{r}
+library(data.table)
+library(dplyr)
+library(dtplyr)
+```
+
+```{r, echo=FALSE}
+table1 <- data.table(id = c("a", "a", "b", "b", "c", "e"), 
+                     v = 1:6,
+                     date = as.IDate(c("2021-01-01", "2021-03-23", "2021-02-13", "2021-05-28", "2021-12-17", "2021-12-31")))
+
+table2 <- data.table(id = c("a", "b", "c", "d"), w = 1:4)
+
+table3 <- data.table(id = c("a", "a", "a", "b", "c", "f"), g = 21:26)
+
+table4 <- data.table(id = c(rep("a", 5), rep("b", 3), rep("c")), h = 31:39)
+
+table5 <- data.table(id = c(rep("a", 5), rep("b", 3), rep("c")), 
+                     h = 31:39,
+                     date = as.IDate(c("2021-01-01", "2021-02-04", "2021-03-23", "2021-06-03", "2021-08-15", "2021-02-13", "2021-05-28", "2021-07-12", "2021-12-17")))
+table1_tibble <- tibble(id = c("a", "a", "b", "b", "c", "e"), 
+                     v = 1:6,
+                     date = as.IDate(c("2021-01-01", "2021-03-23", "2021-02-13", "2021-05-28", "2021-12-17", "2021-12-31")))
+table2_tibble <- tibble(id = c("a", "b", "c", "d"), w = 1:4)
+```
+
+Let's compare the syntax of `data.table` and `dplyr` to merge tables. Let's consider two data tables:
+
+```{r}
+table1
+table2
+```
+
+## Inner join
+
+The result of an *inner join* is a table with the rows with values of merging variables existing in both tables:
+
+```{r}
+setkey(table1, "id")
+setkey(table2, "id")
+merge(table1, table2)
+```
+
+In `dplyr` we use `inner_join` for that. If the input are two `data.table` objects and `dtplyr` is loaded, we perform the same operation as above. We use `as.data.table()` to obtain a `data.table` object.
+
+```{r}
+inner_join(table1, table2) %>%
+  as.data.table()
+```
+
+The outcome of both functions is identical:
+
+```{r}
+a <- merge(table1, table2)
+b <- inner_join(table1, table2) %>%
+  as.data.table()
+identical(a,b)
+```
+
+Let's check time of execution:
+
+```{r}
+rbenchmark::benchmark(merge(table1, table2),
+                      inner_join(table1, table2) %>% as.data.table(),
+                      inner_join(table1_tibble, table2_tibble),
+                      order = "relative",
+                      columns = c("test", "replications", "elapsed", "relative"))
+```
+
+We see that `dtplyr` is faster than `dplyr`, but slower than the original `data.table` code.
+
+## Left join
+
+The result of a *left join* is a table with all the rows of the left table (the first to be entered):
+
+```{r}
+merge(table1, table2, all.x = TRUE)
+```
+
+We can do the same with `left_join` in `dplyr` and `dtplyr`:
+
+```{r}
+left_join(table1, table2) %>%
+  as.data.table()
+```
+
+## Rigth join
+
+In a *right join* we retain all the rows of the right table:
+
+```{r}
+merge(table1, table2, all.y = TRUE)
+```
+
+It's easy to guess that we need to use `right_join` here:
+
+```{r}
+right_join(table1, table2) %>%
+  as.data.table()
+```
+
+## Outer or full join
+
+The result of a *full* or *outer join* is a table containing all the rows of both tables:
+
+```{r}
+merge(table1, table2, all.x = TRUE, all.y = TRUE)
+```
+
+The `dtplyr` function for a full join is `full_join`:
+
+```{r}
+full_join(table1, table2) %>%
+  as.data.table()
+```
+
+## Cartesian merge
+
+These two tables had many repeated values in the `id` column, so the result of merging them has many rows: 
+
+```{r}
+table3
+table4
+```
+
+In `data.table`, if the result of the merge has more rows than the sum of rows of both tables, we need to add `allow.cartesian = TRUE`.
+
+```{r}
+merge(table3, table4, allow.cartesian = TRUE)
+```
+
+In dtplyr `allow.cartesian = TRUE` is set by default:
+
+```{r}
+inner_join(table3, table4) %>%
+  as.data.table()
+```
+
+## References
+
+Vignette of joining two tables in `dplyr` <https://dplyr.tidyverse.org/reference/join.html>
+
+`dtplyr` package intro: <https://www.tidyverse.org/blog/2019/11/dtplyr-1-0-0/>
+
+A comparison of `dplyr` and `data.table`, including merges: <https://atrebas.github.io/post/2019-03-03-datatable-dplyr/>
+
+*I have used version 1.13.6 of data.table, version 1.0.5 of dplyr and 1.1.0 of dtplyr in R 4.0.3.*

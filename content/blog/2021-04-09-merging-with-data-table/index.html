@@ -62,8 +62,8 @@ merge(table1_keyed, table2_keyed)</code></pre>
                       order = &quot;relative&quot;,
                       columns = c(&quot;test&quot;, &quot;replications&quot;, &quot;elapsed&quot;, &quot;relative&quot;))</code></pre>
 <pre><code>##                                test replications elapsed relative
-## 2 merge(table1_keyed, table2_keyed)          100   0.084     1.00
-## 1             merge(table1, table2)          100   0.121     1.44</code></pre>
+## 2 merge(table1_keyed, table2_keyed)          100   0.085    1.000
+## 1             merge(table1, table2)          100   0.105    1.235</code></pre>
 <p>Seeing the results, we better set the keys of <code>table1</code> and <code>table2</code>.</p>
 <pre class="r"><code>setkey(table1, &quot;id&quot;)
 setkey(table2, &quot;id&quot;)</code></pre>
@@ -250,7 +250,7 @@ table5</code></pre>
 ## 8:  b NA 2021-07-12 38
 ## 9:  c  5 2021-12-17 39</code></pre>
 <p>Both tables have a column of temporal values. If we interpret that <code>date</code> is the moment when the variable <code>v</code> changes in <code>table1</code>, then the value of <code>v</code> in the second row of the merged table is <code>1</code>, <code>2</code> in rows 4 and 5 and <code>4</code> in row 8. We can implement that doing <code>roll = TRUE</code>:</p>
-<pre class="r"><code>table1[table5, on = .(id, date), roll = TRUE]</code></pre>
+<pre class="r"><code>table1[table5, roll = TRUE]</code></pre>
 <pre><code>##    id v       date  h
 ## 1:  a 1 2021-01-01 31
 ## 2:  a 1 2021-02-04 32
@@ -261,4 +261,5 @@ table5</code></pre>
 ## 7:  b 4 2021-05-28 37
 ## 8:  b 4 2021-07-12 38
 ## 9:  c 5 2021-12-17 39</code></pre>
+<p><em>I have used version 1.13.6 of data.table in R 4.0.3.</em></p>
 </div>

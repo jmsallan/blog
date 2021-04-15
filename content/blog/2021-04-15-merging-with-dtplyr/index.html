@@ -1,0 +1,221 @@
+---
+title: "Merging with dtplyr"
+author: Jose M Sallan
+date: '2021-04-15'
+slug: merging-with-dtplyr
+categories:
+  - R
+tags:
+  - R
+  - data.table
+  - dplyr
+  - data structures
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p><a href="https://jmsallan.netlify.app/blog/merging-with-data-table/">In a recent post</a>, I illustrated how to merge tables in R using the <code>data.table</code> package. This package handles large tabular data effectively, although some find its syntax somewhat arcane. That’s why Hadley Wickham has developed <code>dtplyr</code> “a <code>data.table</code> backend for <code>dplyr</code>, allowing you to write <code>dplyr</code> code that is automatically translated to the equivalent <code>data.table</code> code.”</p>
+<p>For <code>dtplyr</code> to work, we need to load also <code>dplyr</code>, and it is convenient to load <code>data.table</code> as well:</p>
+<pre class="r"><code>library(data.table)
+library(dplyr)
+library(dtplyr)</code></pre>
+<p>Let’s compare the syntax of <code>data.table</code> and <code>dplyr</code> to merge tables. Let’s consider two data tables:</p>
+<pre class="r"><code>table1</code></pre>
+<pre><code>##    id v       date
+## 1:  a 1 2021-01-01
+## 2:  a 2 2021-03-23
+## 3:  b 3 2021-02-13
+## 4:  b 4 2021-05-28
+## 5:  c 5 2021-12-17
+## 6:  e 6 2021-12-31</code></pre>
+<pre class="r"><code>table2</code></pre>
+<pre><code>##    id w
+## 1:  a 1
+## 2:  b 2
+## 3:  c 3
+## 4:  d 4</code></pre>
+<div id="inner-join" class="section level2">
+<h2>Inner join</h2>
+<p>The result of an <em>inner join</em> is a table with the rows with values of merging variables existing in both tables:</p>
+<pre class="r"><code>setkey(table1, &quot;id&quot;)
+setkey(table2, &quot;id&quot;)
+merge(table1, table2)</code></pre>
+<pre><code>##    id v       date w
+## 1:  a 1 2021-01-01 1
+## 2:  a 2 2021-03-23 1
+## 3:  b 3 2021-02-13 2
+## 4:  b 4 2021-05-28 2
+## 5:  c 5 2021-12-17 3</code></pre>
+<p>In <code>dplyr</code> we use <code>inner_join</code> for that. If the input are two <code>data.table</code> objects and <code>dtplyr</code> is loaded, we perform the same operation as above. We use <code>as.data.table()</code> to obtain a <code>data.table</code> object.</p>
+<pre class="r"><code>inner_join(table1, table2) %&gt;%
+  as.data.table()</code></pre>
+<pre><code>##    id v       date w
+## 1:  a 1 2021-01-01 1
+## 2:  a 2 2021-03-23 1
+## 3:  b 3 2021-02-13 2
+## 4:  b 4 2021-05-28 2
+## 5:  c 5 2021-12-17 3</code></pre>
+<p>The outcome of both functions is identical:</p>
+<pre class="r"><code>a &lt;- merge(table1, table2)
+b &lt;- inner_join(table1, table2) %&gt;%
+  as.data.table()
+identical(a,b)</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<p>Let’s check time of execution:</p>
+<pre class="r"><code>rbenchmark::benchmark(merge(table1, table2),
+                      inner_join(table1, table2) %&gt;% as.data.table(),
+                      inner_join(table1_tibble, table2_tibble),
+                      order = &quot;relative&quot;,
+                      columns = c(&quot;test&quot;, &quot;replications&quot;, &quot;elapsed&quot;, &quot;relative&quot;))</code></pre>
+<pre><code>##                                             test replications elapsed relative
+## 1                          merge(table1, table2)          100   0.085    1.000
+## 3       inner_join(table1_tibble, table2_tibble)          100   0.239    2.812
+## 2 inner_join(table1, table2) %&gt;% as.data.table()          100   0.420    4.941</code></pre>
+<p>We see that <code>dtplyr</code> is faster than <code>dplyr</code>, but slower than the original <code>data.table</code> code.</p>
+</div>
+<div id="left-join" class="section level2">
+<h2>Left join</h2>
+<p>The result of a <em>left join</em> is a table with all the rows of the left table (the first to be entered):</p>
+<pre class="r"><code>merge(table1, table2, all.x = TRUE)</code></pre>
+<pre><code>##    id v       date  w
+## 1:  a 1 2021-01-01  1
+## 2:  a 2 2021-03-23  1
+## 3:  b 3 2021-02-13  2
+## 4:  b 4 2021-05-28  2
+## 5:  c 5 2021-12-17  3
+## 6:  e 6 2021-12-31 NA</code></pre>
+<p>We can do the same with <code>left_join</code> in <code>dplyr</code> and <code>dtplyr</code>:</p>
+<pre class="r"><code>left_join(table1, table2) %&gt;%
+  as.data.table()</code></pre>
+<pre><code>##    id  w v       date
+## 1:  a  1 1 2021-01-01
+## 2:  a  1 2 2021-03-23
+## 3:  b  2 3 2021-02-13
+## 4:  b  2 4 2021-05-28
+## 5:  c  3 5 2021-12-17
+## 6:  e NA 6 2021-12-31</code></pre>
+</div>
+<div id="rigth-join" class="section level2">
+<h2>Rigth join</h2>
+<p>In a <em>right join</em> we retain all the rows of the right table:</p>
+<pre class="r"><code>merge(table1, table2, all.y = TRUE)</code></pre>
+<pre><code>##    id  v       date w
+## 1:  a  1 2021-01-01 1
+## 2:  a  2 2021-03-23 1
+## 3:  b  3 2021-02-13 2
+## 4:  b  4 2021-05-28 2
+## 5:  c  5 2021-12-17 3
+## 6:  d NA       &lt;NA&gt; 4</code></pre>
+<p>It’s easy to guess that we need to use <code>right_join</code> here:</p>
+<pre class="r"><code>right_join(table1, table2) %&gt;%
+  as.data.table()</code></pre>
+<pre><code>##    id  v       date w
+## 1:  a  1 2021-01-01 1
+## 2:  a  2 2021-03-23 1
+## 3:  b  3 2021-02-13 2
+## 4:  b  4 2021-05-28 2
+## 5:  c  5 2021-12-17 3
+## 6:  d NA       &lt;NA&gt; 4</code></pre>
+</div>
+<div id="outer-or-full-join" class="section level2">
+<h2>Outer or full join</h2>
+<p>The result of a <em>full</em> or <em>outer join</em> is a table containing all the rows of both tables:</p>
+<pre class="r"><code>merge(table1, table2, all.x = TRUE, all.y = TRUE)</code></pre>
+<pre><code>##    id  v       date  w
+## 1:  a  1 2021-01-01  1
+## 2:  a  2 2021-03-23  1
+## 3:  b  3 2021-02-13  2
+## 4:  b  4 2021-05-28  2
+## 5:  c  5 2021-12-17  3
+## 6:  d NA       &lt;NA&gt;  4
+## 7:  e  6 2021-12-31 NA</code></pre>
+<p>The <code>dtplyr</code> function for a full join is <code>full_join</code>:</p>
+<pre class="r"><code>full_join(table1, table2) %&gt;%
+  as.data.table()</code></pre>
+<pre><code>##    id  v       date  w
+## 1:  a  1 2021-01-01  1
+## 2:  a  2 2021-03-23  1
+## 3:  b  3 2021-02-13  2
+## 4:  b  4 2021-05-28  2
+## 5:  c  5 2021-12-17  3
+## 6:  d NA       &lt;NA&gt;  4
+## 7:  e  6 2021-12-31 NA</code></pre>
+</div>
+<div id="cartesian-merge" class="section level2">
+<h2>Cartesian merge</h2>
+<p>These two tables had many repeated values in the <code>id</code> column, so the result of merging them has many rows:</p>
+<pre class="r"><code>table3</code></pre>
+<pre><code>##    id  g
+## 1:  a 21
+## 2:  a 22
+## 3:  a 23
+## 4:  b 24
+## 5:  c 25
+## 6:  f 26</code></pre>
+<pre class="r"><code>table4</code></pre>
+<pre><code>##    id  h
+## 1:  a 31
+## 2:  a 32
+## 3:  a 33
+## 4:  a 34
+## 5:  a 35
+## 6:  b 36
+## 7:  b 37
+## 8:  b 38
+## 9:  c 39</code></pre>
+<p>In <code>data.table</code>, if the result of the merge has more rows than the sum of rows of both tables, we need to add <code>allow.cartesian = TRUE</code>.</p>
+<pre class="r"><code>merge(table3, table4, allow.cartesian = TRUE)</code></pre>
+<pre><code>##     id  g  h
+##  1:  a 21 31
+##  2:  a 21 32
+##  3:  a 21 33
+##  4:  a 21 34
+##  5:  a 21 35
+##  6:  a 22 31
+##  7:  a 22 32
+##  8:  a 22 33
+##  9:  a 22 34
+## 10:  a 22 35
+## 11:  a 23 31
+## 12:  a 23 32
+## 13:  a 23 33
+## 14:  a 23 34
+## 15:  a 23 35
+## 16:  b 24 36
+## 17:  b 24 37
+## 18:  b 24 38
+## 19:  c 25 39</code></pre>
+<p>In dtplyr <code>allow.cartesian = TRUE</code> is set by default:</p>
+<pre class="r"><code>inner_join(table3, table4) %&gt;%
+  as.data.table()</code></pre>
+<pre><code>##     id  g  h
+##  1:  a 21 31
+##  2:  a 21 32
+##  3:  a 21 33
+##  4:  a 21 34
+##  5:  a 21 35
+##  6:  a 22 31
+##  7:  a 22 32
+##  8:  a 22 33
+##  9:  a 22 34
+## 10:  a 22 35
+## 11:  a 23 31
+## 12:  a 23 32
+## 13:  a 23 33
+## 14:  a 23 34
+## 15:  a 23 35
+## 16:  b 24 36
+## 17:  b 24 37
+## 18:  b 24 38
+## 19:  c 25 39</code></pre>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<p>Vignette of joining two tables in <code>dplyr</code> <a href="https://dplyr.tidyverse.org/reference/join.html" class="uri">https://dplyr.tidyverse.org/reference/join.html</a></p>
+<p><code>dtplyr</code> package intro: <a href="https://www.tidyverse.org/blog/2019/11/dtplyr-1-0-0/" class="uri">https://www.tidyverse.org/blog/2019/11/dtplyr-1-0-0/</a></p>
+<p>A comparison of <code>dplyr</code> and <code>data.table</code>, including merges: <a href="https://atrebas.github.io/post/2019-03-03-datatable-dplyr/" class="uri">https://atrebas.github.io/post/2019-03-03-datatable-dplyr/</a></p>
+<p><em>I have used version 1.13.6 of data.table, version 1.0.5 of dplyr and 1.1.0 of dtplyr in R 4.0.3.</em></p>
+</div>

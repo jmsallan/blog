@@ -173,5 +173,7 @@ table1[table5]
 Both tables have a column of temporal values. If we interpret that `date` is the moment when the variable `v` changes in `table1`, then the value of `v` in the second row of the merged table is `1`, `2` in rows 4 and 5 and `4` in row 8. We can implement that doing `roll = TRUE`:
 
 ```{r}
-table1[table5, on = .(id, date), roll = TRUE]
+table1[table5, roll = TRUE]
 ```
+
+*I have used version 1.13.6 of data.table in R 4.0.3.*
