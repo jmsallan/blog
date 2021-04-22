@@ -1,0 +1,157 @@
+---
+title: A workflow for binary classification with tidymodels
+author: Jose M Sallan
+date: '2021-04-22'
+slug: a-workflow-for-binary-classification-with-tidymodels
+categories:
+  - R
+tags:
+  - machine learning
+  - tidymodels
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p><code>tidymodels</code> is a collection of packages for modelling and machine learning in R, drawing on the tools and approach of the <code>tidyverse</code>. It is replacing <code>caret</code> as the main choice to work in supervised learning models.</p>
+<p>The best way to start with <code>tidymodels</code> is with a small example. This example of multiclass classification with the iris dataset has helped me a lot with that. Here I will present a similar workflow, but with a binary classification problem. Loading <code>tidyverse</code> we’ll have all the packages we need:</p>
+<pre class="r"><code>library(tidymodels)</code></pre>
+<p>Our job will be to build a model predicting if an observation of iris is of the species versicolor. This is a <strong>binary classification</strong> problem. This has some difficulty, as that species is close to virginica:</p>
+<pre class="r"><code>ggplot(iris, aes(Sepal.Length, Sepal.Width, color = Species)) +
+  geom_point(size=1.5) +
+  theme_bw()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<p>In binary classification problems, the class corresponding with the presence of a property is labelled <strong>positive</strong>. Here the positive class is that the flower <em>is</em> versicolor. The other class is labelled <strong>negative</strong>. Here that means that the flower <em>is not</em> versicolor.</p>
+<p>Let’s define the target variable. When using <code>tidymodels</code> in binary classification problems, the target variable:</p>
+<ul>
+<li>must be a <strong>factor</strong>,</li>
+<li>with its <strong>first level</strong> corresponding to the <strong>positive</strong> class.</li>
+</ul>
+<pre class="r"><code>iris &lt;- iris %&gt;% mutate(is_versicolor = ifelse(Species == &quot;versicolor&quot;, &quot;versicolor&quot;, &quot;not_versicolor&quot;)) %&gt;%
+  mutate(is_versicolor =factor(is_versicolor, levels = c(&quot;versicolor&quot;, &quot;not_versicolor&quot;)))</code></pre>
+<div id="data-preprocessing-with-recipes" class="section level2">
+<h2>Data preprocessing with recipes</h2>
+<p>Data pre-processing in <code>tidymodels</code> is mainly performed with the <code>recipes</code> package. A recipe has the following structure:</p>
+<pre class="r"><code>iris_recipe &lt;- iris %&gt;%
+  recipe(is_versicolor ~.) %&gt;%
+  step_rm(Species) %&gt;%
+  step_corr(all_predictors()) %&gt;%
+  step_center(all_predictors(), -all_outcomes()) %&gt;%
+  step_scale(all_predictors(), -all_outcomes())</code></pre>
+<p>The components of a recipe are:</p>
+<ul>
+<li>The <strong>data</strong> to apply the recipe, in this case the whole <code>iris</code>.</li>
+<li>A <code>recipe</code> instruction defining the <strong>model</strong>: here we state that is_versicolor is the target variable, and the remaining variables the features.</li>
+<li>Some <strong>steps</strong> to transform data. Here we remove <code>Species</code> from the analysis with <code>step_rm</code>, look for correlated predictors with <code>step_corr</code>, center (substract the mean) and scale (divide by standard deviation) the predictors.</li>
+<li>We estimate the parameters with <code>prep</code>.</li>
+</ul>
+<p>To see what the recipe has done we can just look at it:</p>
+<pre class="r"><code>iris_recipe %&gt;%
+  prep()</code></pre>
+<pre><code>## Data Recipe
+## 
+## Inputs:
+## 
+##       role #variables
+##    outcome          1
+##  predictor          5
+## 
+## Training data contained 150 data points and no missing data.
+## 
+## Operations:
+## 
+## Variables removed Species [trained]
+## Correlation filter removed Petal.Length [trained]
+## Centering for Sepal.Length, Sepal.Width, Petal.Width [trained]
+## Scaling for Sepal.Length, Sepal.Width, Petal.Width [trained]</code></pre>
+<p>We see that the recipe has removed the <code>Petal.Length</code> variable because it was highly correlated with other variables. The next steps of the recipe have not been applied to that variable, so the order in which apply the steps is relevant.</p>
+</div>
+<div id="defining-the-model-with-parsnip" class="section level2">
+<h2>Defining the model with parsnip</h2>
+<p>The models in <code>tidymodels</code> are stored in <code>parsnip</code>, the successor of <code>caret</code> (whence its name). Here we define a random forest <strong>model</strong> with some parameters and specify the engine we are using. The <strong>engine</strong> in the <code>parsnip</code> context is the source of the code to run the model. It can be a package, a R base function, <code>stan</code> or <code>spark</code>, among others.</p>
+<pre class="r"><code>rf &lt;- rand_forest(mode = &quot;classification&quot;, trees = 100) %&gt;%
+  set_engine(&quot;ranger&quot;)</code></pre>
+</div>
+<div id="defining-a-workflow" class="section level2">
+<h2>Defining a workflow</h2>
+<p>Once we have a model and a recipe, we can put it all together with a <code>workflow</code>:</p>
+<pre class="r"><code>iris_rf_wf &lt;- workflow() %&gt;%
+  add_recipe(iris_recipe) %&gt;%
+  add_model(rf)</code></pre>
+<p>The workflow <code>iris_rf_wf</code> applies the preprocess recipe iris_recipe, and then builds the model <code>rf</code> with data applied to that recipe.</p>
+</div>
+<div id="obtaining-predictions" class="section level2">
+<h2>Obtaining predictions</h2>
+<p>When we <code>fit</code>the workflow to <code>iris</code>, we obtain model hyperparameters using the <code>iris</code> dataset. Then, we can <code>predict</code> the class of each observation from the same data. As the outcome is set in a tibble format, we can use <code>bind_cols</code> to attach the prediction to the original data set.</p>
+<pre class="r"><code>set.seed(3131)
+iris_pred &lt;- iris_rf_wf %&gt;%
+  fit(iris) %&gt;%
+  predict(iris) %&gt;%
+  bind_cols(iris)</code></pre>
+<p>Let’s examine the results:</p>
+<pre class="r"><code>iris_pred %&gt;% glimpse()</code></pre>
+<pre><code>## Rows: 150
+## Columns: 7
+## $ .pred_class   &lt;fct&gt; not_versicolor, not_versicolor, not_versicolor, not_vers…
+## $ Sepal.Length  &lt;dbl&gt; 5.1, 4.9, 4.7, 4.6, 5.0, 5.4, 4.6, 5.0, 4.4, 4.9, 5.4, 4…
+## $ Sepal.Width   &lt;dbl&gt; 3.5, 3.0, 3.2, 3.1, 3.6, 3.9, 3.4, 3.4, 2.9, 3.1, 3.7, 3…
+## $ Petal.Length  &lt;dbl&gt; 1.4, 1.4, 1.3, 1.5, 1.4, 1.7, 1.4, 1.5, 1.4, 1.5, 1.5, 1…
+## $ Petal.Width   &lt;dbl&gt; 0.2, 0.2, 0.2, 0.2, 0.2, 0.4, 0.3, 0.2, 0.2, 0.1, 0.2, 0…
+## $ Species       &lt;fct&gt; setosa, setosa, setosa, setosa, setosa, setosa, setosa, …
+## $ is_versicolor &lt;fct&gt; not_versicolor, not_versicolor, not_versicolor, not_vers…</code></pre>
+<p>We have the predicted outcome in the <code>.pred_class</code> variable. Note that no variable omitted in the recipe has been removed from the dataset.</p>
+</div>
+<div id="evaluating-model-performance" class="section level2">
+<h2>Evaluating model performance</h2>
+<p>We can examine how has performed the model with the <strong>confusion matrix</strong>:</p>
+<pre class="r"><code>iris_pred %&gt;%
+  conf_mat(truth = is_versicolor, estimate = .pred_class)</code></pre>
+<pre><code>##                 Truth
+## Prediction       versicolor not_versicolor
+##   versicolor             49              3
+##   not_versicolor          1             97</code></pre>
+<p>Let’s define a <code>metric_set</code> including the following parameters:</p>
+<ul>
+<li><strong>accuracy</strong>: the fraction of observations correctly classified,</li>
+<li><strong>sensibility</strong>: the fraction of positive observations correctly classified,</li>
+<li><strong>specificity</strong>: the fraction of negative observations correctly classified.</li>
+</ul>
+<p>The obtained values are:</p>
+<pre class="r"><code>class_metrics &lt;- metric_set(accuracy, sens, spec)</code></pre>
+<p>and estimate the values:</p>
+<pre class="r"><code>iris_pred %&gt;%
+ class_metrics(truth = is_versicolor, estimate = .pred_class)</code></pre>
+<pre><code>## # A tibble: 3 x 3
+##   .metric  .estimator .estimate
+##   &lt;chr&gt;    &lt;chr&gt;          &lt;dbl&gt;
+## 1 accuracy binary         0.973
+## 2 sens     binary         0.98 
+## 3 spec     binary         0.97</code></pre>
+<p>Here we see that</p>
+<ul>
+<li><strong>accuracy</strong> is (49+97)/(49+97+3+1) = 0.073,</li>
+<li><strong>sensibility</strong> is equal to 49/(1+49) = 0.980,</li>
+<li><strong>specificity</strong> is equal to 97/(97+3) = 0.970.</li>
+</ul>
+</div>
+<div id="more-features-of-tidymodels" class="section level2">
+<h2>More features of tidymodels</h2>
+<p>This is a very basic workflow of model training with <code>tidymodels</code>. There are many more features available, among others:</p>
+<ul>
+<li>train models of regression or numerical prediction,</li>
+<li>define train and test sets, and test models with cross validation,</li>
+<li>tune hyperparameter models,</li>
+<li>use subsampling with unbalanced datasets,</li>
+<li>use more performance metrics to build the model.</li>
+</ul>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li><code>recipes</code> function reference: <a href="https://recipes.tidymodels.org/reference/index.html" class="uri">https://recipes.tidymodels.org/reference/index.html</a></li>
+<li>list of available models in <code>parsnip</code>: <a href="https://www.tidymodels.org/find/parsnip/" class="uri">https://www.tidymodels.org/find/parsnip/</a></li>
+</ul>
+<p><em>Built with R 4.0.3 and tidymodels 0.1.2</em></p>
+</div>

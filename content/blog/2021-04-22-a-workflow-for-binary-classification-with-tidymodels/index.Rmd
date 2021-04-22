@@ -1,0 +1,166 @@
+---
+title: A workflow for binary classification with tidymodels
+author: Jose M Sallan
+date: '2021-04-22'
+slug: a-workflow-for-binary-classification-with-tidymodels
+categories:
+  - R
+tags:
+  - machine learning
+  - tidymodels
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+`tidymodels` is a collection of packages for modelling and machine learning in R, drawing on the tools and approach of the `tidyverse`. It is replacing `caret` as the main choice to work in supervised learning models. 
+
+The best way to start with `tidymodels` is with a small example. This example of multiclass classification with the iris dataset has helped me a lot with that. Here I will present a similar workflow, but with a binary classification problem. Loading `tidyverse` we'll have all the packages we need:
+
+```{r}
+library(tidymodels)
+```
+
+Our job will be to build a model predicting if an observation of iris is of the species versicolor. This is a **binary classification** problem. This has some difficulty, as that species is close to virginica:
+
+```{r}
+ggplot(iris, aes(Sepal.Length, Sepal.Width, color = Species)) +
+  geom_point(size=1.5) +
+  theme_bw()
+```
+
+In binary classification problems, the class corresponding with the presence of a property is labelled **positive**. Here the positive class is that the flower *is* versicolor. The other class is labelled **negative**. Here that means that the flower *is not* versicolor.
+
+Let's define the target variable. When using `tidymodels` in binary classification problems, the target variable:
+
+* must be a **factor**,
+* with its **first level** corresponding to the **positive** class.
+
+```{r}
+iris <- iris %>% mutate(is_versicolor = ifelse(Species == "versicolor", "versicolor", "not_versicolor")) %>%
+  mutate(is_versicolor =factor(is_versicolor, levels = c("versicolor", "not_versicolor")))
+```
+
+## Data preprocessing with recipes
+
+Data pre-processing in `tidymodels` is mainly performed with the `recipes` package. A recipe has the following structure:
+
+```{r}
+iris_recipe <- iris %>%
+  recipe(is_versicolor ~.) %>%
+  step_rm(Species) %>%
+  step_corr(all_predictors()) %>%
+  step_center(all_predictors(), -all_outcomes()) %>%
+  step_scale(all_predictors(), -all_outcomes())
+```
+
+The components of a recipe are:
+
+* The **data** to apply the recipe, in this case the whole `iris`.
+* A `recipe` instruction defining the **model**: here we state that is_versicolor is the target variable, and the remaining variables the features.
+* Some **steps** to transform data. Here we remove `Species` from the analysis with `step_rm`, look for correlated predictors with `step_corr`, center (substract the mean) and scale (divide by standard deviation) the predictors.
+* We estimate the parameters with `prep`.
+
+To see what the recipe has done we can just look at it:
+
+```{r}
+iris_recipe %>%
+  prep()
+```
+
+We see that the recipe has removed the `Petal.Length` variable because it was highly correlated with other variables. The next steps of the recipe have not been applied to that variable, so the order in which apply the steps is relevant.
+
+## Defining the model with parsnip
+
+The models in `tidymodels` are stored in `parsnip`, the successor of `caret` (whence its name). Here we define a random forest **model** with some parameters and specify the engine we are using. The **engine** in the `parsnip` context is the source of the code to run the model. It can be a package, a R base function, `stan` or `spark`, among others.
+
+```{r}
+rf <- rand_forest(mode = "classification", trees = 100) %>%
+  set_engine("ranger")
+```
+
+## Defining a workflow
+
+Once we have a model and a recipe, we can put it all together with a `workflow`:
+
+```{r}
+iris_rf_wf <- workflow() %>%
+  add_recipe(iris_recipe) %>%
+  add_model(rf)
+```
+
+The workflow `iris_rf_wf` applies the preprocess recipe iris_recipe, and then builds the model `rf` with data applied to that recipe.
+
+## Obtaining predictions
+
+When we `fit`the workflow to `iris`, we obtain model hyperparameters using the `iris` dataset. Then, we can `predict` the class of each observation from the same data. As the outcome is set in a tibble format, we can use `bind_cols` to attach the prediction to the original data set.
+
+```{r}
+set.seed(3131)
+iris_pred <- iris_rf_wf %>%
+  fit(iris) %>%
+  predict(iris) %>%
+  bind_cols(iris)
+```
+
+Let's examine the results:
+
+```{r}
+iris_pred %>% glimpse()
+```
+
+We have the predicted outcome in the `.pred_class` variable. Note that no variable omitted in the recipe has been removed from the dataset.
+
+## Evaluating model performance
+
+We can examine how has performed the model with the **confusion matrix**:
+
+```{r}
+iris_pred %>%
+  conf_mat(truth = is_versicolor, estimate = .pred_class)
+```
+
+Let's define a `metric_set` including the following parameters:
+
+* **accuracy**: the fraction of observations correctly classified,
+* **sensibility**: the fraction of positive observations correctly classified,
+* **specificity**: the fraction of negative observations correctly classified.
+
+The obtained values are:
+
+```{r}
+class_metrics <- metric_set(accuracy, sens, spec)
+```
+
+and estimate the values:
+
+```{r}
+iris_pred %>%
+ class_metrics(truth = is_versicolor, estimate = .pred_class)
+```
+
+Here we see that
+
+* **accuracy** is (49+97)/(49+97+3+1) = 0.073,
+* **sensibility** is equal to 49/(1+49) = 0.980,
+* **specificity** is equal to 97/(97+3) = 0.970.
+
+## More features of tidymodels
+
+This is a very basic workflow of model training with `tidymodels`. There are many more features available, among others:
+
+* train models of regression or numerical prediction,
+* define train and test sets, and test models with cross validation,
+* tune hyperparameter models,
+* use subsampling with unbalanced datasets,
+* use more performance metrics to build the model.
+
+## References
+
+* `recipes` function reference: <https://recipes.tidymodels.org/reference/index.html>
+* list of available models in `parsnip`: <https://www.tidymodels.org/find/parsnip/>
+
+*Built with R 4.0.3 and tidymodels 0.1.2*
