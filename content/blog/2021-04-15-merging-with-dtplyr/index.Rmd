@@ -162,10 +162,8 @@ inner_join(table3, table4) %>%
 
 ## References
 
-Vignette of joining two tables in `dplyr` <https://dplyr.tidyverse.org/reference/join.html>
-
-`dtplyr` package intro: <https://www.tidyverse.org/blog/2019/11/dtplyr-1-0-0/>
-
-A comparison of `dplyr` and `data.table`, including merges: <https://atrebas.github.io/post/2019-03-03-datatable-dplyr/>
+* Vignette of joining two tables in `dplyr` <https://dplyr.tidyverse.org/reference/join.html>
+* `dtplyr` package intro: <https://www.tidyverse.org/blog/2019/11/dtplyr-1-0-0/>
+* A comparison of `dplyr` and `data.table`, including merges: <https://atrebas.github.io/post/2019-03-03-datatable-dplyr/>
 
 *I have used version 1.13.6 of data.table, version 1.0.5 of dplyr and 1.1.0 of dtplyr in R 4.0.3.*

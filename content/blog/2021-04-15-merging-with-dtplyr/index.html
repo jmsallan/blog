@@ -71,9 +71,9 @@ identical(a,b)</code></pre>
                       order = &quot;relative&quot;,
                       columns = c(&quot;test&quot;, &quot;replications&quot;, &quot;elapsed&quot;, &quot;relative&quot;))</code></pre>
 <pre><code>##                                             test replications elapsed relative
-## 1                          merge(table1, table2)          100   0.085    1.000
-## 3       inner_join(table1_tibble, table2_tibble)          100   0.239    2.812
-## 2 inner_join(table1, table2) %&gt;% as.data.table()          100   0.420    4.941</code></pre>
+## 1                          merge(table1, table2)          100   0.124    1.000
+## 3       inner_join(table1_tibble, table2_tibble)          100   0.248    2.000
+## 2 inner_join(table1, table2) %&gt;% as.data.table()          100   0.457    3.685</code></pre>
 <p>We see that <code>dtplyr</code> is faster than <code>dplyr</code>, but slower than the original <code>data.table</code> code.</p>
 </div>
 <div id="left-join" class="section level2">
@@ -214,8 +214,10 @@ identical(a,b)</code></pre>
 </div>
 <div id="references" class="section level2">
 <h2>References</h2>
-<p>Vignette of joining two tables in <code>dplyr</code> <a href="https://dplyr.tidyverse.org/reference/join.html" class="uri">https://dplyr.tidyverse.org/reference/join.html</a></p>
-<p><code>dtplyr</code> package intro: <a href="https://www.tidyverse.org/blog/2019/11/dtplyr-1-0-0/" class="uri">https://www.tidyverse.org/blog/2019/11/dtplyr-1-0-0/</a></p>
-<p>A comparison of <code>dplyr</code> and <code>data.table</code>, including merges: <a href="https://atrebas.github.io/post/2019-03-03-datatable-dplyr/" class="uri">https://atrebas.github.io/post/2019-03-03-datatable-dplyr/</a></p>
+<ul>
+<li>Vignette of joining two tables in <code>dplyr</code> <a href="https://dplyr.tidyverse.org/reference/join.html" class="uri">https://dplyr.tidyverse.org/reference/join.html</a></li>
+<li><code>dtplyr</code> package intro: <a href="https://www.tidyverse.org/blog/2019/11/dtplyr-1-0-0/" class="uri">https://www.tidyverse.org/blog/2019/11/dtplyr-1-0-0/</a></li>
+<li>A comparison of <code>dplyr</code> and <code>data.table</code>, including merges: <a href="https://atrebas.github.io/post/2019-03-03-datatable-dplyr/" class="uri">https://atrebas.github.io/post/2019-03-03-datatable-dplyr/</a></li>
+</ul>
 <p><em>I have used version 1.13.6 of data.table, version 1.0.5 of dplyr and 1.1.0 of dtplyr in R 4.0.3.</em></p>
 </div>

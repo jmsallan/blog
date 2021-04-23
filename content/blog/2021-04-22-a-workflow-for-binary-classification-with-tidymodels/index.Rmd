@@ -18,21 +18,19 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE)
 
 `tidymodels` is a collection of packages for modelling and machine learning in R, drawing on the tools and approach of the `tidyverse`. It is replacing `caret` as the main choice to work in supervised learning models. 
 
-The best way to start with `tidymodels` is with a small example. This example of multiclass classification with the iris dataset has helped me a lot with that. Here I will present a similar workflow, but with a binary classification problem. Loading `tidyverse` we'll have all the packages we need:
+The best way to start with `tidymodels` is with a small example. I have found [this example of multiclass classification](https://rviews.rstudio.com/2019/06/19/a-gentle-intro-to-tidymodels/) with the `iris` dataset very helpful. Here I will present a similar workflow, but with a binary classification problem. Loading `tidyverse` only, we'll have all the packages we need:
 
 ```{r}
 library(tidymodels)
 ```
 
-Our job will be to build a model predicting if an observation of iris is of the species versicolor. This is a **binary classification** problem. This has some difficulty, as that species is close to virginica:
+Our job is to build a model predicting if an `iris` flower is of the species versicolor. This is a **binary classification** problem. It has some difficulty, as versicolor are close to virginica:
 
 ```{r}
 ggplot(iris, aes(Sepal.Length, Sepal.Width, color = Species)) +
   geom_point(size=1.5) +
   theme_bw()
 ```
-
-In binary classification problems, the class corresponding with the presence of a property is labelled **positive**. Here the positive class is that the flower *is* versicolor. The other class is labelled **negative**. Here that means that the flower *is not* versicolor.
 
 Let's define the target variable. When using `tidymodels` in binary classification problems, the target variable:
 
@@ -43,6 +41,8 @@ Let's define the target variable. When using `tidymodels` in binary classificati
 iris <- iris %>% mutate(is_versicolor = ifelse(Species == "versicolor", "versicolor", "not_versicolor")) %>%
   mutate(is_versicolor =factor(is_versicolor, levels = c("versicolor", "not_versicolor")))
 ```
+
+In binary classification problems, the class associated with the presence of a property is labelled **positive**. Here the positive class is that the flower *is* versicolor, that is `is_versicolor==versicolor`. The other class is labelled **negative**. Here that means that the flower *is not* versicolor `is_versicolor==not_versicolor`.
 
 ## Data preprocessing with recipes
 
