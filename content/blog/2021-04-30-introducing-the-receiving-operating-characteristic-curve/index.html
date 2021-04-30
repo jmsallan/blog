@@ -15,9 +15,7 @@ description: Description for the page
 <script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
 
 
-<div id="a-binary-classification-model" class="section level2">
-<h2>A binary classification model</h2>
-<p>In <a href="https://jmsallan.netlify.app/blog/a-workflow-for-binary-classification-with-tidymodels/">a previous post</a> I presented a small binary classification problem, consisting in finding if an observation of the <code>iris</code> dataset belongs to the versicolor species. In a binary classification problem, the target variable must be a factor, with first level associated to the positive case:</p>
+<p>In <a href="https://jmsallan.netlify.app/blog/a-workflow-for-binary-classification-with-tidymodels/">a previous post</a> I presented a small <strong>binary classification problem</strong>, consisting in finding if an observation of the <code>iris</code> dataset belongs to the versicolor species. Remember that the target variable must be a factor, with first level associated to the positive case:</p>
 <pre class="r"><code>iris &lt;- iris %&gt;% mutate(is_versicolor = ifelse(Species == &quot;versicolor&quot;, &quot;versicolor&quot;, &quot;not_versicolor&quot;)) %&gt;%
   mutate(is_versicolor =factor(is_versicolor, levels = c(&quot;versicolor&quot;, &quot;not_versicolor&quot;)))</code></pre>
 <p>The recipe of this problem is straightforward: remove <em>correlated predictors</em>, and <em>normalize</em> (centering and scaling) the remaining predictors:</p>
@@ -27,7 +25,6 @@ description: Description for the page
   step_corr(all_predictors()) %&gt;%
   step_normalize(all_predictors(), -all_outcomes())</code></pre>
 <p>Here I will introduce the <strong>receiving operating characteristic (ROC)</strong> curve in the context of performance assessment of classification problems. We’ll assess the performance of two predictive models with the ROC curve, and then examine the performance of a bad classifier with the same metric.</p>
-</div>
 <div id="logistic-regression" class="section level2">
 <h2>Logistic regression</h2>
 <p>Let’s begin fitting a <em>logistic regression</em> model:</p>
@@ -191,7 +188,7 @@ roc_curve_rf %&gt;%
 <pre><code>## # A tibble: 1 x 3
 ##   .metric .estimator .estimate
 ##   &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt;
-## 1 roc_auc binary         0.998</code></pre>
+## 1 roc_auc binary         0.997</code></pre>
 </div>
 <div id="an-awful-roc-curve" class="section level2">
 <h2>An awful ROC curve</h2>
@@ -222,7 +219,7 @@ roc_iris_awful %&gt;%
 <pre><code>## # A tibble: 1 x 3
 ##   .metric .estimator .estimate
 ##   &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt;
-## 1 roc_auc binary         0.413</code></pre>
+## 1 roc_auc binary         0.518</code></pre>
 </div>
 <div id="assessing-model-performance-with-roc-and-auc" class="section level2">
 <h2>Assessing model performance with ROC and AUC</h2>

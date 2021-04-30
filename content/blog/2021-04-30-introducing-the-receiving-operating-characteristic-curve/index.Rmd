@@ -17,9 +17,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidymodels)
 ```
 
-## A binary classification model
 
-In [a previous post](https://jmsallan.netlify.app/blog/a-workflow-for-binary-classification-with-tidymodels/) I presented a small binary classification problem, consisting in finding if an observation of the `iris` dataset belongs to the versicolor species. In a binary classification problem, the target variable must be a factor, with first level associated to the positive case:
+In [a previous post](https://jmsallan.netlify.app/blog/a-workflow-for-binary-classification-with-tidymodels/) I presented a small **binary classification problem**, consisting in finding if an observation of the `iris` dataset belongs to the versicolor species. Remember that the target variable must be a factor, with first level associated to the positive case:
 
 ```{r}
 iris <- iris %>% mutate(is_versicolor = ifelse(Species == "versicolor", "versicolor", "not_versicolor")) %>%
