@@ -1,0 +1,255 @@
+---
+title: Introducing the receiving operating characteristic curve
+author: Jose M Sallan
+date: '2021-04-30'
+slug: introducing-the-receiving-operating-characteristic-curve
+categories:
+  - R
+tags:
+  - machine learning
+  - tidymodels
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidymodels)
+```
+
+## A binary classification model
+
+In [a previous post](https://jmsallan.netlify.app/blog/a-workflow-for-binary-classification-with-tidymodels/) I presented a small binary classification problem, consisting in finding if an observation of the `iris` dataset belongs to the versicolor species. In a binary classification problem, the target variable must be a factor, with first level associated to the positive case:
+
+```{r}
+iris <- iris %>% mutate(is_versicolor = ifelse(Species == "versicolor", "versicolor", "not_versicolor")) %>%
+  mutate(is_versicolor =factor(is_versicolor, levels = c("versicolor", "not_versicolor")))
+```
+
+The recipe of this problem is straightforward: remove *correlated predictors*, and *normalize* (centering and scaling) the remaining predictors:
+
+```{r}
+iris_recipe <- iris %>%
+  recipe(is_versicolor ~.) %>%
+  step_rm(Species) %>%
+  step_corr(all_predictors()) %>%
+  step_normalize(all_predictors(), -all_outcomes())
+```
+
+Here I will introduce the **receiving operating characteristic (ROC)** curve in the context of performance assessment of classification problems. We'll assess the performance of two predictive models with the ROC curve, and then examine the performance of a bad classifier with the same metric.
+
+## Logistic regression
+
+Let's begin fitting a *logistic regression* model:
+
+```{r}
+lr <- logistic_reg() %>%
+  set_engine("glm")
+
+iris_lr_wf <- workflow() %>%
+  add_recipe(iris_recipe) %>%
+  add_model(lr)
+```
+
+With `predict(iris)` we predict the class of each observation:
+
+```{r}
+iris_pred_lr <- iris_lr_wf %>%
+  fit(iris) %>%
+  predict(iris)
+iris_pred_lr
+```
+
+In logistic regression, the class of each observation is assigned using its probability to belong to each class. This probability is used to construct the ROC curve, and we can obtain it using `predict` with `type = "prob"`:
+
+```{r}
+iris_prob_lr <- iris_lr_wf %>%
+  fit(iris) %>%
+  predict(iris, type = "prob")
+iris_prob_lr
+```
+
+Let's bind the outcomes with the original dataset:
+
+```{r}
+iris_lr <- bind_cols(iris, iris_pred_lr, iris_prob_lr)
+```
+
+## Random forests
+
+Let's replicate the same workflow with *random forests*:
+
+```{r}
+rf <- rand_forest(mode = "classification", trees = 100) %>%
+  set_engine("ranger")
+
+iris_rf_wf <- workflow() %>%
+  add_recipe(iris_recipe) %>%
+  add_model(rf)
+
+iris_pred_rf <- iris_rf_wf %>%
+  fit(iris) %>%
+  predict(iris)
+
+iris_prob_rf <- iris_rf_wf %>%
+  fit(iris) %>%
+  predict(iris, type = "prob")
+
+iris_rf <- bind_cols(iris, iris_pred_rf, iris_prob_rf)
+```
+
+## The ROC curve
+
+To classify an observation as positive or negative class from  probabilities we need a **threshold value**, a value between 0 and 1 so that:
+
+* If observation's probability of belonging to positive class is **below the threshold** the observation is labelled as **negative**.
+* If observation's probability of belonging to positive class is **above the threshold** the observation is labelled as **positive**.
+
+In a ROC curve we plot two performance metrics:
+
+* On the x axis we plot **1 - specificity**, the ratio of negative observations classified correctly.
+* On the x axis we plot **sensitivity**, the ratio of positive observations classified correctly.
+
+In the ROC curve, **each point is the value of sensitivity and 1 - specificity for a specific threshold value**. The ROC curve allows us to assess the balance between sensitivity and specificity of a classifier.
+
+We will always have two points in every ROC curve:
+
+* If **threshold = 1**, all observations are classified as negative. Sensitivity is equal to 0 and specificity is equal to 1. This is the **(0, 0)** point of the ROC curve.
+* If **threshold = 0**, all observations are classified as positive. Sensitivity is equal to 1 and specificity is equal to 0. This is the **(1, 1)** point of the ROC curve.
+
+A perfect classifier has sensitivity and specificity equal to one, which corresponds with the **(0, 1)** point in the ROC curve.
+`
+
+```{r}
+roc_df <- data.frame(x_roc = c(0,0,1), 
+                     y_roc = c(0,1,1),
+                     threshold = c("threshold=1", "perfect class.", "threshold=0"))
+
+ggplot(roc_df, aes(x_roc,y_roc, label=threshold)) + 
+  geom_point(size=2) +
+  xlim(-0.1, 1.1) +
+  ylim(0, 1.1) +
+  geom_text(vjust=0, nudge_y = 0.05) +
+  geom_abline(slope=1, intercept = 0, linetype = "dashed", size=0.2) +
+  theme_bw() +
+  labs(x="1-specificity", y="sensitivity")
+```
+
+This curve can be turned into a number with the **area under the ROC curve (AUC)**. This area will be a value **between 1 and 0.5**, being 1 the value of a perfect classifier. A classifier with ana AUC below 0.5 can be transformed into a better predictor just reversing the outcome (classifying positives as negatives and vice versa).
+
+Let's see the performance of logistic regression and random forests using the ROC curve.
+
+## ROC curve for logistic regression
+
+Here is a plot of the ROC curve for logistic regression. The points in red correspond with threshold values around 0.5, the usual cutoff values when predicting classes.
+
+```{r}
+roc_curve_lr <- iris_lr %>%
+  roc_curve(truth = is_versicolor, estimate = .pred_versicolor) %>% 
+  mutate(x_roc = 1-sensitivity, y_roc=specificity)
+
+sens_spec_lr <- roc_curve_lr %>% 
+  filter(.threshold > 0.48, .threshold < 0.52)
+
+roc_curve_lr %>%
+  ggplot(aes(x_roc, y_roc)) +
+  geom_point(size=0.5)  +
+  geom_point(data=sens_spec_lr, aes(x_roc, y_roc), size = 3, color = "red") +
+  geom_line(size=0.3) +
+  geom_abline(slope=1, intercept = 0, linetype = "dashed", size=0.2) +
+  theme_bw() +
+  labs(x="1-specificity", y="sensitivity")
+```
+
+We can obtain the ROC curve faster in `tidymodels` doing:
+
+```{r, eval=FALSE}
+iris_lr %>%
+  roc_curve(truth = is_versicolor, estimate = .pred_versicolor) %>% 
+  autoplot()
+```
+
+The AUC is equal to:
+
+```{r}
+iris_lr %>%
+  roc_auc(is_versicolor, .pred_versicolor)
+```
+
+Examiing the ROC and the AUC we observe that the performance of logistic regression is relatively poor. Let's compare it with random forests.
+
+## ROC curve for random forests
+
+This is the ROC curve for random forests. This curve is close to a perfect classifier:
+
+```{r}
+roc_curve_rf <- iris_rf %>%
+  roc_curve(truth = is_versicolor, estimate = .pred_versicolor) %>% 
+  mutate(x_roc = 1-sensitivity, y_roc=specificity) 
+
+sens_spec_rf <- roc_curve_rf %>% 
+  filter(.threshold > 0.4, .threshold < 0.6)
+
+roc_curve_rf %>%
+  ggplot(aes(x_roc, y_roc)) +
+  geom_point(size=0.5)  +
+  geom_point(data=sens_spec_rf, aes(x_roc, y_roc), size = 3, color = "red") +
+  geom_line(size=0.3) +
+  geom_abline(slope=1, intercept = 0, linetype = "dashed", size=0.2) +
+  theme_bw() +
+  labs(x="1-specificity", y="sensitivity")
+```
+
+The AUC is much closer to one now:
+
+```{r}
+iris_rf %>%
+  roc_auc(is_versicolor, .pred_versicolor)
+```
+
+## An awful ROC curve
+
+Let's see the behaviour of a very bad classifier. We define the probability of each observation of being versicolor as a random value between zero and one:
+
+```{r}
+iris_awful <- iris %>%
+  mutate(.pred_versicolor = runif(150, 0, 1))
+```
+
+If we define the ROC curve for this classifier, we observe that it lays around the diagonal:
+
+```{r}
+roc_iris_awful <- iris_awful %>%
+  roc_curve(truth = is_versicolor, estimate = .pred_versicolor) %>% 
+  mutate(x_roc = 1-sensitivity, y_roc=specificity) 
+
+sens_spec_awful <- roc_iris_awful %>%
+  filter(.threshold > 0.48, .threshold < .52)
+  
+
+roc_iris_awful %>%
+  ggplot(aes(x_roc, y_roc)) +
+  geom_point(size=0.5) +
+  geom_point(data=sens_spec_awful, aes(x_roc, y_roc), size=3, color="red") +
+  geom_line(size=0.3, color = "#808080") +
+  geom_abline(slope=1, intercept = 0, linetype = "dashed", size=0.2) +
+  theme_bw() +
+  labs(x="1-specificity", y="sensitivity")
+```
+
+... and that the AUC is close to is lower bound 0.5:
+
+```{r}
+iris_awful %>%
+  roc_auc(is_versicolor, .pred_versicolor)
+```
+
+## Assessing model performance with ROC and AUC
+
+With a bad classifier, if we want to increase sensitivity (the ability to predict the positive class) we need to reduce specificity (the ability to predict the negative class). That's why the ROC curve of a bad classifier lies close to the diagonal. A good classifier will yield good values of sensitivity and sensibility at once. This means that its ROC curve will be closer to the upper left corner, and the area under the curve (AUC) will be closer to one. ROC and AUC measure of how classifier is able to separate positive and negative cases. In fact, it was developed by radar engineers in World War II to measure the ability of a radar to detect objects depending on the threshold value of detection.
+
+## References
+
+* *Understanding AUC/ROC curve*, by Sarang Narkhede <https://towardsdatascience.com/understanding-auc-roc-curve-68b2303cc9c5>
+
+*Built with R 4.0.3 and tidymodels 0.1.2*
