@@ -1,5 +1,5 @@
 ---
-title: Introducing the receiving operating characteristic curve
+title: Introducing the receiver operating characteristic curve
 author: Jose M Sallan
 date: '2021-04-30'
 slug: introducing-the-receiving-operating-characteristic-curve
@@ -35,7 +35,7 @@ iris_recipe <- iris %>%
   step_normalize(all_predictors(), -all_outcomes())
 ```
 
-Here I will introduce the **receiving operating characteristic (ROC)** curve in the context of performance assessment of classification problems. We'll assess the performance of two predictive models with the ROC curve, and then examine the performance of a bad classifier with the same metric.
+Here I will introduce the **receiver operating characteristic (ROC)** curve in the context of performance assessment of classification problems. We'll assess the performance of two predictive models with the ROC curve, and then examine the performance of a bad classifier with the same metric.
 
 ## Logistic regression
 
