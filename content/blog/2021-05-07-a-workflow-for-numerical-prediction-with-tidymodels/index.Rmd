@@ -1,0 +1,248 @@
+---
+title: A workflow for numerical prediction with tidymodels
+author: Jose M Sallan
+date: '2021-05-07'
+slug: a-workflow-for-numerical-prediction-with-tidymodels
+categories:
+  - R
+tags:
+  - machine learning
+  - tidymodels
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+`tidymodels` is a collection of packages for modelling and machine learning in R, drawing on the tools and approach of the `tidyverse`. In [a recent post](https://jmsallan.netlify.app/blog/a-workflow-for-binary-classification-with-tidymodels/) I introduced the basic flow of `tidymodels` with a small classification example. In this post, I will present some additional features like:
+
+* how to perform a **regression** or **numerical prediction** job,
+* how to split data into **train and test** sets,
+* how to assess the performance of competing models on the training set with **cross validation**.
+
+We will use the `BostonHousing` dataset, available from the `mlbench` package. The rest of functionalities used here come from `tidymodels`, although you may be requested to install `rpart` if you want to reproduce this code.
+
+```{r}
+library(tidymodels)
+library(mlbench)
+data("BostonHousing")
+BostonHousing %>% glimpse()
+```
+
+Our job will be predicting the median value of owner-occupied homes in USD `medv` of each of the 508 Boston census tracts. This is a continous variable, so it is a numerical prediction or regression problem.
+
+## Creating train and test sets
+
+The aim of a predictive model is to perform well on unseen data, not used to train the model. To assess model perfomance, we need to split our dataset into two subsets:
+
+* a **train set** of observations used to obtain (train) the model,
+* a **test set** of observations that will be used to assess model performance.
+
+Regarding train and test sets, we must take care that:
+
+* the train and test sets must be representative of the same population,
+* the test set must not be used to make any decision regarding the model, it must be used to assess model performance only.
+
+We use the `initial_split` function to build the train and test sets:
+
+* with `p = 0.7` we set the 70% of observations in the train set,
+* with `strata = "medv"` we perform stratified sampling so that the distribution of the target variable is similar to the whole sample in both sets.
+
+As data splitting implies randomness, I have fixed the seed of the pseudo-random number generator to ensure reproducibility.
+
+```{r}
+set.seed(1313)
+bh_split <- initial_split(BostonHousing, p = 0.7, strata = "medv")
+```
+
+## Data preprocessing
+
+The recipe to pre process the dataset includes:
+
+* the transformation of `chas` from factor to numeric with `step_dummy`. As the original chas value has only two levels, this steps generates a single dummy variable.
+* looking for correlated predictors with `step_corr`, and for low-variability predictors with `step_nzv`.
+
+
+```{r}
+bh_recipe <- training(bh_split) %>%
+  recipe(medv ~ .) %>%
+  step_dummy(chas) %>%
+  step_corr(all_predictors()) %>%
+  step_nzv(all_predictors()) %>%
+  prep()
+```
+
+As we have prepared the recipe with `prep()` we can see how it is working:
+
+```{r}
+bh_recipe
+```
+
+The recipe is removing the `tax` variable, highly correlated with other variables:
+
+## Defining models and workflows
+
+We will train two models with this dataset:
+
+* a **linear regression** model, using the R base `lm` function,
+* a [**regression tree**](https://uc-r.github.io/regression_trees) model, using the `rpart` package.
+
+We will also define a workflow for each model so that we do the pre-processing with `bh_recipe`.
+
+```{r}
+bh_lm <- linear_reg(mode = "regression") %>%
+  set_engine("lm")
+
+bh_lm_wf <- workflow() %>%
+  add_recipe(bh_recipe) %>%
+  add_model(bh_lm) %>%
+  fit(training(bh_split))
+
+bh_rt <- decision_tree(mode = "regression") %>%
+  set_engine("rpart")
+
+bh_rt_wf <- workflow() %>%
+  add_recipe(bh_recipe) %>%
+  add_model(bh_rt) %>%
+  fit(training(bh_split))
+```
+
+## Comparing models with cross validation
+
+We need to compare the performance of regression tree and linear regression models, preferably with a dataset different to train the model to avoid overfitting. As we cannot make any decision about the model using the test set, we can use a cross validation strategy:
+
+* randomly split the data into *v* folds *f* of approximately equal size,
+* for each fold *f*, we train the data with the other *f-1* folds and assess performance on *f*,
+* optionally we repeat this `repeats` times,
+* we average model performance accross all folds and repeats.
+
+We use the `vfold_cv` function to build the cross validation framework. I am defining three folds and three repeats, so we will perform nine evaluations of each model. With larger datasets, we can split the train set into more folders. We stratify by the dependent variable like in `initial_split`, so I am setting up againt the random number generator:
+
+```{r}
+set.seed(1212)
+bh_folds <- vfold_cv(training(bh_split), strata = "medv", v = 3, repeats = 3)
+```
+
+## Model performance metrics
+
+We will use three metrics to assess model performance. These metrics examine how close are predictions $\hat{y}_i$ from observations $y_i$ across all $n$ observations.
+
+The **root mean square error** `rmse`:
+
+\[ \sqrt{\frac{\sum \left( \hat{y}_i - y_i \right)^2}{n}} \]
+
+The **mean absolute error** `mae`:
+
+\[  \frac{\sum \vert \hat{y}_i - y_i \vert}{n} \]
+
+The **coefficient of determination** $R^2$ `rsq` (where $\bar{y}$ is the mean of $y$):
+
+\[ 1- \frac{\sum \left( y_i - \hat{y}_i \right)^2}{\sum \left( y_i - \bar{y} \right)^2} \]
+
+Good predictive models will have values of `rmse` and `mae` close to zero, and values of `rsq` close to one.
+
+Let's wrap the three metrics into a `metrics_regression` `metric_set`:
+
+```{r}
+metrics_regression <- metric_set(rmse, mae, rsq)
+```
+
+## Selecting a model with cross validation
+
+We use `fit_resamples` to evaluate each workflow with the cross validation scheme defined in `bh_folds`. The function will return the values of `metrics_regression` averaged across all folds and repeats.
+
+The outputs have `tibble` format, so I am storing them into variables and adding a column with the `model` description.
+
+```{r}
+set.seed(1212)
+lm_fit <- fit_resamples(bh_lm_wf, bh_folds, metrics = metrics_regression) %>%
+  collect_metrics() %>%
+  mutate(model = "lm")
+
+set.seed(1212)
+rt_fit <- fit_resamples(bh_rt_wf, bh_folds, metrics = metrics_regression) %>%
+  collect_metrics() %>%
+  mutate(model = "rt")
+```
+
+Let's visualise the metrics for each model:
+
+```{r}
+bind_rows(lm_fit, rt_fit) %>%
+  select(.metric, mean, std_err, model) %>%
+  ggplot(aes(x = model, y = mean, ymin = mean - 1.96*std_err, ymax = mean + 1.96*std_err)) +
+  geom_pointrange() + 
+  theme_bw() +
+  labs(y = "confidence interval") +
+  facet_grid(. ~ .metric)
+```
+
+We observe that the regression tree model has slightly better metrics than linear regression. Let's present each of them in tabular form:
+
+```{r}
+lm_fit %>%
+  select(model, .metric, mean, std_err)
+rt_fit %>%
+  select(model, .metric, mean, std_err)
+```
+
+## Fitting the chosen model with the train test
+
+We have chosen regression trees to predict data. Let's fit the model to the whole train set:
+
+```{r}
+fitted_model <- bh_rt_wf %>%
+  fit(training(bh_split))
+```
+
+And evaluate the metrics on the same train set:
+
+```{r}
+predict_train <- fitted_model %>%
+  predict(training(bh_split)) %>%
+  bind_cols(training(bh_split)) %>%
+  mutate(sample = "train")
+
+predict_train %>%
+  metrics_regression(truth = medv, estimate = .pred)
+```
+
+
+## Evaluating performance on the test set
+
+To check the performance on unseen data, we need to evaluate performance on the test set:
+
+```{r}
+predict_test <- fitted_model %>%
+  predict(testing(bh_split)) %>%
+  bind_cols(testing(bh_split)) %>%
+  mutate(sample = "test")
+
+predict_test %>%
+  metrics_regression(truth = medv, estimate = .pred)
+```
+
+We observe that the metrics on the test set are worse than on the train set, so the chosen model has slight variance.
+
+We can also visualize the **predicted vs real** value for each dataset. Ideally, most of the dots of this plot should be over the dashed line of intercept zero and slope one.
+
+```{r}
+bind_rows(predict_train, predict_test) %>%
+  ggplot(aes(medv, .pred)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, size = 0.3, linetype = "dashed") +
+  facet_grid(. ~ sample) +
+  theme_bw()
+```
+
+From the plot, we observe that the model has collapsed all possible values of `medv` into seven values, which are the same for the train and test sets. This is a result of the [recursive partitioning](https://en.wikipedia.org/wiki/Recursive_partitioning) strategy adopted by regression tree models. Data are grouped into seven subsets, and all elements of each subset are predicted with the same value. As a result, some observations for each of the seven groups have a poor fit.
+
+## References
+
+* `BostonHousing`: Boston Housing Data <https://rdrr.io/cran/mlbench/man/BostonHousing.html>
+* Harrison, D. and Rubinfeld, D.L. (1978). Hedonic prices and the demand for clean air. *Journal of Environmental Economics and Management*, 5, 81–102.
+* Therneau, T. M. and Atkinson, E. J. (2019). *An Introduction to Recursive Partitioning Using the RPART Routines*. Available at: <https://cran.r-project.org/web/packages/rpart/vignettes/longintro.pdf>
+
+*Built with R 4.0.3 and tidymodels 0.1.2*
