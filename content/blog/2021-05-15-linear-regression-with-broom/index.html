@@ -1,0 +1,219 @@
+---
+title: Linear regression with broom
+author: Jose M Sallan
+date: '2021-05-15'
+slug: linear-regression-with-broom
+categories:
+  - R
+tags:
+  - tidymodels
+  - linear regression
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p><strong>Linear regression</strong> si about finding a linear relationship between:</p>
+<ul>
+<li>a <strong>dependent variable</strong>, also called endogenous, response or criterion <span class="math inline">\(y\)</span></li>
+<li>and a set <span class="math inline">\(p\)</span> of <strong>independent variables</strong>, sometimes called exogenous or predictor <span class="math inline">\(x_j\)</span>.</li>
+</ul>
+<p>The posited relationship can be represented as:</p>
+<p><span class="math display">\[ y_i = \beta_0 + \beta_1x_{i1} + \dots + \beta_px_{ip} + \varepsilon_i  \]</span></p>
+<p>Linear regression is one of the more powerful tools of statistical data analysis. In its many variants, we use linear regression:</p>
+<ul>
+<li>to <strong>explain</strong> relationships between dependent and independent variables, trying to find if we can assert that regression coefficients <span class="math inline">\(\beta_j\)</span> are significantly different from zero.</li>
+<li>to <strong>predict</strong> the dependent variable, in the context of supervised learning.</li>
+</ul>
+<p>The above equations are defined for the whole population. We usually have a sample, from which we can make statistical inferences about the regression coefficients. We will never know <span class="math inline">\(\beta_j\)</span>, but its estimator <span class="math inline">\(b_j\)</span>:</p>
+<p><span class="math display">\[ y_i = b_0 + b_1x_{i1} + \dots + b_px_{ip} + e_i  \]</span></p>
+<p>From these estimators, we can find predictors <span class="math inline">\(\hat{y}_i\)</span> for each observation, as an alternative of estimating all observations through the mean <span class="math inline">\(\bar{y}\)</span>:</p>
+<p><span class="math display">\[ \hat{y}_i = b_0 + b_1x_{i1} + \dots + b_px_{ip} + e_i  \]</span></p>
+<p><span class="math display">\[ y_i = \hat{y}_i + e_i \]</span></p>
+<p>The most common way of obtaining the estimators <span class="math inline">\(b_j\)</span> is through <strong>ordinary least squares (OLS)</strong>. These are the estimators that minimize:</p>
+<p><span class="math display">\[ \sum e_i^2 \]</span></p>
+<div id="linear-regression-on-mtcars" class="section level2">
+<h2>Linear regression on mtcars</h2>
+<p>R has a built-in function <code>lm</code> that calculates the OLS estimators for a set of dependent and independent variables. We don’t need any package for <code>lm</code>, but we will use some packages:</p>
+<ul>
+<li>the <code>tidyverse</code> for data handling and plotting,</li>
+<li><code>broom</code> to tidy the output of lm</li>
+<li>and <code>ggfortify</code> to present some plots for the linear model.</li>
+</ul>
+<pre class="r"><code>library(tidyverse)
+library(broom)
+library(ggfortify)</code></pre>
+<p>I will examine the <code>mtcars</code> dataset, to find an explanatory model of fuel consumption <code>mpg</code>.</p>
+<pre class="r"><code>mtcars %&gt;% glimpse()</code></pre>
+<pre><code>## Rows: 32
+## Columns: 11
+## $ mpg  &lt;dbl&gt; 21.0, 21.0, 22.8, 21.4, 18.7, 18.1, 14.3, 24.4, 22.8, 19.2, 17.8,…
+## $ cyl  &lt;dbl&gt; 6, 6, 4, 6, 8, 6, 8, 4, 4, 6, 6, 8, 8, 8, 8, 8, 8, 4, 4, 4, 4, 8,…
+## $ disp &lt;dbl&gt; 160.0, 160.0, 108.0, 258.0, 360.0, 225.0, 360.0, 146.7, 140.8, 16…
+## $ hp   &lt;dbl&gt; 110, 110, 93, 110, 175, 105, 245, 62, 95, 123, 123, 180, 180, 180…
+## $ drat &lt;dbl&gt; 3.90, 3.90, 3.85, 3.08, 3.15, 2.76, 3.21, 3.69, 3.92, 3.92, 3.92,…
+## $ wt   &lt;dbl&gt; 2.620, 2.875, 2.320, 3.215, 3.440, 3.460, 3.570, 3.190, 3.150, 3.…
+## $ qsec &lt;dbl&gt; 16.46, 17.02, 18.61, 19.44, 17.02, 20.22, 15.84, 20.00, 22.90, 18…
+## $ vs   &lt;dbl&gt; 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0,…
+## $ am   &lt;dbl&gt; 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0,…
+## $ gear &lt;dbl&gt; 4, 4, 4, 3, 3, 3, 3, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 4, 4, 4, 3, 3,…
+## $ carb &lt;dbl&gt; 4, 4, 1, 1, 2, 1, 4, 2, 2, 4, 4, 3, 3, 3, 4, 4, 4, 1, 2, 1, 1, 2,…</code></pre>
+<p>I will transform variables from <code>vs</code> to <code>carb</code> to factors, as they are categoric rather than numeric:</p>
+<pre class="r"><code>mtcars &lt;- mtcars %&gt;%
+  mutate_at(vars(vs:carb), as.factor)</code></pre>
+</div>
+<div id="a-regression-model" class="section level2">
+<h2>A regression model</h2>
+<p>Let’s examine a linear regression model that includes all the possible independent variables. The inputs of <code>lm</code> are:</p>
+<ul>
+<li>a <strong>formula</strong> <code>mpg ~ .</code> meaning that <code>mpg</code> is the dependent variable and the rest of variables of the dataset are the independent variables.</li>
+<li>a <strong>data frame</strong> <code>mtcars</code> with data to build the model. Formula variables must match column names of the data frame.</li>
+</ul>
+<p>Unlike other statistical software like Stata or SPSS, we store the result of estimating the model into a variable <code>mod0</code>.</p>
+<pre class="r"><code>mod0 &lt;- lm(mpg ~ ., mtcars)</code></pre>
+<p>The standard way of presenting the results of a linear model is through <code>summary</code>:</p>
+<pre class="r"><code>summary(mod0)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = mpg ~ ., data = mtcars)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -3.6533 -1.3325 -0.5166  0.7643  4.7284 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)  
+## (Intercept) 25.31994   23.88164   1.060   0.3048  
+## cyl         -1.02343    1.48131  -0.691   0.4995  
+## disp         0.04377    0.03058   1.431   0.1716  
+## hp          -0.04881    0.03189  -1.531   0.1454  
+## drat         1.82084    2.38101   0.765   0.4556  
+## wt          -4.63540    2.52737  -1.834   0.0853 .
+## qsec         0.26967    0.92631   0.291   0.7747  
+## vs1          1.04908    2.70495   0.388   0.7032  
+## am1          0.96265    3.19138   0.302   0.7668  
+## gear4        1.75360    3.72534   0.471   0.6442  
+## gear5        1.87899    3.65935   0.513   0.6146  
+## carb2       -0.93427    2.30934  -0.405   0.6912  
+## carb3        3.42169    4.25513   0.804   0.4331  
+## carb4       -0.99364    3.84683  -0.258   0.7995  
+## carb6        1.94389    5.76983   0.337   0.7406  
+## carb8        4.36998    7.75434   0.564   0.5809  
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 2.823 on 16 degrees of freedom
+## Multiple R-squared:  0.8867, Adjusted R-squared:  0.7806 
+## F-statistic: 8.352 on 15 and 16 DF,  p-value: 6.044e-05</code></pre>
+<p>The summary includes:</p>
+<ul>
+<li>The <strong>function call</strong>.</li>
+<li>A summary of the <strong>residuals</strong> <span class="math inline">\(e_i\)</span>.</li>
+<li>The <strong>estimators of coefficients</strong>, and the <em>p</em>-value of the null hypothesis that each regression coefficient is zero. In this case all <em>p</em>-values are above 0.05, therefore we don’t know if any of the coefficients is different from zero.</li>
+<li>Some parameters of <strong>overall significance</strong> of the model: the coefficient of determination (raw and adjusted), and a F-test indicating if the regression model explains the dependent variable better than the mean. Values of the adjusted coefficient of determination close to one and small values of <em>p</em>-value suggest good fit.</li>
+</ul>
+<p>In this case we observe that the model is significant (if we take the usual convention that the <em>p</em>-value should be below 0.05), but that none of the coefficients is. This may arise because lack of statistical power (<code>mtcars</code> is a small dataset) or because of correlation among dependent variables.</p>
+<p>The <code>broom</code> package offers an alternative way of presenting the output of statistical analysis. The package works through three functions:</p>
+<ul>
+<li><code>tidy</code> presents parameter estimators,</li>
+<li><code>glance</code> overall model significance estimators,</li>
+<li>and <code>augment</code> adds information to the dataset.</li>
+</ul>
+<p>The output of these functions is a tibble, with a content depending of the examined model. Let’s see the outcome of <code>tidy</code> and <code>glance</code> for this model:</p>
+<pre class="r"><code>tidy(mod0)</code></pre>
+<pre><code>## # A tibble: 16 x 5
+##    term        estimate std.error statistic p.value
+##    &lt;chr&gt;          &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;   &lt;dbl&gt;
+##  1 (Intercept)  25.3      23.9        1.06   0.305 
+##  2 cyl          -1.02      1.48      -0.691  0.500 
+##  3 disp          0.0438    0.0306     1.43   0.172 
+##  4 hp           -0.0488    0.0319    -1.53   0.145 
+##  5 drat          1.82      2.38       0.765  0.456 
+##  6 wt           -4.64      2.53      -1.83   0.0853
+##  7 qsec          0.270     0.926      0.291  0.775 
+##  8 vs1           1.05      2.70       0.388  0.703 
+##  9 am1           0.963     3.19       0.302  0.767 
+## 10 gear4         1.75      3.73       0.471  0.644 
+## 11 gear5         1.88      3.66       0.513  0.615 
+## 12 carb2        -0.934     2.31      -0.405  0.691 
+## 13 carb3         3.42      4.26       0.804  0.433 
+## 14 carb4        -0.994     3.85      -0.258  0.799 
+## 15 carb6         1.94      5.77       0.337  0.741 
+## 16 carb8         4.37      7.75       0.564  0.581</code></pre>
+<pre class="r"><code>glance(mod0) %&gt;% glimpse()</code></pre>
+<pre><code>## Rows: 1
+## Columns: 12
+## $ r.squared     &lt;dbl&gt; 0.886746
+## $ adj.r.squared &lt;dbl&gt; 0.7805703
+## $ sigma         &lt;dbl&gt; 2.823223
+## $ statistic     &lt;dbl&gt; 8.351689
+## $ p.value       &lt;dbl&gt; 6.044113e-05
+## $ df            &lt;dbl&gt; 15
+## $ logLik        &lt;dbl&gt; -67.52781
+## $ AIC           &lt;dbl&gt; 169.0556
+## $ BIC           &lt;dbl&gt; 193.9731
+## $ deviance      &lt;dbl&gt; 127.5294
+## $ df.residual   &lt;int&gt; 16
+## $ nobs          &lt;int&gt; 32</code></pre>
+</div>
+<div id="a-simpler-regression-model" class="section level2">
+<h2>A simpler regression model</h2>
+<p>Let’s try a explanatory model of fuel consumption <code>mpg</code> considering car weight <code>wt</code> only:</p>
+<pre class="r"><code>mod1 &lt;- lm(mpg ~ wt, mtcars)</code></pre>
+<p>We see that the regression coefficients of the intercept and <code>wt</code> are significant in this model:</p>
+<pre class="r"><code>tidy(mod1)</code></pre>
+<pre><code>## # A tibble: 2 x 5
+##   term        estimate std.error statistic  p.value
+##   &lt;chr&gt;          &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;
+## 1 (Intercept)    37.3      1.88      19.9  8.24e-19
+## 2 wt             -5.34     0.559     -9.56 1.29e-10</code></pre>
+<p>and that the overall significance of the model is higher than <code>mod0</code>:</p>
+<pre class="r"><code>glance(mod1) %&gt;% select(r.squared, adj.r.squared, p.value)</code></pre>
+<pre><code>## # A tibble: 1 x 3
+##   r.squared adj.r.squared  p.value
+##       &lt;dbl&gt;         &lt;dbl&gt;    &lt;dbl&gt;
+## 1     0.753         0.745 1.29e-10</code></pre>
+</div>
+<div id="graphical-diagnostics" class="section level2">
+<h2>Graphical diagnostics</h2>
+<p>This new, simpler model looks convincing: we expect higher fuel consumption for weighter vehicles. But to confirm that the model is adequate, we need to do <strong>residual diagnostics</strong> to confirm that:</p>
+<ul>
+<li>Residuals have mean zero and constant variance across predicted values <span class="math inline">\(\hat{y}_i\)</span>. We check that with a residuals vs fitted values plot.</li>
+<li>Residuals are distributed normally. We check that with a <a href="https://en.wikipedia.org/wiki/Q%E2%80%93Q_plot">QQ-plot</a>.</li>
+</ul>
+<p>We can obtain these plots in R base doing <code>plot(mod1, which = 1)</code> and <code>plot(mod2, which = 2)</code>. But we can obtain prettier versions of them with the <code>autoplot</code> function of <code>ggfortify</code>:</p>
+<pre class="r"><code>autoplot(mod1, which = 2:1, ncol = 2, label.size = 3)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>In the first plot we observe that residuals are reasonably normal. From the second plot we learn that the mean of residuals is larger for extreme values of <span class="math inline">\(\hat{y}_i\)</span> than for central values. This suggests that the relationship between weight and fuel consumption is not linear. Let’s examine that with an alternative model.</p>
+</div>
+<div id="a-quadratic-model" class="section level2">
+<h2>A quadratic model</h2>
+<p>We can examine nonlinear relationships with linear regressions adding powered values of independent variables. As these powers tend to be correlated with the original value, it is better to use <strong>orthogonal polynomials</strong> (orthogonal means non-correlated) using the <code>poly</code> function.</p>
+<pre class="r"><code>mod2 &lt;- lm(mpg ~ poly(wt, 2), mtcars)</code></pre>
+<p>Let’s examine the regression coefficients:</p>
+<pre class="r"><code>tidy(mod2)</code></pre>
+<pre><code>## # A tibble: 3 x 5
+##   term         estimate std.error statistic  p.value
+##   &lt;chr&gt;           &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;
+## 1 (Intercept)     20.1      0.469     42.9  8.75e-28
+## 2 poly(wt, 2)1   -29.1      2.65     -11.0  7.52e-12
+## 3 poly(wt, 2)2     8.64     2.65       3.26 2.86e- 3</code></pre>
+<p>We observe that the regression coefficients of the first- and second-order terms are significantly different from zero. Let’s examine the residual diagnostics again:</p>
+<pre class="r"><code>autoplot(mod2, which = 1:2, ncol = 2, label.size = 3)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-13-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Now we see that now the residuals behave more smoothly, although we observe some outliers in the first plot. We take advantage that <code>glance</code> returns us a tibble to together the overall signficance metrics of the three models:</p>
+<pre class="r"><code>bind_rows(glance(mod0) %&gt;% mutate(model = &quot;all vars&quot;), 
+          glance(mod1) %&gt;% mutate(model = &quot;wt&quot;), 
+          glance(mod2) %&gt;% mutate(model = &quot;wt squared&quot;)) %&gt;%
+  select(model, r.squared, adj.r.squared, p.value)</code></pre>
+<pre><code>## # A tibble: 3 x 4
+##   model      r.squared adj.r.squared  p.value
+##   &lt;chr&gt;          &lt;dbl&gt;         &lt;dbl&gt;    &lt;dbl&gt;
+## 1 all vars       0.887         0.781 6.04e- 5
+## 2 wt             0.753         0.745 1.29e-10
+## 3 wt squared     0.819         0.807 1.71e-11</code></pre>
+<p>The adjusted coefficient of determination increases as we build more accurate linear regression models. So we can conclude that <code>mod2</code> is the best explanatory model of <code>mpg</code> among the ones we have tested.</p>
+<p><em>Built with R 4.0.3, tidyverse 1.3.0, broom 0.7.5 and ggoftify 0.4.11</em></p>
+</div>

@@ -109,16 +109,14 @@ bh_split &lt;- initial_split(BostonHousing, p = 0.7, strata = &quot;medv&quot;)<
 
 bh_lm_wf &lt;- workflow() %&gt;%
   add_recipe(bh_recipe) %&gt;%
-  add_model(bh_lm) %&gt;%
-  fit(training(bh_split))
+  add_model(bh_lm)
 
 bh_rt &lt;- decision_tree(mode = &quot;regression&quot;) %&gt;%
   set_engine(&quot;rpart&quot;)
 
 bh_rt_wf &lt;- workflow() %&gt;%
   add_recipe(bh_recipe) %&gt;%
-  add_model(bh_rt) %&gt;%
-  fit(training(bh_split))</code></pre>
+  add_model(bh_rt)</code></pre>
 </div>
 <div id="comparing-models-with-cross-validation" class="section level2">
 <h2>Comparing models with cross validation</h2>

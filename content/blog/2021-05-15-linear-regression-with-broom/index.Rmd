@@ -1,0 +1,183 @@
+---
+title: Linear regression with broom
+author: Jose M Sallan
+date: '2021-05-15'
+slug: linear-regression-with-broom
+categories:
+  - R
+tags:
+  - tidymodels
+  - linear regression
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+**Linear regression** si about finding a linear relationship between:
+
+* a **dependent variable**, also called endogenous, response or criterion $y$
+* and a set $p$ of **independent variables**, sometimes called exogenous or predictor $x_j$.
+
+The posited relationship can be represented as:
+
+\[ y_i = \beta_0 + \beta_1x_{i1} + \dots + \beta_px_{ip} + \varepsilon_i  \]
+
+Linear regression is one of the more powerful tools of statistical data analysis. In its many variants, we use linear regression:
+
+* to **explain** relationships between dependent and independent variables, trying to find if we can assert that regression coefficients $\beta_j$ are significantly different from zero.
+* to **predict** the dependent variable, in the context of supervised learning.
+
+The above equations are defined for the whole population. We usually have a sample, from which we can make statistical inferences about the regression coefficients. We will never know $\beta_j$, but its estimator $b_j$:
+
+$$ y_i = b_0 + b_1x_{i1} + \dots + b_px_{ip} + e_i  $$
+
+From these estimators, we can find predictors $\hat{y}_i$ for each observation, as an alternative of estimating all observations through the mean $\bar{y}$:
+
+\[ \hat{y}_i = b_0 + b_1x_{i1} + \dots + b_px_{ip} + e_i  \]
+
+\[ y_i = \hat{y}_i + e_i \]
+
+The most common way of obtaining the estimators $b_j$ is through **ordinary least squares (OLS)**. These are the estimators that minimize:
+
+\[ \sum e_i^2 \]
+
+
+## Linear regression on mtcars
+
+R has a built-in function `lm` that calculates the OLS estimators for a set of dependent and independent variables. We don't need any package for `lm`, but we will use some packages:
+
+* the `tidyverse` for data handling and plotting,
+* `broom` to tidy the output of lm
+* and `ggfortify` to present some plots for the linear model.
+
+```{r}
+library(tidyverse)
+library(broom)
+library(ggfortify)
+```
+
+I will examine the `mtcars` dataset, to find an explanatory model of fuel consumption `mpg`.
+
+```{r}
+mtcars %>% glimpse()
+```
+
+I will transform variables from `vs` to `carb` to factors, as they are categoric rather than numeric:
+
+```{r}
+mtcars <- mtcars %>%
+  mutate_at(vars(vs:carb), as.factor)
+```
+
+## A regression model
+
+Let's examine a linear regression model that includes all the possible independent variables. The inputs of `lm` are:
+
+* a **formula** `mpg ~ .` meaning that `mpg` is the dependent variable and the rest of variables of the dataset are the independent variables.
+* a **data frame** `mtcars` with data to build the model. Formula variables must match column names of the data frame.
+
+Unlike other statistical software like Stata or SPSS, we store the result of estimating the model into a variable `mod0`.
+
+```{r}
+mod0 <- lm(mpg ~ ., mtcars)
+```
+
+The standard way of presenting the results of a linear model is through `summary`:
+
+```{r}
+summary(mod0)
+```
+
+The summary includes:
+
+* The **function call**.
+* A summary of the **residuals** $e_i$.
+* The **estimators of coefficients**, and the *p*-value of the null hypothesis that each regression coefficient is zero. In this case all *p*-values are above 0.05, therefore we don't know if any of the coefficients is different from zero.
+* Some parameters of **overall significance** of the model: the coefficient of determination (raw and adjusted), and a F-test indicating if the regression model explains the dependent variable better than the mean. Values of the adjusted coefficient of determination close to one and small values of *p*-value suggest good fit.
+
+In this case we observe that the model is significant (if we take the usual convention that the *p*-value should be below 0.05), but that none of the coefficients is. This may arise because lack of statistical power (`mtcars` is a small dataset) or because of correlation among dependent variables.
+
+The `broom` package offers an alternative way of presenting the output of statistical analysis. The package works through three functions:
+
+* `tidy` presents parameter estimators,
+* `glance` overall model significance estimators,
+* and `augment` adds information to the dataset.
+
+The output of these functions is a tibble, with a content depending of the examined model. Let's see the outcome of `tidy` and `glance` for this model:
+
+```{r}
+tidy(mod0)
+glance(mod0) %>% glimpse()
+```
+
+## A simpler regression model
+
+Let's try a explanatory model of fuel consumption `mpg` considering car weight `wt` only:
+
+```{r}
+mod1 <- lm(mpg ~ wt, mtcars)
+```
+
+We see that the regression coefficients of the intercept and `wt` are significant in this model:
+
+```{r}
+tidy(mod1)
+```
+
+and that the overall significance of the model is higher than `mod0`:
+
+```{r}
+glance(mod1) %>% select(r.squared, adj.r.squared, p.value)
+```
+
+## Graphical diagnostics
+
+This new, simpler model looks convincing: we expect higher fuel consumption for weighter vehicles. But to confirm that the model is adequate, we need to do **residual diagnostics** to confirm that:
+
+* Residuals have mean zero and constant variance across predicted values $\hat{y}_i$. We check that with a residuals vs fitted values plot.
+* Residuals are distributed normally. We check that with a [QQ-plot](https://en.wikipedia.org/wiki/Q%E2%80%93Q_plot).
+
+We can obtain these plots in R base doing `plot(mod1, which = 1)` and `plot(mod2, which = 2)`. But we can obtain prettier versions of them with the `autoplot` function of `ggfortify`:
+
+```{r, fig.align='center'}
+autoplot(mod1, which = 2:1, ncol = 2, label.size = 3)
+```
+
+In the first plot we observe that residuals are reasonably normal. From the second plot we learn that the mean of residuals is larger for extreme values of $\hat{y}_i$ than for central values. This suggests that the relationship between weight and fuel consumption is not linear. Let's examine that with an alternative model.
+
+## A quadratic model
+
+We can examine nonlinear relationships with linear regressions adding powered values of independent variables. As these powers tend to be correlated with the original value, it is better to use **orthogonal polynomials** (orthogonal means non-correlated) using the `poly` function.
+
+```{r}
+mod2 <- lm(mpg ~ poly(wt, 2), mtcars)
+```
+
+Let's examine the regression coefficients:
+
+```{r}
+tidy(mod2)
+```
+
+We observe that the regression coefficients of the first- and second-order terms are significantly different from zero. Let's examine the residual diagnostics again:
+
+
+```{r, fig.align='center'}
+autoplot(mod2, which = 1:2, ncol = 2, label.size = 3)
+```
+
+Now we see that now the residuals behave more smoothly, although we observe some outliers in the first plot. We take advantage that `glance` returns us a tibble to together the overall signficance metrics of the three models:
+
+```{r}
+bind_rows(glance(mod0) %>% mutate(model = "all vars"), 
+          glance(mod1) %>% mutate(model = "wt"), 
+          glance(mod2) %>% mutate(model = "wt squared")) %>%
+  select(model, r.squared, adj.r.squared, p.value)
+```
+
+The adjusted coefficient of determination increases as we build more accurate linear regression models. So we can conclude that `mod2` is the best explanatory model of `mpg` among the ones we have tested.
+
+*Built with R 4.0.3, tidyverse 1.3.0, broom 0.7.5 and ggoftify 0.4.11*

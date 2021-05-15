@@ -97,16 +97,14 @@ bh_lm <- linear_reg(mode = "regression") %>%
 
 bh_lm_wf <- workflow() %>%
   add_recipe(bh_recipe) %>%
-  add_model(bh_lm) %>%
-  fit(training(bh_split))
+  add_model(bh_lm)
 
 bh_rt <- decision_tree(mode = "regression") %>%
   set_engine("rpart")
 
 bh_rt_wf <- workflow() %>%
   add_recipe(bh_recipe) %>%
-  add_model(bh_rt) %>%
-  fit(training(bh_split))
+  add_model(bh_rt)
 ```
 
 ## Comparing models with cross validation
