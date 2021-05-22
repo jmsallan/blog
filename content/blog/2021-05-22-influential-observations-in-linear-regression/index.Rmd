@@ -1,0 +1,155 @@
+---
+title: Influential observations in linear regression
+author: Jose M Sallan
+date: '2021-05-22'
+slug: influential-observations-in-linear-regression
+categories:
+  - R
+tags:
+  - linear regression
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(broom)
+```
+
+When we are fitting a statistical model, we can be interested in finding what is the **influence** of an observation on the model. An observation with high influence will affect substantially the value of the parameter estimates.
+
+Let's examine the influence of observations in the context of linear regression of an dependent variable $y$ on a set of dependent variables $x_1, \dots, x_p$:
+
+\[ y_i = \beta_0 + \beta_1x_{i1} + \dots + \beta_px_{ip} + \varepsilon_i  \]
+
+We cannot know the population parameters of the above formula, but its estimators:
+
+\[ y_i = b_0 + b_1x_{i1} + \dots + b_px_{ip} + e_i = \hat{y}_i + e_i \]
+
+One can think that all **outliers** (observations with abnormal values) will be influent observations. But in linear regression, it is frequent that only outliers with high **leverage** have large influence on parameter estimates. Leverage is a measure of how far away the independent variable values of an observation are from those of the other observations. 
+
+Let's see an example of univariate regression (a single dependent variable x) to clarify these concepts. The red points are 100 normal observations, while observations **A** to **D** are added to exemplify leverage and influence.
+
+```{r, echo=FALSE}
+set.seed(1414)
+n <- 100
+x <- rnorm(n)
+y <- x + rnorm(n, sd=0.3)
+label <- rep("normal", 100)
+
+data1 <- data.frame(x = x, y = y, color = 1, label = rep("normal", 100))
+
+data2 <- data.frame(x = c(0, 0, 5, 5), y = c(0, 5, 5, 0), color = 2, label = LETTERS[1:4])
+
+data <- bind_rows(data1, data2)
+
+ggplot(data, aes(x, y, color = factor(color))) +
+  geom_point(size = 2) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "#808080") +
+  theme_classic() +
+  geom_text(data = data2, aes(x, y, label = label), nudge_x = 0.25, color = "black", size = 5) +
+  scale_color_manual(values = c("#FF6666", "#6666FF")) +
+  theme(legend.position = "none")
+```
+
+Examining the plot, we see that:
+
+* Observation **A** is not an outlier, points **B**, **C** and **D** are.
+* Observation **B** is a low-leverage, low-influence point.
+* Observation **C** is a high-leverage, low-influence point.
+* Observation **D** is a high-leverage, high-influence point.
+
+## Evaluating influence and leverage
+
+With larger multivariate samples, we need numerical parameters to estinate influence and leverage. **Cook's distance** is a measure of influence that compares fitted values $\hat{y}_j$ with fitted values obtained when observation $i$ is retrieved from the sample $\hat{y} _{j \left( i \right)}$:
+
+\[  D_i = \frac{\sum_{j=1}^n \left( \hat{y}_j -  \hat{y} _{j \left( i \right)}\right)^2}{p s^2}  \]
+
+where $s^2$ is the observed variance of the residuals.
+
+The leverage of an observation is obtained from the diagonal elements of the **hat matrix**, that relates fitted values with observed values. In vectorial notation:
+
+\[ \mathbf{\hat{y}} = \mathbf{X} \left( \mathbf{X}^T\mathbf{X}  \right)^{-1} \mathbf{X}^T \mathbf{y}=  \mathbf{H} \mathbf{y} \]
+
+where $\mathbf{X}$ is the design matrix, whose rows correspond to observations and columns to independent variables. The elements of the first column of $\mathbf{X}$ are associated with the intercept and are all equal to one.
+
+The **leverage** of an observation $i$ is equal to:
+
+\[ h_{ii} = \frac{\partial \hat{y}_i}{\partial{y_i}} \]
+
+Observations with high leverage will have values of independent variables far from the other variables. This is the case of observations **C** and **D** of the above figure.
+
+Cook's distance and leverage are related through the expression:
+
+\[ D_i = \frac{e_i^2}{ps^2} \left[ \frac{h_{ii}}{\left( 1- h_{ii} \right)^2} \right]  \]
+
+From this expression we learn that an influential observation must have a high leverage *and* a high value of residual. In the above plot, observation **D** is the one with high values of residuals and leverage.
+
+## Examining influence and leverage
+
+Let's see how can we obtain Cook's distance and leverage with the `broom` package. First we obtain the ordinary least squares estimators of the linear regression model doing:
+
+```{r}
+mod <- lm(y ~ x, data)
+```
+
+The augment function of `broom` provides additional information for each observation:
+
+* variable `.hat` is equal to leverage.
+* variable `.cooksd` is equal to Cook's distance.
+
+```{r}
+augment(mod)
+```
+
+We can plot those variables in a leverage versus influence plot:
+
+```{r, echo=FALSE}
+data <- bind_cols(data, augment(mod) %>% select(starts_with(".")))
+ggplot(data, aes(.hat, .cooksd, color = factor(color))) +
+  geom_point() +
+  geom_text(data = data %>% filter(label != "normal"), aes(.hat, .cooksd, label = label), color = "black", nudge_x = 0.003, size = 5) +
+  theme_classic() +
+  scale_color_manual(values = c("#FF6666", "#6666FF")) +
+  labs(x = "leverage", y = "influence") +
+  theme(legend.position = "none")
+```
+
+We observe that point **D** is the only influential observation, with a high value of Cook's distance. For large samples, observations with $D_i > 1$ can be considered highly influential.
+
+## Examining influence and leverage with the olsrr package
+
+The [`olsrr` package](https://olsrr.rsquaredacademy.com/) provides a set of tools to build and examine ordinary least squares regression models. Let's examine [how to obtain measures of influence using `olsrr`](https://cran.r-project.org/web/packages/olsrr/vignettes/influence_measures.html).
+
+```{r}
+library(olsrr)
+```
+
+The functions `ols_plot_cooksd_bar` and `ols_plot_cooksd_chart` allows examining Cook's distances:
+
+```{r}
+ols_plot_cooksd_chart(mod)
+```
+
+The function `ols_plot_dfbetas` allows examining how the removal of each observation affects parameter estimates
+
+```{r}
+ols_plot_dfbetas(mod)
+```
+
+From these plots, we learn that observation **B** (labelled here as 102) is the one affecting the intercept the most, while observation **D** or 104 is the one with more influence on the relationship between variables $y$ and $x$.
+
+## Leverage and influence
+
+In linear regression, the **leverage** of an observation measures how fare are its values of the independent variables from the rest of observations, while **influence** measures how much affects the observation to parameter estimates. Cook's distance is the most used measure of influence. To be influential, an observation must have large values of leverage and residual. We can obtain values of leverage and Cook's distance from the augment function of the `broom` package.
+
+[R code of this post](/code/cook_leverage.R)
+
+*Built with R 4.0.3, tidyverse 1.3.0, broom 0.7.5 and olsrr 0.5.3*
+
+
