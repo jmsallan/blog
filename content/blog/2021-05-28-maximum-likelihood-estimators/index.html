@@ -1,0 +1,69 @@
+---
+title: Maximum likelihood estimates
+author: Jose M Sallan
+date: '2021-05-28'
+slug: maximum-likelihood-estimators
+categories:
+  - statistics
+tags:
+  - linear regression
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>A common problem of statistics is to make inferences about the parameters of a probability distribution. By inference, or <strong>statistical inference</strong>, we mean to deduce properties of a population from a sample. A example of inference is to estimate the mean height of the inhabitants of a country from a sample or subset of individuals of that country.</p>
+<p>To make statistical inferences, we need to make assumptions about the joint probability distribution of the observations. This <strong>joint probability distribution</strong> is the probability to observe a sample given fixed values of the parameters of the distribution. Following with the mean height example, the central limit theorem asserts that the mean of the height of a sample of individuals picked randomly follows a normal distribution, with mean equal to the population mean. So we make the assumption that the sample mean follows a normal distribution.</p>
+<p>When we make statistical inferences, we have a fixed set of observations, and our job is to obtain estimators of the parameters. Then we turn the joint probability distribution into a likelihood function. The <strong>likelihood function</strong> is the probability of some estimated values of the parameters, given fixed values of the random variables. We often consider that the <strong>maximum likelihood estimates</strong> of the parameters are the best values we can choose in statistical inference.</p>
+<div id="maximum-likelihood-estimates-of-a-binomial-event" class="section level2">
+<h2>Maximum likelihood estimates of a binomial event</h2>
+<p>Let’s suppose that we have a population of red and white balls, and that a ball is red with an unknown probability <span class="math inline">\(p\)</span>. This <span class="math inline">\(p\)</span> is the parameter of a binomial probability distribution, that gives us the probability that <span class="math inline">\(k\)</span> out of <span class="math inline">\(n\)</span> balls are red as:</p>
+<p><span class="math display">\[ P\left[ \left( n, k \right), p  \right] = \binom{n}{k} p^k \left( 1 - p \right)^\left( n-k \right) \]</span></p>
+<p>Let’s suppose now that we take 5 balls from the population, and that two are red and three white. We are observing that <span class="math inline">\(n=5\)</span> and <span class="math inline">\(k=2\)</span>, so the likelihood function for this population is:</p>
+<p><span class="math display">\[ \mathcal{L} \left[ p, \left( 5, 2 \right)  \right] = \binom{5}{2} p^2 \left( 1 - p \right)^3 \]</span></p>
+<p>The value of <span class="math inline">\(p\)</span> that maximizes <span class="math inline">\(\mathcal{L} \left( p \right)\)</span> will be the maximum likelihood estimator of the probability of the population. Let’s represent the likelihood function:</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
+<p>It is likely that you are not surprised when you learn that the maximum likelihood estimator of <span class="math inline">\(p\)</span> is <span class="math inline">\(2/5 = 0.4\)</span>.</p>
+</div>
+<div id="maximum-likelihood-estimates-of-a-normal-distribution" class="section level2">
+<h2>Maximum likelihood estimates of a normal distribution</h2>
+<p>Let’s suppose now that we have a sample of <span class="math inline">\(n\)</span> independent observations <span class="math inline">\(\mathbf{x} = \left\{ x_1, \dots, x_n \right\}\)</span> from a normal distribution with un{kown population mean <span class="math inline">\(\mu\)</span> and population variance <span class="math inline">\(\sigma^2\)</span>. The density probability function of this variable is the <strong>Gaussian function</strong>:</p>
+<p><span class="math display">\[ P \left( x, \left( \mu, \sigma \right) \right) = \frac{1}{\sigma \sqrt{2\pi}} \text{exp}\left[ - \frac{\left( x - \mu \right)^2}{2 \sigma^2} \right] \]</span></p>
+<p>If the observations of <span class="math inline">\(\mathbf{x}\)</span> are independent and coming from the same normal distribution <span class="math inline">\(N\left( \mu, \sigma \right)\)</span>, the probability of joint ocurrrence is equal to the product of the values of the Gaussian function for each observation. Then, we can define the likelihood function as:</p>
+<p><span class="math display">\[  \mathcal{L} \left[ \left( \mu, \sigma \right), \mathbf{x} \right] = \prod_{i=1}^n \frac{1}{\sigma \sqrt{2\pi}} \text{exp}\left[ - \frac{\left( x_i - \mu \right)^2}{2 \sigma^2} \right] \]</span></p>
+<p>Finding the minimum of this function can be hard. A way of making this easier is to minimize the logarithm of the likelihood function. This arises frequently when we are dealing with likelihood functions with normal distributions, and it is known as <strong>log likelihood</strong> function <span class="math inline">\(\mathcal{l} \left[ \left( \mu, \sigma \right), \mathbf{x} \right]\)</span>. We can use the log likelihood instead of the likelihood because the logarithm is a monotonous function.</p>
+<p>The log of the above likelihood function is:</p>
+<p><span class="math display">\[ \mathcal{l} \left[ \left( \mu, \sigma \right), \mathbf{x} \right] = - \frac{n}{2}ln\left( 2\pi \right)  - \frac{n}{2}ln \left( \sigma^2 \right) - \frac{1}{2 \sigma^2} \sum_{i=1}^n \left( x_i - \mu \right)^2 \]</span></p>
+<p>To obtain the maximum likelihood estimates of mean and variance <span class="math inline">\(\hat{mu}\)</span> we equal to zero the partial derivative:</p>
+<p><span class="math display">\[ \frac{\partial \mathcal{l}}{ \partial \mu } = - \frac{1}{ \sigma^2} \sum_{i=1}^n \left( x_i - \mu \right) = 0 \]</span></p>
+<p><span class="math display">\[ \hat{\mu} = \frac{1}{n} \sum_{i=1}^n x_i  \]</span></p>
+<p>We proceed in a similar way to obtain the maximum likelihood estimator of the variance:</p>
+<p><span class="math display">\[ \frac{\partial \mathcal{l}}{ \partial \sigma^2 } = \frac{1}{2 \sigma^2} \left[ \frac{1}{\sigma^2} \sum_{i=1}^n \left( x_i - \mu \right)^2 - n \right] \]</span></p>
+<p><span class="math display">\[ \hat{\sigma}^2  = \frac{1}{n} \sum_{i=1}^n \left( x_i - \hat{\mu} \right)^2 \]</span></p>
+</div>
+<div id="maximum-likelihood-estimates-in-linear-regression" class="section level2">
+<h2>Maximum likelihood estimates in linear regression</h2>
+<p>Let’s move now to the linear regression model:</p>
+<p><span class="math display">\[ y_i = \beta_0 + \beta_1x_{i1} + \dots + \beta_px_{ip} + \varepsilon_i  \]</span></p>
+<p>Coefficients <span class="math inline">\(\beta_0, \dots, \beta_p\)</span> are population coefficients, that we can estimate through <span class="math inline">\(b_0, \dots, b_p\)</span> estimators. Let’s consider the residuals obtained when using those estimators:</p>
+<p><span class="math display">\[ e_i = y_i - b_0 - b_1x_{i1} - \dots - b_px_{ip} \]</span></p>
+<p>Let’s make some assumptions about residuals:</p>
+<ul>
+<li>observations are <strong>independent</strong>: this means that the residuals of an observation do not depend on other observations, or on exogenous variable (e.g., time) not considered in the model.</li>
+<li>residuals follow a <strong>normal distribution</strong> <span class="math inline">\(e_i \sim N\left( 0, \sigma \right)\)</span>: a normal distribution, with population mean zero and constant variance <span class="math inline">\(\sigma^2\)</span>.</li>
+</ul>
+<p>Given these assumptions, the likelihood function of the residuals is:</p>
+<p><span class="math display">\[ \mathcal{L} \left[  \left(  \sigma, \mu \right), \mathbf{e} \right] = \prod_{i=1}^3 \frac{1}{\sigma \sqrt{2\pi}} \text{exp}\left( \frac{e_i^2}{2 \sigma^2} \right) \]</span></p>
+<p>And its log likelihood:</p>
+<p><span class="math display">\[  \mathcal{l} \left[  \left(  \sigma, \mu \right), \mathbf{e} \right] = - \frac{n}{2}ln\left( 2\pi \right)  - \frac{n}{2}ln \left( \sigma^2 \right) - \frac{1}{2\sigma^2} \sum_{i=1}^i e_i^2 \]</span>
+dd
+If the above assumptions about residuals are valid, maximizing the log likelihood is the same as minimizing sum of squared residuals. This means that the <strong>ordinary least squeres (OLS)</strong> estimates are the maximum likelihood estimates of the coefficients of the linear regression model if <span class="math inline">\(e_i \sim N\left( 0, \sigma \right)\)</span>, that is, if the residuals follow a normal distribution with constant variance.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Taboga, Marco (2017). Normal distribution - Maximum Likelihood Estimation, <em>Lectures on probability theory and mathematical statistics</em>, Third edition. Kindle Direct Publishing. Online appendix. <a href="https://www.statlect.com/fundamentals-of-statistics/normal-distribution-maximum-likelihood" class="uri">https://www.statlect.com/fundamentals-of-statistics/normal-distribution-maximum-likelihood</a></li>
+</ul>
+</div>
