@@ -57,7 +57,7 @@ fit_models <- bind_rows(lapply(list(mod0, mod1, mod2, mod3, mod4), function(x) g
 
 fit_models %>%
   kbl(digits = 3) %>%
-  kable_styling(bootstrap_options = c("striped", "hover"))
+    kable_paper("hover", full_width = F)
 ```
 
 We can group those statistics into three categories:
