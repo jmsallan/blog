@@ -72,7 +72,7 @@ To obtain the maximum likelihood estimates of mean and variance $\hat{mu}$ we eq
 
 We proceed in a similar way to obtain the maximum likelihood estimator of the variance:
 
-\[ \frac{\partial \mathcal{l}}{ \partial \sigma^2 } = \frac{1}{2 \sigma^2} \left[ \frac{1}{\sigma^2} \sum_{i=1}^n \left( x_i - \mu \right)^2 - n \right] \]
+\[ \frac{\partial \mathcal{l}}{ \partial \sigma^2 } = \frac{1}{2 \sigma^2} \left[ \frac{1}{\sigma^2} \sum_{i=1}^n \left( x_i - \mu \right)^2 - n \right] = 0 \]
 
 \[ \hat{\sigma}^2  = \frac{1}{n} \sum_{i=1}^n \left( x_i - \hat{\mu} \right)^2 \]
 

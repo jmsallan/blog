@@ -1,0 +1,402 @@
+---
+title: Summary statistics in linear regression
+author: Jose M Sallan
+date: '2021-06-04'
+slug: summary-staitstics-in-linear-regression
+categories: 
+  - statistics
+tags: 
+  - linear regression
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>In this post, we will examine the results obtained with the function <code>glance</code> of the <code>broom</code> package for linear regression estimators obtained with the lm function. Let’s remember first that linear regression estimates the values of dependent variable <code>y</code> from a set of independent variables <span class="math inline">\(x_j\)</span>:</p>
+<p><span class="math display">\[ y_i = \beta_0 + \beta_1x_{i1} + \dots + \beta_px_{ip} + \varepsilon_i  \]</span></p>
+<p>When we estimate the regression coeficients from a dataset we obtain:</p>
+<p><span class="math display">\[ y_i = b_0 + b_1x_{i1} + \dots + b_px_{ip} + e_i = \hat{y}_i + e_i \]</span></p>
+<p>The <code>lm</code> function obtains ordinary least squares estimators (OLS) for the linear regression model. Under conditions defined in <a href="https://jmsallan.netlify.app/blog/maximum-likelihood-estimators/">this post</a>, OLS estimates are the ones of maximum likelihood.</p>
+<div id="some-models" class="section level2">
+<h2>Some models</h2>
+<p>Let’s fit four regression models using the <code>mtcars</code> dataset:</p>
+<ul>
+<li><code>mod0</code>: the null model, with no predictors for fuel consumption <code>mpg</code>.</li>
+<li><code>mod1</code>: <code>mpg</code> as a function of weight <code>wt</code>.</li>
+<li><code>mod2</code>: <code>mpg</code> as a function of <code>wt</code> and the square of <code>wt</code>. I have used the <code>poly</code> function to obtain linearly independent polynomial predictors.</li>
+<li><code>mod3</code>: <code>mpg</code> as a function of <code>wt</code> and type of transmission <code>am</code>, considering the interaction between the two variables.</li>
+<li><code>mod4</code>: <code>mpg</code> as a function of the rest of the variables of the dataset.</li>
+</ul>
+<pre class="r"><code>mod0 &lt;- lm(mpg ~ 1, mtcars)
+mod1 &lt;- lm(mpg ~ wt, mtcars)
+mod2 &lt;- lm(mpg ~ poly(wt, 2), mtcars)
+mod3 &lt;- lm(mpg ~ wt*am, mtcars)
+mod4 &lt;- lm(mpg ~ ., mtcars)</code></pre>
+</div>
+<div id="collecting-summary-statistics" class="section level2">
+<h2>Collecting summary statistics</h2>
+<p>Let’s examine the summary statistics of model fit obtained with the <code>glance</code> function of the <code>broom</code> package applied to a linear regression obtained with <code>lm</code>.</p>
+<pre class="r"><code>fit_models &lt;- bind_rows(lapply(list(mod0, mod1, mod2, mod3, mod4), function(x) glance(x))) %&gt;%
+  mutate(mod =c(&quot;mod0&quot;, &quot;mod1&quot;, &quot;mod2&quot;, &quot;mod3&quot;, &quot;mod4&quot;)) %&gt;%
+  relocate(mod, r.squared)
+
+fit_models %&gt;%
+  kbl(digits = 3) %&gt;%
+  kable_styling(bootstrap_options = c(&quot;striped&quot;, &quot;hover&quot;))</code></pre>
+<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+mod
+</th>
+<th style="text-align:right;">
+r.squared
+</th>
+<th style="text-align:right;">
+adj.r.squared
+</th>
+<th style="text-align:right;">
+sigma
+</th>
+<th style="text-align:right;">
+statistic
+</th>
+<th style="text-align:right;">
+p.value
+</th>
+<th style="text-align:right;">
+df
+</th>
+<th style="text-align:right;">
+logLik
+</th>
+<th style="text-align:right;">
+AIC
+</th>
+<th style="text-align:right;">
+BIC
+</th>
+<th style="text-align:right;">
+deviance
+</th>
+<th style="text-align:right;">
+df.residual
+</th>
+<th style="text-align:right;">
+nobs
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+mod0
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+0.000
+</td>
+<td style="text-align:right;">
+6.027
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+-102.378
+</td>
+<td style="text-align:right;">
+208.756
+</td>
+<td style="text-align:right;">
+211.687
+</td>
+<td style="text-align:right;">
+1126.047
+</td>
+<td style="text-align:right;">
+31
+</td>
+<td style="text-align:right;">
+32
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+mod1
+</td>
+<td style="text-align:right;">
+0.753
+</td>
+<td style="text-align:right;">
+0.745
+</td>
+<td style="text-align:right;">
+3.046
+</td>
+<td style="text-align:right;">
+91.375
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+-80.015
+</td>
+<td style="text-align:right;">
+166.029
+</td>
+<td style="text-align:right;">
+170.427
+</td>
+<td style="text-align:right;">
+278.322
+</td>
+<td style="text-align:right;">
+30
+</td>
+<td style="text-align:right;">
+32
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+mod2
+</td>
+<td style="text-align:right;">
+0.819
+</td>
+<td style="text-align:right;">
+0.807
+</td>
+<td style="text-align:right;">
+2.651
+</td>
+<td style="text-align:right;">
+65.638
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+-75.024
+</td>
+<td style="text-align:right;">
+158.048
+</td>
+<td style="text-align:right;">
+163.911
+</td>
+<td style="text-align:right;">
+203.745
+</td>
+<td style="text-align:right;">
+29
+</td>
+<td style="text-align:right;">
+32
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+mod3
+</td>
+<td style="text-align:right;">
+0.833
+</td>
+<td style="text-align:right;">
+0.815
+</td>
+<td style="text-align:right;">
+2.591
+</td>
+<td style="text-align:right;">
+46.567
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+-73.738
+</td>
+<td style="text-align:right;">
+157.476
+</td>
+<td style="text-align:right;">
+164.805
+</td>
+<td style="text-align:right;">
+188.008
+</td>
+<td style="text-align:right;">
+28
+</td>
+<td style="text-align:right;">
+32
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+mod4
+</td>
+<td style="text-align:right;">
+0.869
+</td>
+<td style="text-align:right;">
+0.807
+</td>
+<td style="text-align:right;">
+2.650
+</td>
+<td style="text-align:right;">
+13.932
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+10
+</td>
+<td style="text-align:right;">
+-69.855
+</td>
+<td style="text-align:right;">
+163.710
+</td>
+<td style="text-align:right;">
+181.299
+</td>
+<td style="text-align:right;">
+147.494
+</td>
+<td style="text-align:right;">
+21
+</td>
+<td style="text-align:right;">
+32
+</td>
+</tr>
+</tbody>
+</table>
+<p>We can group those statistics into three categories:</p>
+<ul>
+<li><code>statistic</code>, <code>p.value</code>, <code>df</code> and <code>df.residual</code> provide information about the <strong>test of overall significance</strong> of the model.</li>
+<li><code>r.squared</code> and <code>adj.r.squared</code> are measures of the <strong>coefficient of determination</strong>.</li>
+<li><code>logLik</code>, <code>AIC</code>, <code>BIC</code> and <code>deviance</code> are fit measures based on maximum likelihood estimation.</li>
+</ul>
+<p><code>sigma</code> and <code>nobs</code> retrieve the an estimation of variance of the residuals and the number of observations, respectively.</p>
+</div>
+<div id="test-of-overall-significance" class="section level2">
+<h2>Test of overall significance</h2>
+<p>This test consists in evaluating the null hypothesis that the regression model does not explain the variability of the dependent variable better than its mean:</p>
+<p><span class="math display">\[H_0 : \beta_1 = \beta_2 = \dots = \beta_p = 0\]</span></p>
+<p>To test that hypotesis we compute:</p>
+<ul>
+<li>The sum of squares of errors or residuals <span class="math inline">\(SSE\)</span>:</li>
+</ul>
+<p><span class="math display">\[SSE = \sum_{i=1}^n \left( y_i - \hat{y}_i \right)^2\]</span></p>
+<ul>
+<li>The sum of squares of the model, or the differences between mean and fitted values <span class="math inline">\(SSM\)</span>:</li>
+</ul>
+<p><span class="math display">\[SSM  = \sum_{i=1}^n \left( \hat{y}_i - \bar{y_i} \right)^2 \]</span></p>
+<ul>
+<li>The total sum of squares <span class="math inline">\(SST\)</span> or differences respect to the mean:</li>
+</ul>
+<p><span class="math display">\[SST = \sum_{i=1}^n \left( y_i - \bar{y}_i \right)^2\]</span></p>
+<p>These three magnitudes are related by the equality:</p>
+<p><span class="math display">\[ SST = SSE + SSM \]</span></p>
+<p>We can calculate the mean sum of squares dividing each by its degrees of freedom:</p>
+<p><span class="math display">\[\begin{align}
+MSE &amp;= \frac{SSE}{n-p-1} &amp; MSM &amp;= \frac{SSM}{p} &amp; MST &amp;= \frac{SSE}{n-1}
+\end{align}\]</span></p>
+<p>If the null hypothesis is true, the quotient between <span class="math inline">\(MSM\)</span> and <span class="math inline">\(MSE\)</span> will follow a law:</p>
+<p><span class="math display">\[ \frac{MSM}{MSE} \sim F_{p,n-p-1} \]</span></p>
+<p>If the quotient is large enough, it can be interpreted as an abnormal observation of the underlying distribution (so the null hypothesis will be true). The probability of this is the <code>p.value</code> listed on the table. If this <em>p</em>-value is smaller than 0.05, we usually prefer the alternative explanation that the null hypothesis is false, and therefore the model is significant.</p>
+<p>This analysis is presented at the bottom of the <code>summary</code> of the <code>lm</code> function:</p>
+<pre class="r"><code>summary(mod1)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = mpg ~ wt, data = mtcars)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -4.5432 -2.3647 -0.1252  1.4096  6.8727 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  37.2851     1.8776  19.858  &lt; 2e-16 ***
+## wt           -5.3445     0.5591  -9.559 1.29e-10 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 3.046 on 30 degrees of freedom
+## Multiple R-squared:  0.7528, Adjusted R-squared:  0.7446 
+## F-statistic: 91.38 on 1 and 30 DF,  p-value: 1.294e-10</code></pre>
+<p>We can use a similar test to compare pairs of <strong>nested models</strong>, where the model with more variables contains all the variables of the other model. This is the case of <code>mod1</code> and <code>mod2</code>:</p>
+<pre class="r"><code>anova(mod1, mod2)</code></pre>
+<pre><code>## Analysis of Variance Table
+## 
+## Model 1: mpg ~ wt
+## Model 2: mpg ~ poly(wt, 2)
+##   Res.Df    RSS Df Sum of Sq      F  Pr(&gt;F)   
+## 1     30 278.32                               
+## 2     29 203.75  1    74.576 10.615 0.00286 **
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<p>As the <em>p</em>-value of the test is smaller than 0.05, we conclude that <code>mod2</code> adds explanatory power to <code>mod1</code>.</p>
+</div>
+<div id="coefficients-of-determination" class="section level2">
+<h2>Coefficients of determination</h2>
+<p>Another parameter to evaluate the fit of a linear regression is the <strong>coefficient of determination</strong>. It is calculated as:</p>
+<p><span class="math display">\[R^2 = 1- \frac{\sum \left( y_i - \hat{y}_i \right)^2 }{\sum \left( y_i - \bar{y}_i \right)^2} = 1- \frac{SEE}{SST}\]</span></p>
+<p>If the model fits well to the data, the sum of squared residuals will be small and <span class="math inline">\(R^2\)</span> will be close to one.</p>
+<p>A problem of <span class="math inline">\(R^2\)</span> is that it does not decrease when we add variables to the model, because we always can set all regression coefficients of the new variables equal to zero and obtain the same sum of squared residuals of the former model. To account for this, we define the <strong>adjusted coefficient of determination</strong> as:</p>
+<p><span class="math display">\[ R^2_{adj.} = 1- \frac{\sum \left( y_i - \hat{y}_i \right)^2 / \left( n-p-1 \right) }{\sum \left( y_i - \bar{y}_i \right)^2 / \left( n-1 \right)}  = 1- \frac{MSE}{MST} \]</span></p>
+<p><span class="math inline">\(R^2_{adj.}\)</span> and <span class="math inline">\(R^2\)</span> are related by the expression:</p>
+<p><span class="math display">\[ R^2_{adj.} =  1 - \left( 1- R^2 \right) \frac{n-1}{n-p-1} \]</span></p>
+<p>Looking at the table, we observe that <code>r.squared</code> increases with number of variables, but not <code>adj.r.squared</code>. The best value of adjusted coefficient of determination goes to <code>mod3</code>.</p>
+</div>
+<div id="log-likelihood-estimation-metrics" class="section level2">
+<h2>Log-likelihood estimation metrics</h2>
+<p>In this post I discussed the meaning of the likelihood function, and how can we obtain estimates of a model maximizing the log likelihood function. This function for linear regression is equal to:</p>
+<p><span class="math display">\[  \mathcal{l} \left[  \left(  \sigma, \mu \right), \mathbf{e} \right] = - \frac{n}{2}ln\left( 2\pi \right)  - \frac{n}{2}ln \left( \sigma^2 \right) - \frac{1}{2\sigma^2} \sum_{i=1}^i e_i^2 \]</span></p>
+<p>This value is (approximately) returned in the <code>logLik</code> column of the table. As we maximize likelihood the larger (less negative) its value the better the fit. Similarly to <span class="math inline">\(R^2\)</span>, ´logLik` tends to increase as we add variables.</p>
+<p>We can obtain a more parsimonious indicator of fit based on likelihood with the <strong>Akaike information criterion (AIC)</strong>. This parameter is equal to:</p>
+<p><span class="math display">\[AIC = 2k - 2\mathcal{l}\]</span></p>
+<p>where <span class="math inline">\(k\)</span> is the number of parameters of the model. In this case <span class="math inline">\(k=p+2\)</span> as we are estimating the <span class="math inline">\(p+1\)</span> regression coefficients plus residual variance <span class="math inline">\(\sigma^2\)</span>. We prefer models with smaller values of <em>AIC</em>.</p>
+<p>Another similar metric is the <strong>Bayesian information criterion (BIC)</strong>:</p>
+<p><span class="math display">\[BIC = k ln\left(n\right) - \mathcal{l}\]</span></p>
+<p>Like <em>AIC</em>, we will prefer models with lower values of <em>BIC</em>.</p>
+<p><em>AIC</em> and <em>BIC</em> are suited to compare models. Both favour <strong>parsimonious</strong> models, that is, models with high explanatory power and few variables. <code>mod2</code> and <code>mod3</code> are the best models according to these criteria.</p>
+<p>The <strong>deviance</strong> has little sense in linear models estimated through OLS. The value presented by <code>glance</code> is the sum of squared residuals <span class="math inline">\(SSE\)</span>.</p>
+</div>
+<div id="which-is-the-best-model" class="section level2">
+<h2>Which is the best model?</h2>
+<p>The summary statistics presented by the <code>glance</code> function for models estimated with <code>lm</code> measure goodness of fit and parsimony.</p>
+<ul>
+<li>A model with <strong>goodness of fit</strong> has a high power to explain the variablity and to predict the dependent variable. All the summary statistics presented here measure goodness of fit.</li>
+<li><strong>Parsimony</strong> combines simplicity and goodness of fit. Parsimonious models are simple models with great explanatory or predictive power. The adjusted coefficient of deteremination <span class="math inline">\(R^2_{adj.}\)</span> and metrics <em>AIC</em> and <em>BIC</em> allow to detect parsimonious models.</li>
+</ul>
+<p>For the models presented here, we can say that <code>mod0</code> and <code>mod1</code> show low goodness of fit, while the other three models have better values of <code>r.squared</code>, <code>adj.r.squared</code> and <code>logLik</code>. <em>AIC</em> and <em>BIC</em> show that <code>mod2</code> and <code>mod3</code> have the best balance between simplicity and goodness of fit, so we can consider them as the best models. <code>mod3</code> has the best values of <span class="math inline">\(R^2_{adj.}\)</span> and <em>AIC</em>, and <code>mod2</code> the best value of <em>BIC</em>.</p>
+</div>

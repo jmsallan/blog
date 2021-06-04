@@ -1,0 +1,171 @@
+---
+title: Summary statistics in linear regression
+author: Jose M Sallan
+date: '2021-06-04'
+slug: summary-staitstics-in-linear-regression
+categories: 
+  - statistics
+tags: 
+  - linear regression
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+library(dplyr)
+library(broom)
+library(kableExtra)
+```
+
+In this post, we will examine the results obtained with the function `glance` of the `broom` package for linear regression estimators obtained with the lm function. Let's remember first that linear regression estimates the values of dependent variable `y` from a set of independent variables $x_j$:
+
+\[ y_i = \beta_0 + \beta_1x_{i1} + \dots + \beta_px_{ip} + \varepsilon_i  \]
+
+When we estimate the regression coeficients from a dataset we obtain:
+
+\[ y_i = b_0 + b_1x_{i1} + \dots + b_px_{ip} + e_i = \hat{y}_i + e_i \]
+
+The `lm` function obtains ordinary least squares estimators (OLS) for the linear regression model. Under conditions defined in [this post](https://jmsallan.netlify.app/blog/maximum-likelihood-estimators/), OLS estimates are the ones of maximum likelihood.
+
+## Some models
+
+Let's fit four regression models using the `mtcars` dataset:
+
+* `mod0`: the null model, with no predictors for fuel consumption `mpg`.
+* `mod1`: `mpg` as a function of weight `wt`.
+* `mod2`: `mpg` as a function of `wt` and the square of `wt`. I have used the `poly` function to obtain linearly independent polynomial predictors.
+* `mod3`: `mpg` as a function of `wt` and type of transmission `am`, considering the interaction between the two variables.
+* `mod4`: `mpg` as a function of the rest of the variables of the dataset.
+
+```{r}
+mod0 <- lm(mpg ~ 1, mtcars)
+mod1 <- lm(mpg ~ wt, mtcars)
+mod2 <- lm(mpg ~ poly(wt, 2), mtcars)
+mod3 <- lm(mpg ~ wt*am, mtcars)
+mod4 <- lm(mpg ~ ., mtcars)
+```
+
+## Collecting summary statistics
+
+Let's examine the summary statistics of model fit obtained with the `glance` function of the `broom` package applied to a linear regression obtained with `lm`.
+
+```{r}
+fit_models <- bind_rows(lapply(list(mod0, mod1, mod2, mod3, mod4), function(x) glance(x))) %>%
+  mutate(mod =c("mod0", "mod1", "mod2", "mod3", "mod4")) %>%
+  relocate(mod, r.squared)
+
+fit_models %>%
+  kbl(digits = 3) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+We can group those statistics into three categories:
+
+* `statistic`, `p.value`, `df` and `df.residual` provide information about the **test of overall significance** of the model.
+* `r.squared` and `adj.r.squared` are measures of the **coefficient of determination**.
+* `logLik`, `AIC`, `BIC` and `deviance` are fit measures based on maximum likelihood estimation.
+
+`sigma` and `nobs` retrieve the an estimation of variance of the residuals and the number of observations, respectively.
+
+## Test of overall significance
+
+This test consists in evaluating the null hypothesis that the regression model does not explain the variability of the dependent variable better than its mean:
+
+\[H_0 : \beta_1 = \beta_2 = \dots = \beta_p = 0\]
+
+To test that hypotesis we compute:
+
+* The sum of squares of errors or residuals $SSE$:
+
+\[SSE = \sum_{i=1}^n \left( y_i - \hat{y}_i \right)^2\]
+
+* The sum of squares of the model, or the differences between mean and fitted values $SSM$:
+
+\[SSM  = \sum_{i=1}^n \left( \hat{y}_i - \bar{y_i} \right)^2 \]
+
+* The total sum of squares $SST$ or differences respect to the mean:
+
+\[SST = \sum_{i=1}^n \left( y_i - \bar{y}_i \right)^2\]
+
+These three magnitudes are related by the equality:
+
+\[ SST = SSE + SSM \]
+
+We can calculate the mean sum of squares dividing each by its degrees of freedom:
+
+\begin{align}
+MSE &= \frac{SSE}{n-p-1} & MSM &= \frac{SSM}{p} & MST &= \frac{SSE}{n-1}
+\end{align}
+
+If the null hypothesis is true, the quotient between $MSM$ and $MSE$ will follow a law:
+
+\[ \frac{MSM}{MSE} \sim F_{p,n-p-1} \]
+
+If the quotient is large enough, it can be interpreted as an abnormal observation of the underlying distribution (so the null hypothesis will be true). The probability of this is the `p.value` listed on the table. If this *p*-value is smaller than 0.05, we usually prefer the alternative explanation that the null hypothesis is false, and therefore the model is significant.
+
+This analysis is presented at the bottom of the `summary` of the `lm` function:
+
+```{r}
+summary(mod1)
+```
+
+We can use a similar test to compare pairs of **nested models**, where the model with more variables contains all the variables of the other model. This is the case of `mod1` and `mod2`:
+
+```{r}
+anova(mod1, mod2)
+```
+
+As the *p*-value of the test is smaller than 0.05, we conclude that `mod2` adds explanatory power to `mod1`.
+
+## Coefficients of determination
+
+Another parameter to evaluate the fit of a linear regression is the **coefficient of determination**. It is calculated as:
+
+\[R^2 = 1- \frac{\sum \left( y_i - \hat{y}_i \right)^2 }{\sum \left( y_i - \bar{y}_i \right)^2} = 1- \frac{SEE}{SST}\]
+
+If the model fits well to the data, the sum of squared residuals will be small and $R^2$ will be close to one.
+
+A problem of $R^2$ is that it does not decrease when we add variables to the model, because we always can set all regression coefficients of the new variables equal to zero and obtain the same sum of squared residuals of the former model. To account for this, we define the **adjusted coefficient of determination** as:
+
+\[ R^2_{adj.} = 1- \frac{\sum \left( y_i - \hat{y}_i \right)^2 / \left( n-p-1 \right) }{\sum \left( y_i - \bar{y}_i \right)^2 / \left( n-1 \right)}  = 1- \frac{MSE}{MST} \]
+
+$R^2_{adj.}$ and $R^2$ are related by the expression:
+
+\[ R^2_{adj.} =  1 - \left( 1- R^2 \right) \frac{n-1}{n-p-1} \]
+
+Looking at the table, we observe that `r.squared` increases with number of variables, but not `adj.r.squared`. The best value of adjusted coefficient of determination goes to `mod3`.
+
+## Log-likelihood estimation metrics
+
+In this post I discussed the meaning of the likelihood function, and how can we obtain estimates of a model maximizing the log likelihood function. This function for linear regression is equal to:
+
+\[  \mathcal{l} \left[  \left(  \sigma, \mu \right), \mathbf{e} \right] = - \frac{n}{2}ln\left( 2\pi \right)  - \frac{n}{2}ln \left( \sigma^2 \right) - \frac{1}{2\sigma^2} \sum_{i=1}^i e_i^2 \]
+
+This value is (approximately) returned in the `logLik` column of the table. As we maximize likelihood the larger (less negative) its value the better the fit. Similarly to $R^2$, ´logLik` tends to increase as we add variables.
+
+We can obtain a more parsimonious indicator of fit based on likelihood with the **Akaike information criterion (AIC)**. This parameter is equal to:
+
+\[AIC = 2k - 2\mathcal{l}\]
+
+where $k$ is the number of parameters of the model. In this case $k=p+2$ as we are estimating the $p+1$ regression coefficients plus residual variance $\sigma^2$. We prefer models with smaller values of *AIC*. 
+
+Another similar metric is the **Bayesian information criterion (BIC)**:
+
+\[BIC = k ln\left(n\right) - \mathcal{l}\]
+
+Like *AIC*, we will prefer models with lower values of *BIC*.
+
+*AIC* and *BIC* are suited to compare models. Both favour **parsimonious** models, that is, models with high explanatory power and few variables. `mod2` and `mod3` are the best models according to these criteria.
+ 
+The **deviance** has little sense in linear models estimated through OLS. The value presented by `glance` is the sum of squared residuals $SSE$.
+
+## Which is the best model?
+
+The summary statistics presented by the `glance` function for models estimated with `lm` measure goodness of fit and parsimony.
+
+* A model with **goodness of fit** has a high power to explain the variablity and to predict the dependent variable. All the summary statistics presented here measure goodness of fit.
+* **Parsimony** combines simplicity and goodness of fit. Parsimonious models are simple models with great explanatory or predictive power. The adjusted coefficient of deteremination $R^2_{adj.}$ and metrics *AIC* and *BIC* allow to detect parsimonious models.
+
+For the models presented here, we can say that `mod0` and `mod1` show low goodness of fit, while the other three models have better values of `r.squared`, `adj.r.squared` and `logLik`. *AIC* and *BIC* show that `mod2` and `mod3` have the best balance between simplicity and goodness of fit, so we can consider them as the best models. `mod3` has the best values of $R^2_{adj.}$ and *AIC*, and `mod2` the best value of *BIC*.
+
