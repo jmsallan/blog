@@ -1,0 +1,320 @@
+---
+title: Pie charts versus bar charts
+author: Jose M Sallan
+date: '2021-06-11'
+slug: pie-charts-versus-bar-charts
+categories:
+  - R
+tags:
+  - ggplot
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>In today’s post, I will introduce how to plot <strong>pie charts</strong> using ggplot, and also present <strong>bar charts</strong> as alternatives to pie charts for visualizing proportions or count data. Additionally, I will present some possibilities of the <code>forcats</code> package to handle categorical data.</p>
+<p>I will be using the <code>tidyverse</code> to do the job, and <code>kableExtra</code> to present tables:</p>
+<pre class="r"><code>library(tidyverse)
+library(kableExtra)</code></pre>
+<p>I will be using fictitious data inspired in the Judea activist’s gag of Monthy Python’s <a href="https://en.wikipedia.org/wiki/Monty_Python%27s_Life_of_Brian">Brian’s Life</a>. Here is a count of members of each faction of Judea’s independence movements, probably picked by Roman police:</p>
+<pre class="r"><code>table1 %&gt;%
+  kbl() %&gt;%
+  kable_styling(bootstrap_options = c(&quot;striped&quot;), full_width = FALSE)</code></pre>
+<table class="table table-striped" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+faction
+</th>
+<th style="text-align:left;">
+accro
+</th>
+<th style="text-align:right;">
+members
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+People’s Front of Judea
+</td>
+<td style="text-align:left;">
+PFJ
+</td>
+<td style="text-align:right;">
+90
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Judean People’s Front
+</td>
+<td style="text-align:left;">
+JPF
+</td>
+<td style="text-align:right;">
+120
+</td>
+</tr>
+</tbody>
+</table>
+<div id="how-to-make-pie-charts-in-r" class="section level2">
+<h2>How to make pie charts in R</h2>
+<p>To present visually the importance of each faction, we can use a pie chart. We can do pie charts in ggplot using the <code>coord_polar</code> geom. the <code>start=0</code> parameter makes sectors of the pie chart start at the positive vertical axis, and <code>direction=-1</code> makes sector appear clockwise.</p>
+<pre class="r"><code>table1 %&gt;%
+  ggplot(aes(x=&quot;&quot;, y = members, fill = accro)) +
+  geom_bar(stat=&quot;identity&quot;, width=1) +
+  coord_polar(&quot;y&quot;, start=0, direction=-1) +
+  theme_void() +
+  scale_fill_manual(name = &quot;Factions&quot;, values = c(&quot;#FF6666&quot; , &quot;#6666FF&quot;))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+<p>We can say that this pie chart succeeds in presenting the relative size of each faction, and to convey that these factions sum up to make the total population. Note that we are loosing information about actual number of members of each faction.</p>
+<p>Let’s see what happens if the fractionalism among independentists increases:</p>
+<pre class="r"><code>table2 %&gt;%
+  kbl() %&gt;%
+  kable_styling(bootstrap_options = c(&quot;striped&quot;), full_width = FALSE)</code></pre>
+<table class="table table-striped" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+faction
+</th>
+<th style="text-align:left;">
+accro
+</th>
+<th style="text-align:right;">
+men
+</th>
+<th style="text-align:right;">
+women
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+People’s Front of Judea
+</td>
+<td style="text-align:left;">
+PFJ
+</td>
+<td style="text-align:right;">
+40
+</td>
+<td style="text-align:right;">
+45
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Judean People’s Front
+</td>
+<td style="text-align:left;">
+JPF
+</td>
+<td style="text-align:right;">
+50
+</td>
+<td style="text-align:right;">
+42
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Coalition for a Roman Free Judea
+</td>
+<td style="text-align:left;">
+CRFJ
+</td>
+<td style="text-align:right;">
+10
+</td>
+<td style="text-align:right;">
+8
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Social Democratic Party of Judea
+</td>
+<td style="text-align:left;">
+SDPF
+</td>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+6
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Judean Popular People’s Front
+</td>
+<td style="text-align:left;">
+JPPF
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Judean People’s Front (Maoist)
+</td>
+<td style="text-align:left;">
+JPF-M
+</td>
+<td style="text-align:right;">
+15
+</td>
+<td style="text-align:right;">
+12
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Judean Anarchist Federation
+</td>
+<td style="text-align:left;">
+JAF
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+11
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Front for the People’s Judea
+</td>
+<td style="text-align:left;">
+FPJ
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:right;">
+6
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Greater Alliance for a Federated Canaa
+</td>
+<td style="text-align:left;">
+GAFC
+</td>
+<td style="text-align:right;">
+7
+</td>
+<td style="text-align:right;">
+5
+</td>
+</tr>
+</tbody>
+</table>
+<p>To make a pie chart with total members of each faction I use <code>mutate</code> to create a variable summing numbers of men and women. I use <code>fct_reorder</code> to reorder the levels of <code>accro</code> by total number of members of each category, so that factions are ordered by size in the pie chart. To make the color of each faction distinctive, I am using a divergent palette of the Brewer scale. Those divergent palettes have nine categories at most, so I am pushing their possibilities to the limit here.</p>
+<pre class="r"><code>table2 %&gt;%
+  mutate(all = men + women) %&gt;%
+  mutate(accro = fct_reorder(accro, all, .desc = TRUE)) %&gt;%
+  ggplot(aes(x=&quot;&quot;, y = all, fill = accro)) +
+  geom_bar(stat=&quot;identity&quot;, width=1) +
+  coord_polar(&quot;y&quot;, start=0, direction=-1) +
+  theme_void() +
+  scale_fill_brewer(name = &quot;Factions&quot;, palette = &quot;Set1&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+<p>With nine categories instead of two, the pie chart is harder to read. The information about factions is presented in the legend, and the reader has to <em>travel</em> from legend to chart to see the weight of each faction.</p>
+<p>This gets worse when we make a pie chart by gender using <code>fqcet_grid</code>. I have used <code>across</code> within <code>mutate</code> to calculate the fraction of members of each faction among men and women.</p>
+<pre class="r"><code>table2 %&gt;%
+  mutate(across(men:women, ~.x/sum(.x))) %&gt;%
+  mutate(accro = fct_reorder(accro, men, .desc = TRUE)) %&gt;%
+  pivot_longer(-c(faction, accro)) %&gt;%
+  ggplot(aes(x=&quot;&quot;, y = value, fill = accro)) +
+  geom_bar(stat=&quot;identity&quot;, width=1) +
+  coord_polar(&quot;y&quot;, start=0, direction = -1) +
+  theme_void() +
+  scale_fill_brewer(name = &quot;Parties&quot;, palette = &quot;Set1&quot;) +
+  facet_grid(. ~ name)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
+<p>If the reader looks attentively to the pie charts, she or he can observe that the JPFF faction (in pink) is not present among women. But I think that this is far from intuitive.</p>
+</div>
+<div id="bar-charts" class="section level2">
+<h2>Bar charts</h2>
+<p>An alternative to pie charts are <strong>bar charts</strong>. In ggplot these charts are built with <code>geom_bar</code> with <code>stat = "identity"</code>. Here is a bar chart of the total members of each faction. I have used again <code>fct_reorder</code> to present factions with more members first.</p>
+<pre class="r"><code>table2 %&gt;%
+  mutate(all = men + women) %&gt;%
+  mutate(accro = fct_reorder(accro, all, .desc = FALSE)) %&gt;%
+  ggplot(aes(x= accro, y = all)) +
+  geom_bar(stat = &quot;identity&quot;, fill = &quot;#B22222&quot;) +
+  coord_flip() +
+  labs(title = &quot;Faction members&quot;, x = &quot;faction&quot;, y = &quot;members&quot;) +
+  theme_bw()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+<p>The bar chart does not convey that the sum of all members equals the total population, but each datum is linked with its label and we have information of variable values.</p>
+<p>We can add information about men and women with a stacked bar chart. Here I use the <code>all</code> variable only to order bars, and <code>fct_relevel</code> to reverse the order of gender levels manually.</p>
+<pre class="r"><code>table2 %&gt;%
+  mutate(all = men + women) %&gt;%
+  mutate(accro = fct_reorder(accro, all, .desc = FALSE)) %&gt;%
+  select(-all) %&gt;%
+  pivot_longer(-c(faction, accro)) %&gt;%
+  mutate(name = fct_relevel(name, &quot;women&quot;, &quot;men&quot;)) %&gt;%
+  ggplot(aes(x = accro, y = value, fill = name)) +
+  geom_bar(stat = &quot;identity&quot;, position = &quot;stack&quot;) +
+  coord_flip() +
+  labs(title = &quot;Faction members by gender&quot;, x = &quot;faction&quot;, y = &quot;members&quot;) +
+  theme_bw() +
+  scale_fill_manual(name = &quot;gender&quot;, values = c(&quot;#DC143C&quot;, &quot;#6495ED&quot;))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
+<p>In that chart, we learn that there are no women in the JPFF faction, while the JAF faction has a large proportion of women.</p>
+<p>We can even present faction names in the plot adding them with <code>scale_x_discrete</code>, and rotating them with <code>axis.text.x</code>. Be sure to place the <code>theme</code> instruction after <code>theme_bw</code>.</p>
+<pre class="r"><code>table2 %&gt;%
+  mutate(accro = fct_reorder(accro, men, .desc = TRUE)) %&gt;%
+  pivot_longer(-c(faction, accro)) %&gt;%
+  mutate(name = fct_relevel(name, &quot;women&quot;, &quot;men&quot;)) %&gt;%
+  ggplot(aes(x = accro, y = value, fill = name)) +
+  geom_bar(stat = &quot;identity&quot;, position = &quot;stack&quot;) +
+  labs(title = &quot;Faction members by gender&quot;, x = &quot;faction&quot;, y = &quot;members&quot;) +
+  theme_bw() +
+  scale_fill_manual(name = &quot;gender&quot;, values = c(&quot;#DC143C&quot;, &quot;#6495ED&quot;)) +
+  scale_x_discrete(labels = table2$faction) +
+  theme(axis.text.x=element_text(angle = 90, hjust = 1, size = 10))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="672" /></p>
+<p>We can present the <em>proportion</em> of men and women participating in each faction in a single bar chart. In this case, it is more convenient to use dodged bars, as the proportion of each gender and faction is not equal to proportion of all members. I have used <code>scales::percent</code> in <code>scale_y_continuous</code> to present percentages in the <code>y</code> axis. Chart coordinates are reversed with <code>coord_flip</code>, so y axis is horizontal here.</p>
+<pre class="r"><code>table2 %&gt;%
+  mutate(across(men:women, ~.x/sum(.x))) %&gt;%
+  mutate(accro = fct_reorder(accro, men, .desc = FALSE)) %&gt;%
+  pivot_longer(-c(faction, accro)) %&gt;%
+  mutate(name = fct_relevel(name, &quot;women&quot;, &quot;men&quot;)) %&gt;%
+  ggplot(aes(x = accro, y = value, fill = name)) +
+  geom_bar(stat = &quot;identity&quot;, position = &quot;dodge&quot;) +
+  coord_flip() +
+  labs(title = &quot;Proportion of men and women in each faction&quot;, x = &quot;faction&quot;, y = &quot;% of members&quot;) +
+  theme_bw() +
+  scale_fill_manual(name = &quot;gender&quot;, values = c(&quot;#DC143C&quot;, &quot;#6495ED&quot;)) +
+  scale_y_continuous(labels = scales::percent)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-11-1.png" width="672" /></p>
+<p>Here we learn that the JPF faction is the preferred among men, while PFJ is the preferred among women.</p>
+</div>
+<div id="pie-or-bar-charts" class="section level2">
+<h2>Pie or bar charts?</h2>
+<p>Examinimg the possibilities of pie charts and bars, most people tend to prefer bar charts, like in <a href="https://chartio.com/learn/charts/how-to-choose-pie-chart-vs-bar-chart/">this post</a>. We can use pie charts when the part-to-whole comparison is of interest, and the number of categories is relatively small. Bar charts are preferable to represent more complex relationships of data, involving more than one category, or when the number of categories is high.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>The R Graph Gallery (n.d). <em>R Color Brewer’s palettes</em> <a href="https://www.r-graph-gallery.com/38-rcolorbrewers-palettes.html" class="uri">https://www.r-graph-gallery.com/38-rcolorbrewers-palettes.html</a></li>
+<li>Reddit (n.d.). <em>What led to the split between the People’s Front of Judea and the Judean People’s Front in the first century?</em> <a href="https://www.reddit.com/r/AskHistorians/comments/30yfs7/what_led_to_the_split_between_the_peoples_front/" class="uri">https://www.reddit.com/r/AskHistorians/comments/30yfs7/what_led_to_the_split_between_the_peoples_front/</a></li>
+</ul>
+</div>
