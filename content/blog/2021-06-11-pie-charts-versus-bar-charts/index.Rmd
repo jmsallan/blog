@@ -72,7 +72,7 @@ table2 %>%
 
 To make a pie chart with total members of each faction I use `mutate` to create a variable summing numbers of men and women. I use `fct_reorder` to reorder the levels of `accro` by total number of members of each category, so that factions are ordered by size in the pie chart. To make the color of each faction distinctive, I am using a divergent palette of the Brewer scale. Those divergent palettes have nine categories at most, so I am pushing their possibilities to the limit here.
 
-```{r}
+```{r, fig.height=4}
 table2 %>%
   mutate(all = men + women) %>%
   mutate(accro = fct_reorder(accro, all, .desc = TRUE)) %>%
@@ -87,7 +87,7 @@ With nine categories instead of two, the pie chart is harder to read. The inform
 
 This gets worse when we make a pie chart by gender using `fqcet_grid`. I have used `across` within `mutate` to calculate the fraction of members of each faction among men and women.
 
-```{r}
+```{r, fig.height=4}
 table2 %>%
   mutate(across(men:women, ~.x/sum(.x))) %>%
   mutate(accro = fct_reorder(accro, men, .desc = TRUE)) %>%
@@ -183,3 +183,6 @@ Examinimg the possibilities of pie charts and bars, most people tend to prefer b
 
 * The R Graph Gallery (n.d). *R Color Brewer’s palettes* <https://www.r-graph-gallery.com/38-rcolorbrewers-palettes.html>
 * Reddit (n.d.). *What led to the split between the People's Front of Judea and the Judean People's Front in the first century?* <https://www.reddit.com/r/AskHistorians/comments/30yfs7/what_led_to_the_split_between_the_peoples_front/>
+
+
+*Built with R 4.0.3 and tidyverse 1.3.0*
