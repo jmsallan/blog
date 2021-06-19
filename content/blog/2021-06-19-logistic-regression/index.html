@@ -1,0 +1,157 @@
+---
+title: Logistic regression
+author: Jose M Sallan
+date: '2021-06-19'
+slug: logistic-regression
+categories:
+  - R
+  - statistics
+tags:
+  - R
+  - logistic regression
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<div id="logistic-regression" class="section level2">
+<h2>Logistic regression</h2>
+<p>In <strong>linear regression</strong>, we estimate the value of a dependent variable as a linear function of a set of dependent variables. The values of the dependent variable are unrestricted, meaning that it can take any real value. If some hypothesis regarding normality and variance stability of residuals are met, the ordinary least squares are the maximum likelihood estimates for linear regression.</p>
+<p>There are many contexts, though, where the dependent variable can take only values equal to zero and one. In that context, we may want to estimate the <strong>probability that the dependent variable be equal to one</strong>. Unlike linear regression, the values of the dependent variable are restricted to the <span class="math inline">\(\left[0,1\right]\)</span> interval. For these models we cannot use ordinary least squares. Instead, we can obtain <strong>maximum likelihood estimates</strong> with other models.</p>
+<p>A usual approach to this problem is the <strong>logistic regression</strong>, sometimes called <strong>logit</strong> model.</p>
+<p><span class="math display">\[ P( y = 1 \vert \mathbf{x})  = \mathbf{\pi}\left( \mathbf{z} \right) = \frac{1}{1 + \text{exp}\left(-\mathbf{z}\right)} \]</span></p>
+<p><span class="math display">\[ z_i = \beta_0 + \beta_1x_{i1} + \dots + \beta_px_{ip} = \mathcal{\theta}&#39; \mathcal{x}_i \]</span></p>
+<p>In the logit model, we use the <strong>logistic function</strong> to transform an unrestricted real variable <span class="math inline">\(z_i\)</span> into a probability <span class="math inline">\(\pi_i\)</span>. Here is a representation of the logistic function <span class="math inline">\(y = 1/\left(1 + e^{\beta s}\right)\)</span></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-1-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>The variable <span class="math inline">\(z\)</span> is the <strong>log odds ratio</strong> of the dependent variable being equal to one:</p>
+<p><span class="math display">\[ ln\left( \frac{\pi_i}{1-\pi_i} \right) = \mathcal{\theta}&#39; \mathcal{x}_i \]</span></p>
+<p>The estimation of model coefficients is completely different from ordinary least squares. The <strong>likelihood function</strong> of the parameters given the data is a binomial distribution:</p>
+<p><span class="math display">\[ \mathcal{L}\left( \mathcal{\theta} \right) = \prod_{i=1}^n \pi_i^{y_i} \left(1-\pi_i\right)^{1-y_i} \]</span></p>
+<p>For simplicity, we optimize the <strong>log likelihood</strong> function to obtain the estimators:</p>
+<p><span class="math display">\[ \mathcal{l}\left( \mathcal{\theta} \right) = \sum_{i=1}^n y_i\text{log} \pi_i +  \sum_{i=1}^n\left(1-y_i\right) \text{log}\left(1-\pi_i\right) \]</span></p>
+<p>As <span class="math inline">\(\pi_i\)</span> is a function of dependent variables, we can obtain estimates <span class="math inline">\(b_0, \dots, b_p\)</span> of <span class="math inline">\(\beta_0, \dots, \beta_p\)</span> maximizing the log likelihood function <span class="math inline">\(\mathcal{l}\)</span>. Unlike ordinary least squares, there is no analytical solution for the maximization of log likelihood, so model estimates are obtained numerically.</p>
+</div>
+<div id="an-example-of-logistic-regression" class="section level2">
+<h2>An example of logistic regression</h2>
+<p>Let’s use the <code>iris</code> dataset to build a logistic regression model with a dependent variable <code>is_virginica</code> equal to one if the observation belongs to this species and zero otherwise. I will remove the original <code>Species</code> variable and <code>Petal.Width</code>. The later is highly correlated with the rest of predictors.</p>
+<pre class="r"><code>iris_logistic &lt;- iris %&gt;% 
+  mutate(is_virginica = ifelse(Species == &quot;virginica&quot;, 1, 0)) %&gt;%
+  select(-c(Petal.Width, Species))</code></pre>
+<p>We can fit a logit model in R using the base function <code>glm</code> for generalized linear models with <code>family = "binomial"</code>. We can use <code>summary</code> to obtain a summary of model output.</p>
+<pre class="r"><code>mod1 &lt;- glm(is_virginica ~ ., family = &quot;binomial&quot;, data = iris_logistic)
+summary(mod1)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = is_virginica ~ ., family = &quot;binomial&quot;, data = iris_logistic)
+## 
+## Deviance Residuals: 
+##      Min        1Q    Median        3Q       Max  
+## -2.83416  -0.01085   0.00000   0.00674   1.52165  
+## 
+## Coefficients:
+##              Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept)  -38.2154    14.0532  -2.719 0.006541 ** 
+## Sepal.Length  -3.8524     1.7091  -2.254 0.024190 *  
+## Sepal.Width   -0.6385     2.2906  -0.279 0.780424    
+## Petal.Length  13.1475     3.9057   3.366 0.000762 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 190.954  on 149  degrees of freedom
+## Residual deviance:  23.772  on 146  degrees of freedom
+## AIC: 31.772
+## 
+## Number of Fisher Scoring iterations: 10</code></pre>
+</div>
+<div id="model-coefficients" class="section level2">
+<h2>Model coefficients</h2>
+<p>Model coefficients significance allow using the logistic regression model as a <strong>explanatory</strong> tool, detecting the antecedents of the probability of each observation being virginica. We can obtain information on model coefficients in tabular form using the <code>tidy</code> function of the <code>broom</code> package.</p>
+<pre class="r"><code>tidy(mod1)</code></pre>
+<pre><code>## # A tibble: 4 x 5
+##   term         estimate std.error statistic  p.value
+##   &lt;chr&gt;           &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;
+## 1 (Intercept)   -38.2       14.1     -2.72  0.00654 
+## 2 Sepal.Length   -3.85       1.71    -2.25  0.0242  
+## 3 Sepal.Width    -0.639      2.29    -0.279 0.780   
+## 4 Petal.Length   13.1        3.91     3.37  0.000762</code></pre>
+<p>The <code>p.value</code> column presents the probability of observing a regression coefficient equal or larger than the estimate if the null hypothesis that the regression coefficient is zero holds. We usually discard that null hypothesis for <em>p</em>-values equal or smaller than 0.05. Observing the sign of significant coefficients we can conclude that virginica flowers will tend to have small values of <code>Sepal.Length</code> and high values of <code>Petal.Length</code>.</p>
+<p>We can examine the predictions for each observation using the <code>augment</code> function of <code>broom</code>. The values of the log odds <span class="math inline">\(z_i\)</span> are found on the <code>.fitted</code> column, so we need to transform it to obtain the predicted probability <code>prod</code>.</p>
+<pre class="r"><code>mod1_pred &lt;- augment(mod1) %&gt;%
+  mutate(prob = 1/(1 + exp(-.fitted)),
+         is_virginica = as.factor(is_virginica)) </code></pre>
+<p>Let’s examine the relationship between <code>Petal.Length</code> and <code>prob</code>, together with the real classification of each observation:</p>
+<pre class="r"><code>mod1_pred %&gt;%
+  ggplot(aes(Petal.Length, prob, color = is_virginica)) +
+  geom_point() +
+  theme(panel.background = element_rect(fill = &quot;#FFFFFA&quot;, color = &quot;#F5DEB3&quot;), legend.key = element_rect(fill = &quot;#FFFFFA&quot;, color = &quot;#F5DEB3&quot;), legend.background = element_rect(fill = &quot;#FFFFFF&quot;, color = &quot;#FFFFFF&quot;), legend.position = &quot;bottom&quot;) +
+  scale_color_manual(name = &quot;class&quot;, label = c(&quot;not virginica&quot;, &quot;virginica&quot;), values = c(&quot;#FF6666&quot;, &quot;#00CC66&quot;))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>We observe that we can separate many of the observations belonging to each class considering the values of <code>Petal.Length</code>. Let’s see how good is <code>Sepal.Length</code> to explain the probability of being virginica:</p>
+<pre class="r"><code>mod1_pred %&gt;%
+  ggplot(aes(Sepal.Length, prob, color = is_virginica)) +
+  geom_point() +
+  theme(panel.background = element_rect(fill = &quot;#FFFFFA&quot;, color = &quot;#F5DEB3&quot;), legend.key = element_rect(fill = &quot;#FFFFFA&quot;, color = &quot;#F5DEB3&quot;), legend.background = element_rect(fill = &quot;#FFFFFF&quot;, color = &quot;#FFFFFF&quot;), legend.position = &quot;bottom&quot;) +
+  scale_color_manual(name = &quot;class&quot;, label = c(&quot;not virginica&quot;, &quot;virginica&quot;), values = c(&quot;#FF6666&quot;, &quot;#00CC66&quot;))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>We observe that the explanatory power of <code>Petal.Length</code> is smaller. For values of <code>Petal.Length</code> between 5.5. and 7 we can find observations belonging to both classes. This was to be expected, as its p-value was much higher than Petal.Lenght, although still below 0.05.</p>
+</div>
+<div id="model-fit" class="section level2">
+<h2>Model fit</h2>
+<p>To assess overall significance of the model, we have only parameters related with log likelihood maximization. The F-test of overall significance and the coefficient of determination of linear regression are not available for logistic regression.</p>
+<p>The most useful parameter to examine model fit of logistic regression is <strong>deviance</strong>. Deviance <span class="math inline">\(D\)</span> aaccounts for how much does the model deviates from a model with perfect fit. The smaller the deviance, the better the model. Deviance is calculated as:</p>
+<p><span class="math display">\[D = -2\mathcal{l}\left( \mathcal{\theta} \right)\]</span></p>
+<p>The <strong>McFadden pseudo-R squared</strong> allows obtaining a fit parameter similar to linear regression’s R squared comparing the deviance of the model with the deviance of the null model <span class="math inline">\(D_{null}\)</span>. The <strong>null model</strong> does not have predictors, so it is supposed to have the worse value of fit. The formula of McFadden pseudo-R squared is:</p>
+<p><span class="math display">\[R^2_{pseudo} = 1 - \frac{D}{D_{null}} = 1 - \frac{\mathcal{l}}{\mathcal{l}_{null}}\]</span></p>
+<p>Note that pseudo-R squared makes sense only if log likelihood is negative.</p>
+<p>We can obtain fit indices for our model using the <code>glance</code> function of <code>broom</code>. We can easily add the pseudo-R squared usign deviance values.</p>
+<pre class="r"><code>glance(mod1) %&gt;%
+  mutate(pseudo.rsq = 1 - deviance/null.deviance) %&gt;%
+  glimpse()</code></pre>
+<pre><code>## Rows: 1
+## Columns: 9
+## $ null.deviance &lt;dbl&gt; 190.9543
+## $ df.null       &lt;int&gt; 149
+## $ logLik        &lt;dbl&gt; -11.8859
+## $ AIC           &lt;dbl&gt; 31.7718
+## $ BIC           &lt;dbl&gt; 43.81434
+## $ deviance      &lt;dbl&gt; 23.7718
+## $ df.residual   &lt;int&gt; 146
+## $ nobs          &lt;int&gt; 150
+## $ pseudo.rsq    &lt;dbl&gt; 0.8755105</code></pre>
+</div>
+<div id="predictions" class="section level2">
+<h2>Predictions</h2>
+<p>We can use logistic regression as a <strong>predictive model</strong> for <strong>classification</strong>. We use a threshold value of probability to assign each observation to each class. Here we will assign to class virginica observations with predicted probability higher than 0.5:</p>
+<pre class="r"><code>pred_iris &lt;- augment(mod1) %&gt;%
+  mutate(prob = 1/(1 + exp(-.fitted))) %&gt;%
+  mutate(pred_virginica = ifelse(prob &gt; 0.5, 1, 0))</code></pre>
+<p>Once we have predicted the class, we can obtain the confusion matrix with the <code>conf_mat</code> function of tidymodel’s <code>yardstick</code> package:</p>
+<pre class="r"><code>library(yardstick)
+pred_iris %&gt;%
+  mutate(is_virginica = as.factor(is_virginica), pred_virginica = as.factor(pred_virginica)) %&gt;%
+conf_mat(truth = is_virginica, 
+         estimate = pred_virginica) </code></pre>
+<pre><code>##           Truth
+## Prediction  0  1
+##          0 97  2
+##          1  3 48</code></pre>
+<p>We observe that <code>mod1</code> has a good performance as classifier for this dataset.</p>
+</div>
+<div id="explaining-and-predicting-with-logistic-regression" class="section level2">
+<h2>Explaining and predicting with logistic regression</h2>
+<p>In this post, we have introduced logistic regression as a generalization of linear regression to estimate the probability of an observation being equal to one when the dependent variable is binary. Logistic regression models are estimated maximizing log likelihood.</p>
+<p>Logistic regression can be used as a <strong>explanatory model</strong> of the antecedents of the dependent variable. This is the most common use of logistic regression in econometrics. We examine the significance of model coefficients to find antecedents of the binary dependent variable.</p>
+<p>Another use of logistic regression is as a <strong>predictive model</strong>. When we assign a category to each observation based on predicted probability, we have a <strong>classification</strong> model. Many classification techniques of machine learning, like neural networks, can be seen as extensions of logistic regression.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Commonly Encountered Pseudo R-Squareds for logistic regression
+<a href="https://web.archive.org/web/20130701052120/http://www.ats.ucla.edu:80/stat/mult_pkg/faq/general/Psuedo_RSquareds.htm" class="uri">https://web.archive.org/web/20130701052120/http://www.ats.ucla.edu:80/stat/mult_pkg/faq/general/Psuedo_RSquareds.htm</a></li>
+</ul>
+<p><em>Built with R 4.0.3, tidyverse 1.3.0, broom 0.7.5 and yardstick 0.0.7</em></p>
+</div>
