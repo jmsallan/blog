@@ -96,7 +96,7 @@ table2 %>%
   geom_bar(stat="identity", width=1) +
   coord_polar("y", start=0, direction = -1) +
   theme_void() +
-  scale_fill_brewer(name = "Parties", palette = "Set1") +
+  scale_fill_brewer(name = "Factions", palette = "Set1") +
   facet_grid(. ~ name)
 ```
 
