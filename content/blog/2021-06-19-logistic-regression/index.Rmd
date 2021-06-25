@@ -19,8 +19,6 @@ library(tidyverse)
 library(broom)
 ```
 
-## Logistic regression
-
 In **linear regression**, we estimate the value of a dependent variable as a linear function of a set of dependent variables. The values of the dependent variable are unrestricted, meaning that it can take any real value. If some hypothesis regarding normality and variance stability of residuals are met, the ordinary least squares are the maximum likelihood estimates for linear regression.
 
 There are many contexts, though, where the dependent variable can take only values equal to zero and one. In that context, we may want to estimate the **probability that the dependent variable be equal to one**. Unlike linear regression, the values of the dependent variable are restricted to the $\left[0,1\right]$ interval. For these models we cannot use ordinary least squares. Instead, we can obtain **maximum likelihood estimates** with other models.

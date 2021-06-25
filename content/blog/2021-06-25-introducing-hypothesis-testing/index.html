@@ -1,0 +1,156 @@
+---
+title: Introducing hypothesis testing
+author: Jose M Sallan
+date: '2021-06-25'
+slug: introducing-hypothesis-testing
+categories:
+  - R
+  - statistics
+tags:
+  - R
+  - hypothesis testing
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p><strong>Hypothesis testing</strong> is a <strong>statistical inference</strong> technique to acquire information about a population parameter from observations of a sample, a subet of the population.</p>
+<p>Hypothesis testing is widely used in many fields of scientific research. When we examine if there is a difference on a parameter between treatment and control groups in experimental design, of ir a correlation exists between two variables, we are using hypothesis testing.</p>
+<p>The elements of an hypothesis testing workflow are:</p>
+<ul>
+<li>The <strong>null hypothesis and alternative</strong> hypothesis.</li>
+<li>The <strong>underlying probability distribution</strong> of a random variable for which the null hypothesis is true.</li>
+<li>The <strong>significance level</strong> to reject the null hypothesis.</li>
+</ul>
+<p>Here I will introduce these elements for a simple hypothesis testing, along with some possibilites of ggplot.</p>
+<div id="null-and-alternative-hypothesis" class="section level2">
+<h2>Null and alternative hypothesis</h2>
+<p>Let’s suppose that we want to know if the mean of a population is different from zero. In the null hypothesis, the effect we are looking for does not exists, so the population mean will be zero:</p>
+<p><span class="math display">\[H_0 : \mu = 0\]</span></p>
+<p>The alternative hypothesis holds if the null hypothesis does not:</p>
+<p><span class="math display">\[H_1 : \mu \neq 0\]</span></p>
+<p>In most cases, the null hypothesis is the absence of effect, while the alternative hypothesis is related with the presence of effect. We can know if the effect exists if we can discard the null hypothesis with a level of significance.</p>
+</div>
+<div id="underlying-probability-distribution" class="section level2">
+<h2>Underlying probability distribution</h2>
+<p>We don’t really know the <strong>population mean</strong> <span class="math inline">\(\mu\)</span>, as we would need access to the whole population, something usually impossible or not practical. All we can get is a <strong>sample mean</strong> <span class="math inline">\(\bar{x}\)</span> from a sample of <span class="math inline">\(n\)</span> elements from the population. As we will get a different value of <span class="math inline">\(\bar{x}\)</span> for each sample, <span class="math inline">\(\bar{x}\)</span> is a random variable with a probability distribution.</p>
+<p>We need to know the distribution of <span class="math inline">\(\bar{x}\)</span> if the null hypothesis is true. We can use the <strong>central limit theorem</strong> to know that:</p>
+<p><span class="math display">\[  \frac{\bar{x} - \mu}{\sigma/\sqrt{n}}   \sim t_{n-1}  \]</span></p>
+<p>Where <span class="math inline">\(t_{n-1}\)</span> is a t-Student distribution with <span class="math inline">\(n-1\)</span> degrees of freedom, and <span class="math inline">\(s\)</span> the sample standard deviation. If <span class="math inline">\(n\)</span> is large enough we can make the approximation:</p>
+<p><span class="math display">\[  \frac{\bar{x} - \mu}{s/\sqrt{n}}   \sim N\left(0,1\right)  \]</span></p>
+<p>The plot below shows the differences between density functions of t-Student of low <span class="math inline">\(n\)</span> and the <span class="math inline">\(N\left(0,1\right)\)</span>. It shows that it is safe to approximate t-Student to normal distribution for large values of <span class="math inline">\(n\)</span>.</p>
+<pre class="r"><code>ggplot(data.frame(x = c(-4, 4)), aes(x)) +
+  stat_function(fun = dnorm) +
+  stat_function(fun = dt, args = list(df=8), color = &quot;red&quot;) +
+  stat_function(fun = dt, args = list(df=5), color = &quot;blue&quot;) +
+  annotate(geom = &quot;text&quot;, x = 2, y = 0.3, label = &quot;normal N(0,1)&quot;, hjust = &quot;left&quot;) +
+  annotate(geom = &quot;text&quot;, x = 2, y = 0.27, label = &quot;t-Student n=8&quot;, color = &quot;red&quot;, hjust = &quot;left&quot;) +
+  annotate(geom = &quot;text&quot;, x = 2, y = 0.24, label = &quot;t-Student n=5&quot;, color = &quot;blue&quot;, hjust = &quot;left&quot;) +
+  theme_bw() +
+  labs(title = &quot;t-Student and normal distribution&quot;, x = &quot;&quot;, y = &quot;&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
+</div>
+<div id="significance-level" class="section level2">
+<h2>Significance level</h2>
+<p>To make the hypothesis test from a sample we need to compute the value:</p>
+<p><span class="math display">\[\frac{\bar{x} - \mu}{s/\sqrt{n}} \]</span></p>
+<p>What values is likely to take this value if <span class="math inline">\(H_0\)</span> is true? The plot below presents a <span class="math inline">\(N\left(0,1\right)\)</span> distribution. The tail values depicted in blue are unlikely to occur in this distribution: in fact each tail has a probability of <span class="math inline">\(p = 0.025\)</span>, so the probability of falling in any of the two tails is <span class="math inline">\(p = 0.05\)</span>.</p>
+<pre class="r"><code>p &lt;- 0.025
+tail_low &lt;- seq(-4, qnorm(p), 0.01)
+df_tl &lt;- data.frame(x=c(tail_low,qnorm(p)), y =c(dnorm(tail_low),0))
+tail_high &lt;- seq(qnorm(1-p), 4, 0.01)
+df_th &lt;- data.frame(x=c(qnorm(1-p),tail_high), y=c(0,dnorm(tail_high)))
+
+ggplot(data.frame(x = c(-4, 4)), aes(x)) +
+  stat_function(fun = dnorm) +
+  geom_polygon(data = df_tl, aes(x,y), fill = &quot;#99CCFF&quot;) +
+  geom_polygon(data = df_th, aes(x,y), fill = &quot;#99CCFF&quot;) +
+  geom_vline(xintercept = qnorm(p), lty = &quot;dashed&quot;, lwd = 0.3) +
+  geom_vline(xintercept = qnorm(1-p), lty = &quot;dashed&quot;, lwd = 0.3) +
+  annotate(geom = &quot;text&quot;, -1.97, 0.1, label = &quot;-1.96&quot;, hjust = &quot;right&quot;) +
+  annotate(geom = &quot;text&quot;, 1.97, 0.1, label = &quot;1.96&quot;, hjust = &quot;left&quot;) +
+  theme_classic() +
+  labs(x=&quot;&quot;, y=&quot;&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<p>We can obtain the tail values doing:</p>
+<pre class="r"><code>qnorm(p)</code></pre>
+<pre><code>## [1] -1.959964</code></pre>
+<pre class="r"><code>qnorm(1-p)</code></pre>
+<pre><code>## [1] 1.959964</code></pre>
+<p>We have two alternative explanations for an observation above 1.96 or below -1.96:</p>
+<ul>
+<li>It is an unfrequent sample from a population for which the null hypothesis is true. Salues outside the interval <span class="math inline">\(\left[-1.96, 1.96\right]\)</span> can occur with <span class="math inline">\(p=0.05\)</span>.</li>
+<li>The null hypothesis is false.</li>
+</ul>
+<p>This is the meaning of the <em>p</em>-value:</p>
+<blockquote>
+<p>The <em>p</em>-value is the probability of observing the obtained value or one more extreme if the hull hypothesis is true.</p>
+</blockquote>
+<p>The threshold for the <em>p</em>-value to reject a null hypothesis is a decision to be taken by the investigator. A common threshold value in many fields is <span class="math inline">\(p=0.05\)</span>, although in some circumstances it is wise to take an even lower value. So, if we observe a <em>p</em>-value below 0.05, we reject the null hypothesis and consider that the alternative hypothesis is true.</p>
+</div>
+<div id="errors-when-the-null-hypothesis-is-true" class="section level2">
+<h2>Errors when the null hypothesis is true</h2>
+<p>Let’s see what happens if we perform many tests of hypotheses when the null hypothesis is true. We will use this code to examine that:</p>
+<pre class="r"><code>set.seed(1313)
+p_values_mu0 &lt;- sapply(1:10000, function(x){
+  sample &lt;- rnorm(n = 100, mean = 0, sd = 1)
+  f &lt;- t.test(sample, mu = 0)
+  return(f$p.value)
+})</code></pre>
+<p>This code obtains 10,000 times a <code>sample</code> of size 100 from a population of a normal distribution with mean zero and standard deviation one. Then, it tests if the population mean is zero using <code>t.test</code>, and stores the <em>p</em>-value obtained from the test. So we have 10,000 different <em>p</em>-values.</p>
+<p>Let’s see a representation of the distribution of the obtained <em>p</em>-values:</p>
+<pre class="r"><code>ggplot(data.frame(p = p_values_mu0), aes(p)) + 
+  geom_histogram(binwidth = 0.05, center = 0.025, fill = c(&quot;#FF9999&quot;, rep(&quot;#C0C0C0&quot;, 19)), color = &quot;#606060&quot;) +
+  theme_bw() +
+  scale_x_continuous(name=&quot;p-value&quot;, breaks = seq(0, 1, 0.1))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
+<p>The distribution of <em>p</em> is uniform: if the null hypothesis is true, any <em>p</em>-value has the same probability. The bar in red presents the situations when we refuse the null hypothesis with a significance level of 0.05. In this situations, we are commiting a <strong>Type I error</strong>.</p>
+</div>
+<div id="errors-when-the-null-hypothesis-is-false" class="section level2">
+<h2>Errors when the null hypothesis is false</h2>
+<p>Let’s make a slightly different experiment:</p>
+<pre class="r"><code>p_values_mu1 &lt;- sapply(1:10000, function(x){
+  sample &lt;- rnorm(n = 100, mean = 0.2, sd = 1)
+  f &lt;- t.test(sample, mu = 0)
+  return(f$p.value)
+})</code></pre>
+<p>Now the population mean is not zero, so we know that the null hypothesis that the mean is zero is false. Let’s see what <em>p</em>-values we obtain:</p>
+<pre class="r"><code>ggplot(data.frame(p = p_values_mu1), aes(p)) + 
+  geom_histogram(binwidth = 0.05, center = 0.025, fill = c(&quot;#C0C0C0&quot;, rep(&quot;#FF9999&quot;, 19)), color = &quot;#606060&quot;) +
+  theme_bw() +
+  scale_x_continuous(name=&quot;p-value&quot;, breaks = seq(0, 1, 0.1), limits = c(0,1))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
+<p>The red bars are of <em>p</em>-values above the significance level of 0.05. There we are accepting the null hypothesis when it is false. This is a <strong>Type II error</strong>. We observe that the probability of this error is quite high, around 0.5.</p>
+<p>We can improve the <strong>statistical power</strong> of this test increasing the sample size from 100 to 1000:</p>
+<pre class="r"><code>p_values_mu12 &lt;- sapply(1:10000, function(x){
+  sample &lt;- rnorm(n = 1000, mean = 0.2, sd = 1)
+  f &lt;- t.test(sample, mu = 0)
+  return(f$p.value)
+})</code></pre>
+<p>Now that sample size is 1000, the probability of Type II error has lowered to near zero:</p>
+<pre class="r"><code>ggplot(data.frame(p = p_values_mu12), aes(p)) + 
+  geom_histogram(binwidth = 0.05, center = 0.025, fill = c(&quot;#C0C0C0&quot;, rep(&quot;#FF9999&quot;, 19)), color = &quot;#606060&quot;) +
+  theme_bw() +
+  scale_x_continuous(name=&quot;p value&quot;, breaks = seq(0, 1, 0.1), limits = c(0,1))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
+<p>It is important to keep in mind is that <strong>when we do not reject the null hypothesis, we cannot be sure whether it is true or not</strong>. It can be either that the null hypothesis is true and there is no effect, or that the effect is too small to be observed with the statistical power of our sample.</p>
+</div>
+<div id="type-i-and-type-ii-errors-in-hypothesis-testing" class="section level2">
+<h2>Type I and type II errors in hypothesis testing</h2>
+<p>Hypothesis testing is an important tool in quantitative scientific research. A bad use of hypothesis testing, together with the incentives of the research job market, is in the core of the <strong>reproductibility crisis</strong> of scientific research based on statistical inference. It is of great importance that any scientist understands hypothesis testing correctly.</p>
+<p>There are two different types of error in hypothesis testing:</p>
+<ul>
+<li>We commit a <strong>Type I error</strong> when we reject the null hypothesis when it is true. This means that we are detecting an effect when it is not present.</li>
+<li>We commit a <strong>Type II error</strong> when we do not reject the null hypothesis when it is false. This means that we are not detecting an effect when it is present. We can reduce the probability of Type II error increasing the statistical power of the experiment, which usually means increasing the sample size.</li>
+</ul>
+</div>
+<div id="further-reading" class="section level2">
+<h2>Further reading</h2>
+<ul>
+<li>Annotations in ggplot: <a href="https://ggplot2-book.org/annotations.html" class="uri">https://ggplot2-book.org/annotations.html</a></li>
+<li>Misuse of <em>p</em>-values: <a href="https://en.wikipedia.org/wiki/Misuse_of_p-values" class="uri">https://en.wikipedia.org/wiki/Misuse_of_p-values</a></li>
+</ul>
+<p><em>Built with R 4.1.0 and ggplot2 3.3.4</em></p>
+</div>

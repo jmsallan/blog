@@ -16,8 +16,6 @@ description: Description for the page
 <script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
 
 
-<div id="logistic-regression" class="section level2">
-<h2>Logistic regression</h2>
 <p>In <strong>linear regression</strong>, we estimate the value of a dependent variable as a linear function of a set of dependent variables. The values of the dependent variable are unrestricted, meaning that it can take any real value. If some hypothesis regarding normality and variance stability of residuals are met, the ordinary least squares are the maximum likelihood estimates for linear regression.</p>
 <p>There are many contexts, though, where the dependent variable can take only values equal to zero and one. In that context, we may want to estimate the <strong>probability that the dependent variable be equal to one</strong>. Unlike linear regression, the values of the dependent variable are restricted to the <span class="math inline">\(\left[0,1\right]\)</span> interval. For these models we cannot use ordinary least squares. Instead, we can obtain <strong>maximum likelihood estimates</strong> with other models.</p>
 <p>A usual approach to this problem is the <strong>logistic regression</strong>, sometimes called <strong>logit</strong> model.</p>
@@ -32,7 +30,6 @@ description: Description for the page
 <p>For simplicity, we optimize the <strong>log likelihood</strong> function to obtain the estimators:</p>
 <p><span class="math display">\[ \mathcal{l}\left( \mathcal{\theta} \right) = \sum_{i=1}^n y_i\text{log} \pi_i +  \sum_{i=1}^n\left(1-y_i\right) \text{log}\left(1-\pi_i\right) \]</span></p>
 <p>As <span class="math inline">\(\pi_i\)</span> is a function of dependent variables, we can obtain estimates <span class="math inline">\(b_0, \dots, b_p\)</span> of <span class="math inline">\(\beta_0, \dots, \beta_p\)</span> maximizing the log likelihood function <span class="math inline">\(\mathcal{l}\)</span>. Unlike ordinary least squares, there is no analytical solution for the maximization of log likelihood, so model estimates are obtained numerically.</p>
-</div>
 <div id="an-example-of-logistic-regression" class="section level2">
 <h2>An example of logistic regression</h2>
 <p>Let’s use the <code>iris</code> dataset to build a logistic regression model with a dependent variable <code>is_virginica</code> equal to one if the observation belongs to this species and zero otherwise. I will remove the original <code>Species</code> variable and <code>Petal.Width</code>. The later is highly correlated with the rest of predictors.</p>
