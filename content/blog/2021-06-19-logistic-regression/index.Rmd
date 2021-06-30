@@ -170,7 +170,7 @@ Another use of logistic regression is as a **predictive model**. When we assign 
 
 ## References
 
-* Commonly Encountered Pseudo R-Squareds for logistic regression
-<https://web.archive.org/web/20130701052120/http://www.ats.ucla.edu:80/stat/mult_pkg/faq/general/Psuedo_RSquareds.htm>
+* FAQ: What are pseudo R- squareds?
+<https://stats.idre.ucla.edu/other/mult-pkg/faq/general/faq-what-are-pseudo-r-squareds/>
 
-*Built with R 4.0.3, tidyverse 1.3.0, broom 0.7.5 and yardstick 0.0.7*
+*Built with R 4.1.0, tidyverse 1.3.1, broom 0.7.7 and yardstick 0.0.8*
