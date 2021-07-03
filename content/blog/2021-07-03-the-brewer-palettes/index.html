@@ -1,0 +1,70 @@
+---
+title: The Brewer palettes
+author: Jose M Sallan
+date: '2021-07-03'
+slug: the-brewer-palettes
+categories:
+  - R
+tags:
+  - R
+  - color
+  - ggplot
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>A <strong>palette</strong> or <a href="https://en.wikipedia.org/wiki/Color_scheme">color scheme</a> is a choice of colors originally used in artistic and design contexts. In data visualizations color can be an useful mean to add more information to a plot, due to its aestetic appeal and intuitive contrast: most people can differentiate a large range of colors.</p>
+<p>Cartographers have been researching how to represent quantitative variations of magnitudes in spatial representations, especially in choropleth maps. One of the better known family of color schemes developed for that purpose are the <strong>Brewer palettes</strong>, created by <a href="https://en.wikipedia.org/wiki/Cynthia_Brewe">Cynthia A. Brewer</a>. In <a href="https://colorbrewer2.org/#type=sequential&amp;scheme=BuGn&amp;n=3">this website</a> we can test the Brewer palettes in the context of geographical information.</p>
+<p>Brewer palettes are available in R through the <code>RColorBrewer</code> package. Here I will present the available Brewer palettes and how to use them in ggplot.</p>
+<div id="sequential-palettes" class="section level2">
+<h2>Sequential palettes</h2>
+<p>We can use sequential palettes to represent <strong>ordered data</strong>, either categorical or numeric. Sequential Brewer palettes use lighter colors for low values, and darkdf for high values. Sequential Brewer palettes can be <strong>monochrome</strong>, like <code>Greens</code> or <code>Greys</code>, or <strong>part-spectral</strong> like <code>YlGn</code> or <code>YlGnBu</code>. Here are presented the 18 sequential Brewer palettes:</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-1-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="diverging-palettes" class="section level2">
+<h2>Diverging palettes</h2>
+<p>Diverging palettes represent <strong>dychotomic, ordered data</strong>. We can use diverging palettes to represent the degree of polarization of a region or individual in a two-party political spectrum. These palettes use dark colors at extremes and paler colors in the middle. Here are presented the nine diverging Brewer palettes:</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="qualitative-palettes" class="section level2">
+<h2>Qualitative palettes</h2>
+<p>We use qualitative palettes to represent <strong>categorical, unordered</strong> data. Here we want to differentiate across categories, so we will be using <strong>spectral</strong> color schemes covering a large range of hue. Here we can see the eight Brewer qualitative palettes.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>In all cases, I have presented each palette with its largest number of available colors, although they can be used with less colors for categorical variables with less levels.</p>
+</div>
+<div id="using-brewer-palettes-in-ggplot" class="section level2">
+<h2>Using Brewer palettes in ggplot</h2>
+<p>We can use the Brewer palettes in ggplot with <code>scale_color_brewer</code> or <code>scale_fill_brewer</code>. These are used in the same way as manual scales, although the colors are chosen with parameters <code>type</code> (<code>"seq"</code>, <code>"div"</code> or <code>"qual"</code>) and <code>palette</code>, a number specifying the palette. Palettes are ordered as they are listed here. For instance, with <code>type = "qual"</code> and <code>palette = 2</code> we are choosing palette <code>Dark2</code>.</p>
+<p>Let’s make the classical <code>iris</code> plot choosing the colors from the <code>Dark2</code> Brewer palette.</p>
+<pre class="r"><code>ggplot(iris, aes(Sepal.Length, Sepal.Width, color = Species)) +
+  geom_point(size=1.5) +
+  theme_bw() +
+  scale_color_brewer(type = &quot;qual&quot;, palette = 2) </code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>To illustrate the use of a sequential palette I am presenting a bivariate plot of a subset of the <code>diamonds</code> dataset. Here the color represents the type of <code>cut</code>. Better cuts are presented in darker colors.</p>
+<pre class="r"><code>diamonds %&gt;%
+  sample_n(1000) %&gt;%
+  ggplot(aes(carat, price, color = cut)) +
+  geom_point() +
+  theme_bw() +
+  scale_color_brewer(type = &quot;seq&quot;, palette = 1)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="color-palettes-in-data-visualization" class="section level2">
+<h2>Color palettes in data visualization</h2>
+<p>Colors are frequently used in data visualization to represent categorical data or to add a third variable in a bivariate plot. We can define sets of colors manually, but we can also take advantage of predefined colors scheme or <strong>palettes</strong>. In this post I have presented how to use the Brewer palettes in R using the <code>RColorBrewer</code> package.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Cynthia Brewer <a href="https://en.wikipedia.org/wiki/Cynthia_Brewer" class="uri">https://en.wikipedia.org/wiki/Cynthia_Brewer</a></li>
+<li>ColorBrewer 2.0: color advice for maps <a href="https://colorbrewer2.org/#type=sequential&amp;scheme=BuGn&amp;n=3" class="uri">https://colorbrewer2.org/#type=sequential&amp;scheme=BuGn&amp;n=3</a></li>
+<li>Using manual scales in ggplot <a href="https://jmsallan.netlify.app/blog/2021-03-12-colors-and-shapes-of-points-in-ggplot2/" class="uri">https://jmsallan.netlify.app/blog/2021-03-12-colors-and-shapes-of-points-in-ggplot2/</a></li>
+<li>Top R color palettes to know for great data visualization <a href="https://www.datanovia.com/en/blog/top-r-color-palettes-to-know-for-great-data-visualization/" class="uri">https://www.datanovia.com/en/blog/top-r-color-palettes-to-know-for-great-data-visualization/</a></li>
+<li>Sequential, diverging and qualitative colour scales from ColorBrewer <a href="https://ggplot2.tidyverse.org/reference/scale_brewer.html" class="uri">https://ggplot2.tidyverse.org/reference/scale_brewer.html</a></li>
+</ul>
+<p><em>Built with R 4.1.0, tidyverse 1.3.1 and RColorBrewer 1.1-2</em></p>
+</div>
