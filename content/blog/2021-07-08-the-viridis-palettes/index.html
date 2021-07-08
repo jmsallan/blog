@@ -1,0 +1,111 @@
+---
+title: The viridis palettes
+author: Jose M Sallan
+date: '2021-07-08'
+slug: the-viridis-palettes
+categories:
+  - R
+tags:
+  - R
+  - color
+  - ggplot
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>As stated by authors of the <code>viridis</code> package:</p>
+<blockquote>
+<p>Use the color scales in this package to make plots that are pretty, better represent your data, easier to read by those with colorblindness, and print well in gray scale.</p>
+</blockquote>
+<p>The strengths of <code>viridis</code> are that:</p>
+<ul>
+<li>plots are more <strong>beautiful</strong>,</li>
+<li>colors are <strong>perfectly perceptually-uniform</strong>, even when printed in black and white,</li>
+<li>color schemes are perceived by the most common forms of <strong>color blindness</strong>.</li>
+</ul>
+<p>viridis is now the default color scheme for Python mathlotlib.We can access the <code>viridis</code> scales through the <code>viridis</code> package, which also loads <code>viridisLite</code>.</p>
+<div id="continuous-viridis-scales" class="section level2">
+<h2>Continuous viridis scales</h2>
+<p>Unlike the brewer palettes, the <code>viridis</code> color scales can have any number of colors, so they are apt to present continuous variables. We can use the <code>viridis</code> function with a large value of <code>n</code> to see how these continuous scales look like. There are eight palettes available, that can be accessed giving values <code>A</code> to <code>H</code> to the options parameter. For instance, the cividis palette is accessed with <code>option = "E"</code>.</p>
+<pre class="r"><code>viridis_names &lt;-c(&quot;magma&quot;, &quot;inferno&quot;, &quot;plasma&quot;, &quot;viridis&quot;, &quot;cividis&quot;, &quot;rocket&quot;, &quot;mako&quot;, &quot;turbo&quot;)
+
+n &lt;- 50
+par(mfrow=c(4,2), mar = c(1,1,1,1))
+f &lt;- sapply(1:8, function(x) image(matrix(1:n, n, 1), col = viridis(n=n, option = LETTERS[x]), axes =FALSE, main = viridis_names[x]))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-1-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="discrete-viridis-scales" class="section level2">
+<h2>Discrete viridis scales</h2>
+<p>Using viridis with a lower value of <code>n</code> let us see discrete <code>viridis</code> scales:</p>
+<pre class="r"><code>viridis_names &lt;-c(&quot;magma&quot;, &quot;inferno&quot;, &quot;plasma&quot;, &quot;viridis&quot;, &quot;cividis&quot;, &quot;rocket&quot;, &quot;mako&quot;, &quot;turbo&quot;)
+
+n &lt;- 8
+par(mfrow=c(4,2), mar = c(1,1,1,1))
+f &lt;- sapply(1:8, function(x) image(matrix(1:n, n, 1), col = viridis(n=n, option = LETTERS[x]), axes =FALSE, main = viridis_names[x]))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="viridis-and-ggplot" class="section level2">
+<h2>viridis and ggplot</h2>
+<p><code>viridis</code> adds <code>scale_*_viridis_*</code> functions to use the above palettes in <code>ggplot</code>. We use <code>scale_color_viridis_d</code>, <code>scale_fill_viridis_d</code> and the like for discrete scales:</p>
+<pre class="r"><code>ggplot(iris, aes(Sepal.Length, Sepal.Width, color = Species)) +
+  geom_point() +
+  labs(x = &quot;sepal length&quot;, y = &quot;sepal width&quot;, title = &quot;iris sepal plot&quot;) +
+  scale_color_viridis_d(name = &quot;iris species&quot;, 
+                        labels = c(&quot;Setosa&quot;, &quot;Versicolor&quot;, &quot;Virgininca&quot;), 
+                        option = &quot;viridis&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="672" style="display: block; margin: auto;" />
+virids is the default color scale when we use ordered factors:</p>
+<pre class="r"><code>set.seed(1313)
+diamonds %&gt;%
+  sample_n(1000) %&gt;%
+  ggplot(aes(carat, price, color = cut)) +
+  geom_point() +
+  labs(title = &quot;A sample of the diamonds dataset&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>We use <code>viridis</code> to convey the values of a continous variable using a <strong>gradient scale</strong>. To illustrate this, I will generate a grid of values of the <code>sin(x) + cos(y)</code> function:</p>
+<pre class="r"><code>points &lt;- seq(-2*pi, 2*pi, length.out = 100)
+grid &lt;- expand.grid(points, points)
+names(grid) &lt;- c(&quot;x&quot;, &quot;y&quot;)
+grid &lt;- grid %&gt;%
+  mutate(z = sin(x) + cos(y))</code></pre>
+<p>In this figure, I represent the value of the two-variable function with a color scale. I have used the <code>magma</code> palette of <code>viridis</code> with <code>scale_fill_viridis_c</code>:</p>
+<pre class="r"><code>ggplot(grid, aes(x = x, y = y, fill = z)) +
+  geom_tile() +
+  theme_void() +
+  scale_fill_viridis_c(name = &quot;sin(x) + cos(y)&quot;, option = &quot;magma&quot;) +
+  theme(legend.position = &quot;bottom&quot;) +
+    labs(title = &quot;Colors with magma palette&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>The result is much prettier, in my opinion, than the obtained with the default ggplot colors for gradient scales:</p>
+<pre class="r"><code>ggplot(grid, aes(x = x, y = y, fill = z)) +
+  geom_tile() +
+  theme_void() +
+  theme(legend.position = &quot;bottom&quot;) +
+  labs(title = &quot;Colors with default palette&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Data for the plot are not continuous, but a 100 x 100 grid. To give a unique color to each grid element, we can use a <strong>binned scale</strong> with <code>scale_fill_viridis_b</code>:</p>
+<pre class="r"><code>ggplot(grid, aes(x = x, y = y, fill = z)) +
+  geom_tile() +
+  theme_void() +
+  scale_fill_viridis_b(name = &quot;sin(x) + cos(y)&quot;, option = &quot;magma&quot;) +
+    theme(legend.position = &quot;bottom&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="the-viridis-color-schemes" class="section level2">
+<h2>The viridis color schemes</h2>
+<p>The <code>viridis</code> color schemes have been designed to use color in data visualization. The eight color schemes are beautiful, perceptually-uniform and accessible for people with color-blindness. We can generate <code>viridis</code> palettes of any number of colors, so we can use them to plot continuous, binned and discrete data. viridis is the default color scheme for the popular matplotlib Python package, and they are the default in <code>ggplot</code> to represent ordered factors.</p>
+<p>An alternative to <code>viridis</code> are the <a href="https://jmsallan.netlify.app/blog/the-brewer-palettes/">Brewer palettes</a>, developed by Cynthia A. Brewer for choropleth maps. Those scales are only for categorical data, but they offer the possibility of representing sequential, diverging or qualitative values.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>[ggplot2] Welcome viridis! <a href="https://www.r-bloggers.com/2018/07/ggplot2-welcome-viridis/" class="uri">https://www.r-bloggers.com/2018/07/ggplot2-welcome-viridis/</a></li>
+<li>Introduction to the <code>viridis</code> color maps <a href="https://cran.r-project.org/web/packages/viridis/vignettes/intro-to-viridis.html" class="uri">https://cran.r-project.org/web/packages/viridis/vignettes/intro-to-viridis.html</a></li>
+<li>Top R color palettes to know for great data visualization <a href="https://www.datanovia.com/en/blog/top-r-color-palettes-to-know-for-great-data-visualization/" class="uri">https://www.datanovia.com/en/blog/top-r-color-palettes-to-know-for-great-data-visualization/</a></li>
+<li><code>viridis</code> colour scales from <code>viridisLite</code> <a href="https://ggplot2.tidyverse.org/reference/scale_viridis.html" class="uri">https://ggplot2.tidyverse.org/reference/scale_viridis.html</a></li>
+</ul>
+<p><em>Built with R 4.1.0, tidyverse 1.3.1 and viridis 0.6.1</em></p>
+</div>
