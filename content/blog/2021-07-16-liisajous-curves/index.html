@@ -1,0 +1,152 @@
+---
+title: Lissajous curves
+author: Jose M Sallan
+date: '2021-07-16'
+slug: liisajous-curves
+categories:
+  - R
+tags:
+  - dplyr
+  - ggplot
+  - R
+  - purrr
+  - gganimate
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>A <strong>Lissajous curve</strong> is a graph of a two-dimensional set of parametric equations of the form:</p>
+<p><span class="math display">\[\begin{eqnarray}
+x &amp;=&amp; A sin \left( w_1t + \delta \right) \\ y &amp;=&amp; B sin \left( w_2t \right)
+\end{eqnarray}\]</span></p>
+<p>These curves were first investigated in 1815 by Nathaniel Bowditch. Jules Antoine Lissajous studied them in more detail by 1857 and they were named after him since then.</p>
+<p>Lissajous curves represent complex harmonic mation. <span class="math inline">\(A\)</span> and <span class="math inline">\(B\)</span> determine the width to height ratio, but the curve is more sensitive to the frequency ratio <span class="math inline">\(w_1/w_2\)</span> ratio. Lissajous curves are closed if the frequency ratio is rational, and <span class="math inline">\(w_1\)</span> and <span class="math inline">\(w_2\)</span> determine the number of vertical and horizontal lobes, respectively.</p>
+<p>Here I will be using Lissajous curves to introduce some features of data handling and visualization with the tidyverse family packages:</p>
+<ul>
+<li>tabular data handling with <code>dplyr</code>,</li>
+<li>functional programming with the <code>pmap_df</code> function of <code>purrr</code>,</li>
+<li>plotting Lissajous curves with <code>geom_path()</code> and <code>facet_grid()</code> from <code>ggplot2</code></li>
+<li>and creating aminated GIFs with <code>gganimate</code> and <code>transformr</code>.</li>
+</ul>
+<pre class="r"><code>library(dplyr)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;dplyr&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:stats&#39;:
+## 
+##     filter, lag</code></pre>
+<pre><code>## The following objects are masked from &#39;package:base&#39;:
+## 
+##     intersect, setdiff, setequal, union</code></pre>
+<pre class="r"><code>library(purrr)
+library(ggplot2)
+library(gganimate)
+library(transformr)</code></pre>
+<div id="plotting-a-lissajous-curve" class="section level2">
+<h2>Plotting a Lissajous curve</h2>
+<p>We can determine the points of a Lissajous curve with the <code>lissajous</code> function. The function returns a data frame with values of x and y, and <code>ratio</code> and <code>phase</code> variables are added for later plots</p>
+<pre class="r"><code>lissajous &lt;- function(w1, w2, diff_phase, ratio, phase){
+  t &lt;- seq(0, 2*pi, length.out = 100)
+  x &lt;- sin(w1*t + diff_phase)
+  y &lt;- sin(w2*t)
+  df &lt;- data.frame(x = x, y = y, ratio = ratio, phase = phase)
+  return(df)
+}</code></pre>
+<p>Once we have the coordinates of the plots, we can represent the curve with <code>geom_path()</code>. This geom connects observations in the order they appear in the data. If we use <code>geom_line()</code> points are connected by order of the <code>x</code> axis. I use <code>theme_void()</code> because I don’t need coordinate axis in this kind of plots.</p>
+<pre class="r"><code>ggplot(lissajous(w1 = 1, w2 = 3, diff_phase = pi/4, ratio = &quot;1/3&quot;, phase = &quot;pi/4&quot;), aes(x,y)) +
+  geom_path() +
+  theme_void() </code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="384" style="display: block; margin: auto;" /></p>
+<p>The above plot is a Lissajous curve with <span class="math inline">\(w_1=1\)</span> and <span class="math inline">\(w_2=3\)</span>. Note that the figure has one vertical lobe and three horizontal lobes.</p>
+</div>
+<div id="plotting-several-lissajous-curves-at-once" class="section level2">
+<h2>Plotting several Lissajous curves at once</h2>
+<p>Let’s try to plot several Lissajous curves together. I will be plotting eight ratios of frequencies for five different phase differences. I am using expand.grid for generating all combinations and mutate to obtain function parameters from <code>ratio</code> and <code>phase</code> labels.</p>
+<pre class="r"><code>lissajous_values &lt;- expand.grid(ratio = c(&quot;1/1&quot;, &quot;1/2&quot;, &quot;1/3&quot;, &quot;2/3&quot;, &quot;3/4&quot;, &quot;3/5&quot;, &quot;4/5&quot;, &quot;5/6&quot;), phase = c(&quot;0&quot;, &quot;pi/4&quot;, &quot;pi/2&quot;, &quot;3pi/4&quot;, &quot;pi&quot;))
+
+lissajous_values &lt;- lissajous_values %&gt;%
+  mutate(w1 = as.numeric(substr(ratio, 1, 1)),
+         w2 =  as.numeric(substr(ratio, 3, 3)),
+         phase_num = case_when(phase == &quot;0&quot; ~ 0,
+                               phase == &quot;pi/4&quot; ~ pi/4,
+                               phase == &quot;pi/2&quot; ~ pi/2,
+                               phase == &quot;3pi/4&quot; ~ 3*pi/4,
+                               phase == &quot;pi&quot; ~ pi))</code></pre>
+<p>Let’s glimpse at the table:</p>
+<pre class="r"><code>lissajous_values %&gt;% glimpse()</code></pre>
+<pre><code>## Rows: 40
+## Columns: 5
+## $ ratio     &lt;fct&gt; 1/1, 1/2, 1/3, 2/3, 3/4, 3/5, 4/5, 5/6, 1/1, 1/2, 1/3, 2/3, …
+## $ phase     &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, pi/4, pi/4, pi/4, pi/4, pi/4, pi/4, …
+## $ w1        &lt;dbl&gt; 1, 1, 1, 2, 3, 3, 4, 5, 1, 1, 1, 2, 3, 3, 4, 5, 1, 1, 1, 2, …
+## $ w2        &lt;dbl&gt; 1, 2, 3, 3, 4, 5, 5, 6, 1, 2, 3, 3, 4, 5, 5, 6, 1, 2, 3, 3, …
+## $ phase_num &lt;dbl&gt; 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.0000000, 0.000…</code></pre>
+<p>Now we need to apply the lissajous function to each row of the table, and integrate the resulting 40 data frames of 100 rows into a single data frame. We can do that using the <code>pmap_df</code> function of the <code>purrr</code> package:</p>
+<pre class="r"><code>lissajous_table &lt;- pmap_df(lissajous_values, function(ratio, phase, w1, w2, phase_num) lissajous(w1 = w1, w2 = w2, diff_phase = phase_num, ratio = ratio, phase = phase))</code></pre>
+<p>The resulting data frame lissajous_table has 40 x 100 = 4,000 rows:</p>
+<pre class="r"><code>lissajous_table %&gt;% glimpse()</code></pre>
+<pre><code>## Rows: 4,000
+## Columns: 4
+## $ x     &lt;dbl&gt; 0.00000000, 0.06342392, 0.12659245, 0.18925124, 0.25114799, 0.31…
+## $ y     &lt;dbl&gt; 0.00000000, 0.06342392, 0.12659245, 0.18925124, 0.25114799, 0.31…
+## $ ratio &lt;fct&gt; 1/1, 1/1, 1/1, 1/1, 1/1, 1/1, 1/1, 1/1, 1/1, 1/1, 1/1, 1/1, 1/1,…
+## $ phase &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0…</code></pre>
+<p>To plot the forty Lissajous curves we use a single plot:</p>
+<ul>
+<li><code>x</code> and <code>y</code> as aesthetics of each plot, created with <code>geom_path()</code> and <code>theme_void()</code>.</li>
+<li>we use <code>ratio</code> and <code>phase</code> as arguments of <code>facet_grid()</code> (that’s why they are added to the <code>lissajous</code> function). The <code>switch = "y"</code> argument sets the labels of frequency ratio to the left instead of to the right.</li>
+</ul>
+<pre class="r"><code>ggplot(lissajous_table, aes(x,y)) +
+  geom_path() + 
+  theme_void() +
+  facet_grid(ratio ~ phase, switch = &quot;y&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="examining-the-effect-of-phase-with-an-animated-gif" class="section level2">
+<h2>Examining the effect of phase with an animated GIF</h2>
+<p>To finish this gallery of Lissajous plots I have shown the effect of phase difference for a Lissajous curve. To run this on your computer you need:</p>
+<ul>
+<li>the <code>gganimate</code> package to create the plots to be wrapped into the animation,</li>
+<li>the <code>transformr</code> package to generate smooth transitions between contiguous plots of the animation</li>
+<li>and the <code>gifski</code> package to create the GIF.</li>
+</ul>
+<p>The code to build the GIF is wrapped into the <code>lissajous_gif</code> function:</p>
+<ul>
+<li>The <code>values</code> data frame has <code>points</code> values of <code>diff_phase</code> between 0 and <span class="math inline">\(2\pi\)</span>. We will be using 100 images to build the GIF, one for each value of phase difference.</li>
+<li>The <code>l_gif</code> function returns the points of a Lissajous curve for each <code>diff_phase</code> using a number of <code>points</code>. These values are stored in the <code>table</code> data frame.</li>
+<li>I use the <code>transition_states</code> function of <code>gganimate</code> to generate the plots to build the GIF. The function will generate one plot for each value of <code>diff_phase</code>.</li>
+<li>The function returns the set of plots of the <code>anim</code> variable.</li>
+</ul>
+<pre class="r"><code>lissajous_gif &lt;- function(w1, w2, points = 100){
+  
+  values &lt;- data.frame(w1, w2, diff_phase = seq(0, 2*pi, length.out = 100))
+  
+  l_gif &lt;- function(w1, w2, diff_phase){
+    t &lt;- seq(0, 2*pi, length.out = points)
+    x &lt;- sin(w1*t + diff_phase)
+    y &lt;- sin(w2*t)
+    df &lt;- data.frame(x = x, y = y, diff_phase = diff_phase)
+    return(df)
+  }
+  
+  table &lt;- pmap_df(values, function(w1, w2, diff_phase) l_gif(w1, w2, diff_phase))
+  
+  anim &lt;- ggplot(table, aes(x, y)) +
+    geom_path() +
+    theme_void() +
+    transition_states(diff_phase,
+                      transition_length = 2,
+                      state_length = 1)
+  
+  return(anim)
+}</code></pre>
+<p>Let’s see an animation for a Lissajous curve of <span class="math inline">\(w_1 = 2\)</span> and “w_2 = 3”</p>
+<pre class="r"><code>lissajous_gif(w1=2, w2=3, points=100)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.gif" style="display: block; margin: auto;" /></p>
+<p>And an animation for <span class="math inline">\(w_1 = 4\)</span> and <span class="math inline">\(w_2 = 5\)</span>:</p>
+<pre class="r"><code>lissajous_gif(w1=4, w2=5, points=500)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-11-1.gif" style="display: block; margin: auto;" /></p>
+<p><em>Built with R 4.1.0, dplyr 1.0.7, gganimate 1.0.7, ggplot2 3.3.4, purrr 0.3.4, and transformr 0.1.3</em></p>
+</div>
