@@ -43,7 +43,7 @@ data01 <- data.frame(cri = 4 + 2*con + rnorm(n, mean = 0, sd = 2),
 mod01 <- lm(cri ~ pre, data01)
 ```
 
-In the data01 dataset, the supposed predictor and criterion variables depend jointly on the control variable:
+In the `data01` dataset, the presumed predictor and criterion variables depend jointly on the control variable:
 
 ```{r, fig.align='center', fig.width=4, echo=FALSE}
 
@@ -77,7 +77,7 @@ mod01a <- lm(cri ~ con, data01)
 mod01b <- lm(cri ~ con + pre, data01)
 ```
 
-I use the stargazer package to present both models together:
+I use the `stargazer` package to present both models together:
 
 ```{r}
 stargazer(mod01a, mod01b, type = "text")
@@ -85,10 +85,10 @@ stargazer(mod01a, mod01b, type = "text")
 
 Now we observe that the **coefficient of the predictor variable** is not signiificant when we put it together with the control variable. We also observe that the coefficient of the control variable does not change significantly when we introduce the predictor. We conclude that the criterion does not depend on the predictor.
 
-If we observe the **R-square** of both models, we learn that the second model is not better than the first. In fact, the adjusted R-square of the second model is worse than the first. Additionnaly, we can test the null hypothesis that the second model is not better than the first using the `anova` function:
+If we look at the **R-square** of both models, we learn that the second model is not better than the first. In fact, the adjusted R-square of the second model is worse than the first. Additionnaly, we can test the null hypothesis that the second model is not better than the first using the `anova` function:
 
 ```{r}
-anova(mod01b, mod01a)
+anova(mod01a, mod01b)
 ```
 
 The low *p*-value makes us think that there are no sound reasons to discard the null hypothesis in this case.
@@ -121,7 +121,7 @@ Now we observe a lower correlation between predictor and control, and a strong c
 cor(data02)
 ```
 
-Let's build the two models for the hierarchical linear regression, and present the obtained results:
+Let's build the two models for the hierarchical linear regression, and present the results:
 
 ```{r}
 mod02a <- lm(cri ~ con, data02)
@@ -129,10 +129,10 @@ mod02b <- lm(cri ~ con + pre, data02)
 stargazer(mod02a, mod02b, type = "text")
 ```
 
-Now the **coefficient of the predictor** variable is significant, when put together with the control variable. We also observe that the coefficient of the control variable keeps being significant in the second model. We observe a significant increase of the **R-square** of the second model respect to the first. Finnally, we also observe that the anova test is significant:
+Now the **coefficient of the predictor** variable is significant, when put together with the control variable. We also observe that the coefficient of the control variable keeps being significant in the second model. We observe a significant increase of the **R-square** of the second model respect to the first. Finnally, we also observe that the `anova` test is significant:
 
 ```{r}
-anova(mod02b, mod02a)
+anova(mod02a, mod02b)
 ```
 
 Now we can conclude that there is a significant relationship between predictor and criterion, after controlling by control variables.
@@ -170,10 +170,17 @@ Here we observe that:
 Additionally, the ANOVA between the two models is significant:
 
 ```{r}
-anova(hmod02, hmod01)
+anova(hmod01, hmod02)
 ```
 
-Then, from that analysis we conclude that happiness is positively related with number of friends and number of pets, after controlling by gender and age.
+From that analysis we conclude that happiness is **positively related** with number of friends and number of pets, after controlling by gender and age.
+
+## Observing the effect of predictors with hierarchical linear regression
+
+We can conclude that a relationship between a criterion and a set of predictor variables exists, after controlling by a set of control variables, if the following conditions hold:
+
+* The status of the **coefficients of the control variables** does not change after adding the predictors.
+* The explanatory power of the model with predictors and controls (second model) is higher than the model with controls alone (first model). By can check that examining the **change of R-squared**, which must be significantly higher for the second model. We can also perform an **ANOVA test** on both models, to discard the null hypothesis that the second model explains the same variance of the criterion variable as the first.
 
 ## References
 

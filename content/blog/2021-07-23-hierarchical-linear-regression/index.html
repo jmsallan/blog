@@ -34,14 +34,14 @@ data01 &lt;- data.frame(cri = 4 + 2*con + rnorm(n, mean = 0, sd = 2),
 
 
 mod01 &lt;- lm(cri ~ pre, data01)</code></pre>
-<p>In the data01 dataset, the supposed predictor and criterion variables depend jointly on the control variable:</p>
+<p>In the <code>data01</code> dataset, the presumed predictor and criterion variables depend jointly on the control variable:</p>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="384" style="display: block; margin: auto;" /></p>
 <p>We cannot detect that if we examine the correlation matrix:</p>
 <pre class="r"><code>cor(data01)</code></pre>
 <pre><code>##           cri       pre       con
-## cri 1.0000000 0.8349652 0.9872813
-## pre 0.8349652 1.0000000 0.8478147
-## con 0.9872813 0.8478147 1.0000000</code></pre>
+## cri 1.0000000 0.8419584 0.9826853
+## pre 0.8419584 1.0000000 0.8451160
+## con 0.9826853 0.8451160 1.0000000</code></pre>
 <p>We observe a strong correlation between criterion and predictor. This is not desirable, because ideally regressors must be uncorrelated. If we ignore this warning and naively regress the criterion on the predictor, we obtain a significant relationship between both variables, which does not exist:</p>
 <pre class="r"><code>mod01 &lt;- lm(cri ~ pre, data = data01)
 stargazer(mod01, type = &quot;text&quot;)</code></pre>
@@ -51,18 +51,18 @@ stargazer(mod01, type = &quot;text&quot;)</code></pre>
 ##                     ---------------------------
 ##                                 cri            
 ## -----------------------------------------------
-## pre                          1.335***          
-##                               (0.089)          
+## pre                          1.429***          
+##                               (0.093)          
 ##                                                
-## Constant                     24.642***         
-##                               (3.448)          
+## Constant                     19.042***         
+##                               (3.637)          
 ##                                                
 ## -----------------------------------------------
 ## Observations                    100            
-## R2                             0.697           
-## Adjusted R2                    0.694           
-## Residual Std. Error       6.723 (df = 98)      
-## F Statistic           225.611*** (df = 1; 98)  
+## R2                             0.709           
+## Adjusted R2                    0.706           
+## Residual Std. Error       6.164 (df = 98)      
+## F Statistic           238.647*** (df = 1; 98)  
 ## ===============================================
 ## Note:               *p&lt;0.1; **p&lt;0.05; ***p&lt;0.01</code></pre>
 <p>To avoid this pitfall, we can adopt a hierarchical linear regression modelin framework with two models:</p>
@@ -72,7 +72,7 @@ stargazer(mod01, type = &quot;text&quot;)</code></pre>
 </ul>
 <pre class="r"><code>mod01a &lt;- lm(cri ~ con, data01)
 mod01b &lt;- lm(cri ~ con + pre, data01)</code></pre>
-<p>I use the stargazer package to present both models together:</p>
+<p>I use the <code>stargazer</code> package to present both models together:</p>
 <pre class="r"><code>stargazer(mod01a, mod01b, type = &quot;text&quot;)</code></pre>
 <pre><code>## 
 ## =======================================================================
@@ -81,33 +81,33 @@ mod01b &lt;- lm(cri ~ con + pre, data01)</code></pre>
 ##                                             cri                        
 ##                                (1)                       (2)           
 ## -----------------------------------------------------------------------
-## con                         1.997***                  2.010***         
-##                              (0.032)                   (0.062)         
+## con                         1.956***                  1.889***         
+##                              (0.037)                   (0.070)         
 ##                                                                        
-## pre                                                    -0.012          
-##                                                        (0.049)         
+## pre                                                     0.068          
+##                                                        (0.059)         
 ##                                                                        
-## Constant                    4.319***                  4.317***         
-##                              (1.173)                   (1.179)         
+## Constant                    5.288***                  5.035***         
+##                              (1.334)                   (1.350)         
 ##                                                                        
 ## -----------------------------------------------------------------------
 ## Observations                   100                       100           
-## R2                            0.975                     0.975          
-## Adjusted R2                   0.974                     0.974          
-## Residual Std. Error      1.942 (df = 98)           1.952 (df = 97)     
-## F Statistic         3,779.262*** (df = 1; 98) 1,871.503*** (df = 2; 97)
+## R2                            0.966                     0.966          
+## Adjusted R2                   0.965                     0.965          
+## Residual Std. Error      2.117 (df = 98)           2.113 (df = 97)     
+## F Statistic         2,756.677*** (df = 1; 98) 1,383.495*** (df = 2; 97)
 ## =======================================================================
 ## Note:                                       *p&lt;0.1; **p&lt;0.05; ***p&lt;0.01</code></pre>
 <p>Now we observe that the <strong>coefficient of the predictor variable</strong> is not signiificant when we put it together with the control variable. We also observe that the coefficient of the control variable does not change significantly when we introduce the predictor. We conclude that the criterion does not depend on the predictor.</p>
-<p>If we observe the <strong>R-square</strong> of both models, we learn that the second model is not better than the first. In fact, the adjusted R-square of the second model is worse than the first. Additionnaly, we can test the null hypothesis that the second model is not better than the first using the <code>anova</code> function:</p>
-<pre class="r"><code>anova(mod01b, mod01a)</code></pre>
+<p>If we look at the <strong>R-square</strong> of both models, we learn that the second model is not better than the first. In fact, the adjusted R-square of the second model is worse than the first. Additionnaly, we can test the null hypothesis that the second model is not better than the first using the <code>anova</code> function:</p>
+<pre class="r"><code>anova(mod01a, mod01b)</code></pre>
 <pre><code>## Analysis of Variance Table
 ## 
-## Model 1: cri ~ con + pre
-## Model 2: cri ~ con
+## Model 1: cri ~ con
+## Model 2: cri ~ con + pre
 ##   Res.Df    RSS Df Sum of Sq      F Pr(&gt;F)
-## 1     97 369.43                           
-## 2     98 369.65 -1  -0.22209 0.0583 0.8097</code></pre>
+## 1     98 439.15                           
+## 2     97 433.25  1    5.8945 1.3197 0.2535</code></pre>
 <p>The low <em>p</em>-value makes us think that there are no sound reasons to discard the null hypothesis in this case.</p>
 </div>
 <div id="second-dataset" class="section level2">
@@ -121,47 +121,47 @@ data02 &lt;- data.frame(cri = 4 + 2*pre + 3*con + rnorm(n, mean = 0, sd = 10),
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="384" style="display: block; margin: auto;" /></p>
 <p>Now we observe a lower correlation between predictor and control, and a strong correlation between criterion and predictor:</p>
 <pre class="r"><code>cor(data02)</code></pre>
-<pre><code>##           cri        pre        con
-## cri 1.0000000 0.92679760 0.38821968
-## pre 0.9267976 1.00000000 0.06961564
-## con 0.3882197 0.06961564 1.00000000</code></pre>
-<p>Let’s build the two models for the hierarchical linear regression, and present the obtained results:</p>
+<pre><code>##           cri         pre         con
+## cri 1.0000000  0.91792257  0.28037844
+## pre 0.9179226  1.00000000 -0.06939176
+## con 0.2803784 -0.06939176  1.00000000</code></pre>
+<p>Let’s build the two models for the hierarchical linear regression, and present the results:</p>
 <pre class="r"><code>mod02a &lt;- lm(cri ~ con, data02)
 mod02b &lt;- lm(cri ~ con + pre, data02)
 stargazer(mod02a, mod02b, type = &quot;text&quot;)</code></pre>
 <pre><code>## 
-## ====================================================================
-##                                   Dependent variable:               
-##                     ------------------------------------------------
-##                                           cri                       
-##                              (1)                      (2)           
-## --------------------------------------------------------------------
-## con                        3.549***                2.974***         
-##                            (0.851)                  (0.176)         
-##                                                                     
-## pre                                                1.959***         
-##                                                     (0.042)         
-##                                                                     
-## Constant                  104.620***                 7.017          
-##                            (30.732)                 (6.670)         
-##                                                                     
-## --------------------------------------------------------------------
-## Observations                 100                      100           
-## R2                          0.151                    0.964          
-## Adjusted R2                 0.142                    0.964          
-## Residual Std. Error    50.880 (df = 98)        10.493 (df = 97)     
-## F Statistic         17.391*** (df = 1; 98) 1,307.984*** (df = 2; 97)
-## ====================================================================
-## Note:                                    *p&lt;0.1; **p&lt;0.05; ***p&lt;0.01</code></pre>
-<p>Now the <strong>coefficient of the predictor</strong> variable is significant, when put together with the control variable. We also observe that the coefficient of the control variable keeps being significant in the second model. We observe a significant increase of the <strong>R-square</strong> of the second model respect to the first. Finnally, we also observe that the anova test is significant:</p>
-<pre class="r"><code>anova(mod02b, mod02a)</code></pre>
+## ===================================================================
+##                                   Dependent variable:              
+##                     -----------------------------------------------
+##                                           cri                      
+##                              (1)                     (2)           
+## -------------------------------------------------------------------
+## con                       2.384***                2.940***         
+##                            (0.824)                 (0.170)         
+##                                                                    
+## pre                                               1.989***         
+##                                                    (0.042)         
+##                                                                    
+## Constant                 136.114***                 6.860          
+##                           (29.512)                 (6.650)         
+##                                                                    
+## -------------------------------------------------------------------
+## Observations                 100                     100           
+## R2                          0.079                   0.962          
+## Adjusted R2                 0.069                   0.961          
+## Residual Std. Error   46.847 (df = 98)         9.620 (df = 97)     
+## F Statistic         8.361*** (df = 1; 98) 1,212.618*** (df = 2; 97)
+## ===================================================================
+## Note:                                   *p&lt;0.1; **p&lt;0.05; ***p&lt;0.01</code></pre>
+<p>Now the <strong>coefficient of the predictor</strong> variable is significant, when put together with the control variable. We also observe that the coefficient of the control variable keeps being significant in the second model. We observe a significant increase of the <strong>R-square</strong> of the second model respect to the first. Finnally, we also observe that the <code>anova</code> test is significant:</p>
+<pre class="r"><code>anova(mod02a, mod02b)</code></pre>
 <pre><code>## Analysis of Variance Table
 ## 
-## Model 1: cri ~ con + pre
-## Model 2: cri ~ con
-##   Res.Df    RSS Df Sum of Sq      F    Pr(&gt;F)    
-## 1     97  10681                                  
-## 2     98 253699 -1   -243018 2207.1 &lt; 2.2e-16 ***
+## Model 1: cri ~ con
+## Model 2: cri ~ con + pre
+##   Res.Df    RSS Df Sum of Sq    F    Pr(&gt;F)    
+## 1     98 215073                                
+## 2     97   8977  1    206096 2227 &lt; 2.2e-16 ***
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
 <p>Now we can conclude that there is a significant relationship between predictor and criterion, after controlling by control variables.</p>
@@ -226,17 +226,25 @@ stargazer(hmod01, hmod02, type = &quot;text&quot;)</code></pre>
 <li>The coefficients of the two predictor variables are significant and positive.</li>
 </ul>
 <p>Additionally, the ANOVA between the two models is significant:</p>
-<pre class="r"><code>anova(hmod02, hmod01)</code></pre>
+<pre class="r"><code>anova(hmod01, hmod02)</code></pre>
 <pre><code>## Analysis of Variance Table
 ## 
-## Model 1: happiness ~ age + gender + friends + pets
-## Model 2: happiness ~ age + gender
+## Model 1: happiness ~ age + gender
+## Model 2: happiness ~ age + gender + friends + pets
 ##   Res.Df    RSS Df Sum of Sq      F    Pr(&gt;F)    
-## 1     95 193.42                                  
-## 2     97 233.97 -2   -40.542 9.9561 0.0001187 ***
+## 1     97 233.97                                  
+## 2     95 193.42  2    40.542 9.9561 0.0001187 ***
 ## ---
 ## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
-<p>Then, from that analysis we conclude that happiness is positively related with number of friends and number of pets, after controlling by gender and age.</p>
+<p>From that analysis we conclude that happiness is <strong>positively related</strong> with number of friends and number of pets, after controlling by gender and age.</p>
+</div>
+<div id="observing-the-effect-of-predictors-with-hierarchical-linear-regression" class="section level2">
+<h2>Observing the effect of predictors with hierarchical linear regression</h2>
+<p>We can conclude that a relationship between a criterion and a set of predictor variables exists, after controlling by a set of control variables, if the following conditions hold:</p>
+<ul>
+<li>The status of the <strong>coefficients of the control variables</strong> does not change after adding the predictors.</li>
+<li>The explanatory power of the model with predictors and controls (second model) is higher than the model with controls alone (first model). By can check that examining the <strong>change of R-squared</strong>, which must be significantly higher for the second model. We can also perform an <strong>ANOVA test</strong> on both models, to discard the null hypothesis that the second model explains the same variance of the criterion variable as the first.</li>
+</ul>
 </div>
 <div id="references" class="section level2">
 <h2>References</h2>
