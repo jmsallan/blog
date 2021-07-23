@@ -1,0 +1,248 @@
+---
+title: Hierarchical linear regression
+author: Jose M Sallan
+date: '2021-07-23'
+slug: hierarchical-linear-regression
+categories:
+  - R
+tags:
+  - R
+  - linear regression
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p><strong>Hierarchical linear regression</strong> is a way to examine if a set of <strong>predictor</strong> variables explains a <strong>criterion</strong> variable, after accounting the effect of <strong>control variables</strong>. In this modelling framework, we build several linear regression models adding blocks of variables at each step. Comparing the outcomes of the regression models, we can determine if the new block of variables increases significantly the proportion of explained variance of the criterion.</p>
+<p>I will introduce hierarchical linear regression with three examples:</p>
+<ul>
+<li>a first dataset where there is a spurious correlation between predictor and criterion,</li>
+<li>a second dataset where there is a true relationship between criterion and predictor</li>
+<li>and a third dataset taken from University of Virginia Library, that clarifies the distinction between predictor and criterion.</li>
+</ul>
+<p>I will be using the text output of the <code>stargazer</code> package to present the results of hierarchical linear regression models.</p>
+<div id="first-dataset" class="section level2">
+<h2>First dataset</h2>
+<p>Let’s build a set of artificial data to explain why we should be accounting for the effect of variables unrelated to the model:</p>
+<pre class="r"><code>n &lt;- 100
+con &lt;- sample(25:45, n, replace = TRUE)
+data01 &lt;- data.frame(cri = 4 + 2*con + rnorm(n, mean = 0, sd = 2),
+                     pre = 3 + con + rnorm(n, mean = 0, sd = 4),
+                     con = con)
+
+
+mod01 &lt;- lm(cri ~ pre, data01)</code></pre>
+<p>In the data01 dataset, the supposed predictor and criterion variables depend jointly on the control variable:</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="384" style="display: block; margin: auto;" /></p>
+<p>We cannot detect that if we examine the correlation matrix:</p>
+<pre class="r"><code>cor(data01)</code></pre>
+<pre><code>##           cri       pre       con
+## cri 1.0000000 0.8349652 0.9872813
+## pre 0.8349652 1.0000000 0.8478147
+## con 0.9872813 0.8478147 1.0000000</code></pre>
+<p>We observe a strong correlation between criterion and predictor. This is not desirable, because ideally regressors must be uncorrelated. If we ignore this warning and naively regress the criterion on the predictor, we obtain a significant relationship between both variables, which does not exist:</p>
+<pre class="r"><code>mod01 &lt;- lm(cri ~ pre, data = data01)
+stargazer(mod01, type = &quot;text&quot;)</code></pre>
+<pre><code>## 
+## ===============================================
+##                         Dependent variable:    
+##                     ---------------------------
+##                                 cri            
+## -----------------------------------------------
+## pre                          1.335***          
+##                               (0.089)          
+##                                                
+## Constant                     24.642***         
+##                               (3.448)          
+##                                                
+## -----------------------------------------------
+## Observations                    100            
+## R2                             0.697           
+## Adjusted R2                    0.694           
+## Residual Std. Error       6.723 (df = 98)      
+## F Statistic           225.611*** (df = 1; 98)  
+## ===============================================
+## Note:               *p&lt;0.1; **p&lt;0.05; ***p&lt;0.01</code></pre>
+<p>To avoid this pitfall, we can adopt a hierarchical linear regression modelin framework with two models:</p>
+<ul>
+<li>a <strong>first model</strong> <code>mod01a</code> where we regress the criterion on the control variables</li>
+<li>and a <strong>second model</strong> <code>mod01b</code> where we regress the criterion on the control <em>and</em> predictor variables.</li>
+</ul>
+<pre class="r"><code>mod01a &lt;- lm(cri ~ con, data01)
+mod01b &lt;- lm(cri ~ con + pre, data01)</code></pre>
+<p>I use the stargazer package to present both models together:</p>
+<pre class="r"><code>stargazer(mod01a, mod01b, type = &quot;text&quot;)</code></pre>
+<pre><code>## 
+## =======================================================================
+##                                     Dependent variable:                
+##                     ---------------------------------------------------
+##                                             cri                        
+##                                (1)                       (2)           
+## -----------------------------------------------------------------------
+## con                         1.997***                  2.010***         
+##                              (0.032)                   (0.062)         
+##                                                                        
+## pre                                                    -0.012          
+##                                                        (0.049)         
+##                                                                        
+## Constant                    4.319***                  4.317***         
+##                              (1.173)                   (1.179)         
+##                                                                        
+## -----------------------------------------------------------------------
+## Observations                   100                       100           
+## R2                            0.975                     0.975          
+## Adjusted R2                   0.974                     0.974          
+## Residual Std. Error      1.942 (df = 98)           1.952 (df = 97)     
+## F Statistic         3,779.262*** (df = 1; 98) 1,871.503*** (df = 2; 97)
+## =======================================================================
+## Note:                                       *p&lt;0.1; **p&lt;0.05; ***p&lt;0.01</code></pre>
+<p>Now we observe that the <strong>coefficient of the predictor variable</strong> is not signiificant when we put it together with the control variable. We also observe that the coefficient of the control variable does not change significantly when we introduce the predictor. We conclude that the criterion does not depend on the predictor.</p>
+<p>If we observe the <strong>R-square</strong> of both models, we learn that the second model is not better than the first. In fact, the adjusted R-square of the second model is worse than the first. Additionnaly, we can test the null hypothesis that the second model is not better than the first using the <code>anova</code> function:</p>
+<pre class="r"><code>anova(mod01b, mod01a)</code></pre>
+<pre><code>## Analysis of Variance Table
+## 
+## Model 1: cri ~ con + pre
+## Model 2: cri ~ con
+##   Res.Df    RSS Df Sum of Sq      F Pr(&gt;F)
+## 1     97 369.43                           
+## 2     98 369.65 -1  -0.22209 0.0583 0.8097</code></pre>
+<p>The low <em>p</em>-value makes us think that there are no sound reasons to discard the null hypothesis in this case.</p>
+</div>
+<div id="second-dataset" class="section level2">
+<h2>Second dataset</h2>
+<p>Let’s build a new dataset, where the criterion variable depends on the predictor and control variables:</p>
+<pre class="r"><code>pre &lt;- runif(n, 20, 100)
+data02 &lt;- data.frame(cri = 4 + 2*pre + 3*con + rnorm(n, mean = 0, sd = 10),
+                     pre = pre,
+                     con = con)</code></pre>
+<p>For this dataset, we know that the existing relationships are:</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="384" style="display: block; margin: auto;" /></p>
+<p>Now we observe a lower correlation between predictor and control, and a strong correlation between criterion and predictor:</p>
+<pre class="r"><code>cor(data02)</code></pre>
+<pre><code>##           cri        pre        con
+## cri 1.0000000 0.92679760 0.38821968
+## pre 0.9267976 1.00000000 0.06961564
+## con 0.3882197 0.06961564 1.00000000</code></pre>
+<p>Let’s build the two models for the hierarchical linear regression, and present the obtained results:</p>
+<pre class="r"><code>mod02a &lt;- lm(cri ~ con, data02)
+mod02b &lt;- lm(cri ~ con + pre, data02)
+stargazer(mod02a, mod02b, type = &quot;text&quot;)</code></pre>
+<pre><code>## 
+## ====================================================================
+##                                   Dependent variable:               
+##                     ------------------------------------------------
+##                                           cri                       
+##                              (1)                      (2)           
+## --------------------------------------------------------------------
+## con                        3.549***                2.974***         
+##                            (0.851)                  (0.176)         
+##                                                                     
+## pre                                                1.959***         
+##                                                     (0.042)         
+##                                                                     
+## Constant                  104.620***                 7.017          
+##                            (30.732)                 (6.670)         
+##                                                                     
+## --------------------------------------------------------------------
+## Observations                 100                      100           
+## R2                          0.151                    0.964          
+## Adjusted R2                 0.142                    0.964          
+## Residual Std. Error    50.880 (df = 98)        10.493 (df = 97)     
+## F Statistic         17.391*** (df = 1; 98) 1,307.984*** (df = 2; 97)
+## ====================================================================
+## Note:                                    *p&lt;0.1; **p&lt;0.05; ***p&lt;0.01</code></pre>
+<p>Now the <strong>coefficient of the predictor</strong> variable is significant, when put together with the control variable. We also observe that the coefficient of the control variable keeps being significant in the second model. We observe a significant increase of the <strong>R-square</strong> of the second model respect to the first. Finnally, we also observe that the anova test is significant:</p>
+<pre class="r"><code>anova(mod02b, mod02a)</code></pre>
+<pre><code>## Analysis of Variance Table
+## 
+## Model 1: cri ~ con + pre
+## Model 2: cri ~ con
+##   Res.Df    RSS Df Sum of Sq      F    Pr(&gt;F)    
+## 1     97  10681                                  
+## 2     98 253699 -1   -243018 2207.1 &lt; 2.2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<p>Now we can conclude that there is a significant relationship between predictor and criterion, after controlling by control variables.</p>
+</div>
+<div id="third-dataset" class="section level2">
+<h2>Third dataset</h2>
+<p>Let’s perform now hierarchical regression on a dataset with five variables, obtained from the University of Virginia Library:</p>
+<pre class="r"><code>happiness_data &lt;- read.csv(&#39;http://static.lib.virginia.edu/statlab/materials/data/hierarchicalRegressionData.csv&#39;)
+head(happiness_data)</code></pre>
+<pre><code>##   happiness age gender friends pets
+## 1         5  24   Male      12    3
+## 2         5  28   Male       8    1
+## 3         6  25 Female       6    0
+## 4         4  26   Male       4    2
+## 5         3  20 Female       8    0
+## 6         5  25   Male       9    0</code></pre>
+<p>Our aim is to determine if happiness increases when we have more friends and more pets, controlling by age and gender. By controlling by this demographic variables, we rid out the possibility that happinness and number of friends or pets depend on age or gender.</p>
+<p>Let’s examine first the correlation matrix between numerical variables. We observe a low correlation between controls and predictors:</p>
+<pre class="r"><code>cor(happiness_data[, c(1:2, 4:5)])</code></pre>
+<pre><code>##            happiness         age     friends        pets
+## happiness  1.0000000 -0.16091772  0.32424344  0.29948447
+## age       -0.1609177  1.00000000 -0.02097324 -0.03786638
+## friends    0.3242434 -0.02097324  1.00000000  0.11941881
+## pets       0.2994845 -0.03786638  0.11941881  1.00000000</code></pre>
+<p>And let’s examine the result of the hierarchical linear regression model:</p>
+<pre class="r"><code>hmod01 &lt;- lm(happiness ~ age + gender, data=happiness_data)
+hmod02 &lt;- lm(happiness ~ age + gender + friends + pets, data=happiness_data)
+stargazer(hmod01, hmod02, type = &quot;text&quot;)</code></pre>
+<pre><code>## 
+## ============================================================
+##                               Dependent variable:           
+##                     ----------------------------------------
+##                                    happiness                
+##                            (1)                  (2)         
+## ------------------------------------------------------------
+## age                       -0.130              -0.111        
+##                          (0.079)              (0.073)       
+##                                                             
+## genderMale                0.164               -0.143        
+##                          (0.319)              (0.312)       
+##                                                             
+## friends                                      0.171***       
+##                                               (0.055)       
+##                                                             
+## pets                                         0.364***       
+##                                               (0.130)       
+##                                                             
+## Constant                 7.668***            5.785***       
+##                          (2.014)              (1.903)       
+##                                                             
+## ------------------------------------------------------------
+## Observations               100                  100         
+## R2                        0.029                0.197        
+## Adjusted R2               0.009                0.163        
+## Residual Std. Error  1.553 (df = 97)      1.427 (df = 95)   
+## F Statistic         1.425 (df = 2; 97) 5.822*** (df = 4; 95)
+## ============================================================
+## Note:                            *p&lt;0.1; **p&lt;0.05; ***p&lt;0.01</code></pre>
+<p>Here we observe that:</p>
+<ul>
+<li>The status of the coefficients of the two control variables does not change when we add the predictor variables</li>
+<li>The coefficients of the two predictor variables are significant and positive.</li>
+</ul>
+<p>Additionally, the ANOVA between the two models is significant:</p>
+<pre class="r"><code>anova(hmod02, hmod01)</code></pre>
+<pre><code>## Analysis of Variance Table
+## 
+## Model 1: happiness ~ age + gender + friends + pets
+## Model 2: happiness ~ age + gender
+##   Res.Df    RSS Df Sum of Sq      F    Pr(&gt;F)    
+## 1     95 193.42                                  
+## 2     97 233.97 -2   -40.542 9.9561 0.0001187 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<p>Then, from that analysis we conclude that happiness is positively related with number of friends and number of pets, after controlling by gender and age.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Hierarchical Linear Regression (University of Virginia Library) <a href="https://data.library.virginia.edu/hierarchical-linear-regression/" class="uri">https://data.library.virginia.edu/hierarchical-linear-regression/</a></li>
+<li><code>stargazer</code> cheatsheet <a href="https://www.jakeruss.com/cheatsheets/stargazer/" class="uri">https://www.jakeruss.com/cheatsheets/stargazer/</a></li>
+</ul>
+<p><em>Built with R 4.1.0, stargazer 5.2.2 and igraph 1.2.6</em></p>
+</div>
