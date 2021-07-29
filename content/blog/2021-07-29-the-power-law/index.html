@@ -1,0 +1,182 @@
+---
+title: The power law
+author: Jose M Sallan
+date: '2021-07-29'
+slug: the-power-law
+categories:
+  - R
+  - statistics
+tags:
+  - data.table
+  - ggplot
+  - distributions
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>A <strong>power law</strong> is a functional relationship between two quantities, where a relative change in one quantity results in a proportional relative change in the other quantity, independent of the initial size of those quantities. That relationship can be expressed as:</p>
+<p><span class="math display">\[ y = cx^{-\gamma} \]</span></p>
+<p>where <span class="math inline">\(\gamma &gt; 0\)</span> is the exponent of the power law.</p>
+<p>Power law relationships are pervasive in physics, biology, economics and sociology. Here I will introduce how to represent power laws using R and present two empirical phenomena that can follow a power law: the degree distribution of a Barabási-Albert (BA) graph and the count of occurrences of words in a text as a function of its ranking, know as Zipf’s law.</p>
+<p>The R packages I will be using are:</p>
+<ul>
+<li><code>data.table</code> for data frame manipulation,</li>
+<li><code>ggplot2</code>, <code>viridis</code> and <code>patchwork</code> for visualization,</li>
+<li><code>igraph</code> to generate a sample of a BA graph and obtain node degree,</li>
+<li>and <code>tm</code> library for word count.</li>
+</ul>
+<pre class="r"><code>library(data.table)
+library(ggplot2)
+library(viridis)
+library(patchwork)
+library(igraph)
+library(tm)</code></pre>
+<p>Let’s start defining a function to generate the values of a power law of exponent <code>gamma</code>. I will scale the outcome with the sum of original values, so they can be understood as relative frequencies or probability of occurrence:</p>
+<pre class="r"><code>pl_freq &lt;- function(val, gamma){
+  
+  res &lt;- val^gamma
+  res &lt;- res/sum(res)
+  
+  return(res)
+}</code></pre>
+<p>Let’s create a <code>power_law</code> data table with 30 points of power laws of different exponents:</p>
+<pre class="r"><code>x_pl &lt;- 10^c(seq(0, 4, length.out = 30))
+power_law &lt;- data.table(x = x_pl, 
+                        y1 = pl_freq(x_pl, -1/2), 
+                        y2 = pl_freq(x_pl, -1), 
+                        y3 = pl_freq(x_pl, -2))</code></pre>
+<p>Let’s see how can we represent power laws. The plot on the left presents a straight representation of the power law. We see that all three power laws decay fast, so it is hard to distinguish them. The best way to represent a power law is in a <strong>log-log plot</strong>. That’s why I have defined <code>x_pl</code> as a set of points evenly spaced in a log plot. We can use <code>scale_x_log10()</code> and <code>scale_y_log10()</code> to transform axis in log scale without transforming data.</p>
+<p>In the rigth plot, we observe that power laws appear as straigth lines in a log-log plot. I have used the <code>patchwork</code> package to present both plots in the same panel, and <code>viridis</code> scales to distinguish each value of gamma.</p>
+<pre class="r"><code>pl &lt;- ggplot(melt(power_law, id.vars = &quot;x&quot;), aes(x, value, color = variable)) +
+  geom_point(size=2) +
+  geom_line() +
+  theme_bw() +
+  scale_color_viridis_d(name = &quot;gamma&quot;, labels = c(&quot;1/2&quot;, &quot;1&quot;, &quot;2&quot;)) +
+  labs(title = &quot;Power law&quot;, x = &quot;value&quot;, y = &quot;frequence&quot;)
+
+pl_log &lt;- ggplot(melt(power_law, id.vars = &quot;x&quot;), aes(x, value, color = variable)) +
+  geom_point(size=2) +
+  geom_line() +
+  theme_bw() +
+  scale_color_viridis_d(name = &quot;gamma&quot;, labels = c(&quot;1/2&quot;, &quot;1&quot;, &quot;2&quot;)) +
+  labs(title = &quot;Power law (log-log)&quot;, x = &quot;value&quot;, y = &quot;frequence&quot;) +
+  scale_x_log10() +
+  scale_y_log10()
+  
+
+pl + pl_log</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="960" style="display: block; margin: auto;" /></p>
+<p>Another useful plot for power laws is the plot of <strong>cumulative probability</strong>. It is defined as:</p>
+<p><span class="math display">\[p_{cum}\left(X\right) = p \left(X \geq x \right)\]</span></p>
+<p>I have ordered the probabilities by decreasing order of <code>x</code> and used <code>cumsum</code> to obtain the cumulative probability. As we will see later, this plot is more regular than the frequency plot for empirical power law distributions.</p>
+<pre class="r"><code>power_law &lt;- power_law[order(-x)]
+power_law[, pcum_y3 := cumsum(y3)]
+
+ggplot(power_law, aes(x, pcum_y3)) +
+  geom_point(size = 2) +
+  geom_line() +
+  theme_bw() +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(title = &quot;Cumulative probability for gamma = 2&quot;, x = &quot;value&quot;, y = &quot;cumulative probability&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="480" style="display: block; margin: auto;" /></p>
+<p>Let’s now examine two examples of emergence of power laws: the degree distribution of BA graphs and frequency versus rank word count.</p>
+<div id="ba-graphs" class="section level2">
+<h2>BA graphs</h2>
+<p>Barabási-Albert (BA) graphs are undirected graphs constructed through growth and preferential attachment mechanisms. By <strong>growth</strong> we mean that the graph is constructed iteratively, adding one node at a time. Through the <strong>preferential attachment</strong> mechanisms, each new node is linked to existing nodes with a probability proportional to the degree <span class="math inline">\(k\)</span> (number of incident links) of the later. BA graphs work as a good modelling approximation to friendship or airport networks, among others.</p>
+<p>We can construct a BA graph using the <code>barabasi.game</code> function of <code>igraph</code>. We can obtain the <code>degree</code> of each node with an <code>igraph</code> function. Then I build a <code>deg_dist</code> data table with the frequence of occurrence of each degree. This is the <strong>degree distribution</strong>. Finally, I calculate the cumulative probability of each degree <code>cum_pr</code>.</p>
+<pre class="r"><code>n &lt;- 10000
+g &lt;- barabasi.game(n)
+deg_df &lt;- data.table(k = degree(g))
+deg_dist &lt;- deg_df[ , .N, k][order(-k)]
+deg_dist[, cum_pr := cumsum(N)/n]</code></pre>
+<p>Let’s plot the degree distribution and cumulative probability of degree in log-log plots.</p>
+<pre class="r"><code>sf_dd &lt;- ggplot(deg_dist, aes(k , N)) +
+  geom_point() +
+  theme_bw() +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(title = &quot;Degree distribution of a BA graph&quot;, x = &quot;degree&quot;, y = &quot;frequence&quot;)
+
+sf_cdd &lt;- ggplot(deg_dist, aes(k , cum_pr)) +
+  geom_point() +
+  geom_line() +
+  theme_bw() +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(title = &quot;Degree cumulative probability of a BA graph&quot;, x = &quot;degree&quot;, y = &quot;cumulative probability&quot;)
+
+sf_dd + sf_cdd</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="960" style="display: block; margin: auto;" /></p>
+<p>We learn from the plots that the degree distribution of BA graphs is heterogeneous. Most of the nodes have low degree, while a few nodes are <strong>hubs</strong> of high degree. In the plot of the left we appreciate that the variance of frequency increases for high values of degree. The cumulative degree plot has less variability, and fits reasonably to a straight line. This analysis allows us to conclude that <strong>the degree distribution of BA graphs follows a power law</strong>.</p>
+</div>
+<div id="word-count" class="section level2">
+<h2>Word count</h2>
+<p>The number of occurrences of a word in a text is said to follow the <strong>Zipf’s law</strong>, which states that the frequency of a word is inversely proportional to a power of its rank in the frequency table. This means that the frequency versus rank plot for words of a text is expected to follow a power law.</p>
+<p>To evaluate this, I am using the <code>acq</code> database, a corpus of 50 articles from the Reuters-21578 data set. It is included in <code>tm</code>, a text mining package for R.</p>
+<p>Here I am using tm functions to obtain a words table containing all words present in the text. Then, I build the freq_words table of frequencies (number of apparitions) of each word, and calculate its relative frequence and cumulative probability.</p>
+<pre class="r"><code>data(acq)
+acq &lt;- tm_map(acq, removePunctuation)  
+acq &lt;- tm_map(acq, removeNumbers)     
+acq &lt;- tm_map(acq, tolower)
+acq &lt;- tm_map(acq, stripWhitespace)   
+acq &lt;- tm_map(acq, PlainTextDocument) 
+
+wrds &lt;- strsplit(paste(unlist(acq), collapse = &quot; &quot;), &#39; &#39;)[[1]]
+
+words &lt;- data.table(word = wrds)
+freq_words &lt;- words[, .N, words][order(-N)]
+freq_words[, `:=`(freq = N/sum(N), rank = 1:nrow(freq_words))]
+freq_words &lt;- freq_words[order(-rank)]
+freq_words[, p_cum := cumsum(freq)]</code></pre>
+<p>Let’s look at the first and last values of the table:</p>
+<pre class="r"><code>head(freq_words[order(rank)])</code></pre>
+<pre><code>##    word   N       freq rank     p_cum
+## 1:  the 414 0.05316553    1 1.0000000
+## 2:   of 284 0.03647104    2 0.9468345
+## 3:   to 199 0.02555541    3 0.9103634
+## 4: said 186 0.02388596    4 0.8848080
+## 5:    a 175 0.02247335    5 0.8609220
+## 6:  and 173 0.02221651    6 0.8384487</code></pre>
+<pre class="r"><code>tail(freq_words[order(rank)])</code></pre>
+<pre><code>##                word N         freq rank        p_cum
+## 1:       profitably 1 0.0001284192 1679 0.0007705150
+## 2:          someone 1 0.0001284192 1680 0.0006420958
+## 3:         catalyst 1 0.0001284192 1681 0.0005136766
+## 4:        extending 1 0.0001284192 1682 0.0003852575
+## 5:        specialty 1 0.0001284192 1683 0.0002568383
+## 6: 38.4382979869843 1 0.0001284192 1684 0.0001284192</code></pre>
+<p>And plot the log-log graphs for relative frequences and cumulative probability:</p>
+<pre class="r"><code>zipf &lt;- ggplot(freq_words, aes(rank , freq)) +
+  geom_point() +
+  theme_bw() +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(title = &quot;Word count vs rank&quot;, x = &quot;rank&quot;, y = &quot;relative frequence&quot;)
+
+zipf_cum &lt;- ggplot(freq_words, aes(rank , p_cum)) +
+  geom_point() +
+  geom_line() +
+  theme_bw() +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(title = &quot;Word count vs rank&quot;, x = &quot;rank&quot;, y = &quot;cumulative probability&quot;)
+
+zipf + zipf_cum</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="960" style="display: block; margin: auto;" /></p>
+<p>We observe that the left plot fits reasonably well to a power law. The plot of cumulative probability shows an <strong>exponential decay</strong> for high values of rank (non-frequent words), suggesting that the number of unique words of the corpus is too small to fully check if frequency versus rank plot is really a power law in this sample.</p>
+</div>
+<div id="references-and-further-reading" class="section level2">
+<h2>References and further reading</h2>
+<ul>
+<li>Barabási, A.-L., &amp; Albert, R. (1999). Emergence of scaling in random networks. <em>Science</em>, 286(5439), 509–512. <a href="https://doi.org/10.1126/science.286.5439.509" class="uri">https://doi.org/10.1126/science.286.5439.509</a></li>
+<li>Clauset, A., Shalizi, C. R., &amp; Newman, M. E. J. (2009). Power-Law Distributions in Empirical Data. <em>SIAM Review</em>, 51(4), 661–703. <a href="https://doi.org/10.1137/070710111" class="uri">https://doi.org/10.1137/070710111</a></li>
+<li>Newman, M. E. J. (2005). Power laws, Pareto distributions and Zipf’s law. <em>Contemporary Physics</em>, 46(5), 323–351. <a href="https://doi.org/10.1080/00107510500052444" class="uri">https://doi.org/10.1080/00107510500052444</a></li>
+<li>Counting occurence of a word in a text file using R <a href="https://stackoverflow.com/questions/35887730/counting-occurence-of-a-word-in-a-text-file-using-r" class="uri">https://stackoverflow.com/questions/35887730/counting-occurence-of-a-word-in-a-text-file-using-r</a></li>
+</ul>
+<p><em>Built with R 4.1.0, data.table 1.14.0, ggplot2 3.3.4, viridis 0.6.1, patchwork 1.1.1, igraph 1.2.6 and tm 0.7-8.</em></p>
+</div>
