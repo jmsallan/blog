@@ -1,0 +1,107 @@
+---
+title: Why are there vaccinated among COVID-19 infected?
+author: Jose M Sallan
+date: '2021-08-31'
+slug: why-are-there-vaccinated-among-infected
+categories:
+  - news
+tags:
+  - COVID-19
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>In the moment of the COVID-19 pandemic we are living, we sometimes hear concerns about the efficacy of vaccines. One of the reasons argued against vaccination is that among infected with COVID-19 there is more vaccinated than unvaccinated people. The aim of this post is to show that <strong>as the number of people receiving effective vaccines increases, the proportion of vaccinated among infected people will also increase.</strong></p>
+<p>Let’s suppose that we have a population <span class="math inline">\(P\)</span> of one million people in a region where a fraction <span class="math inline">\(i\)</span> of 10% is infected with COVID-19 when not vaccinated. This means that with <strong>no vaccination</strong> we have <strong>100,000</strong> people infected.</p>
+<p>Let’s introduce a vaccine with an <a href="https://www.who.int/news-room/feature-stories/detail/vaccine-efficacy-effectiveness-and-protection">efficacy</a> <span class="math inline">\(e\)</span> of 80%. An efficacy of 80% means that 80% of the people that would be infected without the vaccine will get rid of the disease if vaccinated. So, if only 20% out of 10% will be infected, the vaccine reduces the infection rate from 10% to 2%.</p>
+<p>When we have the <strong>30%</strong> of the population vaccinated, we can expect 70,000 (10% out of 700,000) of infected among the unvaccinated, but among the 300,000 vaccinated, we will have only 6,000 people infected (the 2% of 300,000). So we have <strong>70,000 + 6,000 = 76,000</strong> people infected.</p>
+<p>What happens when the vaccination rate raises to <strong>70%</strong>? We can expect 30,000 infected among the 300,000 unvaccinated, but only 14,000 out of the 700,000 vaccinated. So we have now <strong>30,000 + 14,000 = 44,000</strong> people infected. The proportion of vaccinated among infected raises to 31.8%.</p>
+<p>With a vaccination rate of <strong>90%</strong>, we have only 10,000 infected among a population of 100,000 still unvaccinated, and 18,000 infected among the 900,000 vaccinated. We have now <strong>10,000 + 18,000 = 28,000</strong> infected. Now the 64% of infected are vaccinated people.</p>
+<p>In the plot below I am presenting how is evolving the number of vaccinated and unvaccinated infected as the coverage of the vaccine increases.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-1-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>We observe that <strong>as the fraction of vaccinated people increases, the total number of infected decreases, and the proportion of vaccinated among the infected also increases.</strong> As we want less people infected, media should pay more attention to the evolution of the total of infected people, rather than to the proportion of vaccinated among infected.</p>
+<p>Let’s examine more formally the evolution of the fraction of vaccinated among infected <span class="math inline">\(r\)</span> as a function of the fraction of vaccinated <span class="math inline">\(v\)</span>. The parameters to consider are:</p>
+<ul>
+<li>The population <span class="math inline">\(P\)</span>.</li>
+<li>The proportion of infected people <span class="math inline">\(i\)</span> when there are no vaccines available. Its value depends on the measures taken to control the spread of the infection, so it can be different for each population.</li>
+<li>The efficacy of the vaccine <span class="math inline">\(e\)</span>.</li>
+</ul>
+<p>The number of <strong>infected, unvaccinated</strong> people is:</p>
+<p><span class="math display">\[P\left(1-v\right)i\]</span></p>
+<p>While an unvaccinated individual has a probability of <span class="math inline">\(i\)</span> of being infected, a vaccinated individual will have a lower probability of infection <span class="math inline">\(\left(1-e\right)i\)</span>. So, the number of <strong>infected, vaccinated</strong> people is:</p>
+<p><span class="math display">\[Pv\left(1-e\right)i\]</span></p>
+<p>The <strong>total number of infected people</strong> will be:</p>
+<p><span class="math display">\[I = P\left(1-v\right)i + Pv\left(1-e\right)i = P\left(1-ve\right)i \]</span></p>
+<p>If we normalize this value with the number of infected people with no vaccines <span class="math inline">\(Pi\)</span>:</p>
+<p><span class="math display">\[ I_n = \frac{I}{Pi}  = 1-ve \]</span></p>
+<p>And the ratio of <strong>vaccinated and infected respect to total infected</strong> will be:</p>
+<p><span class="math display">\[r = \frac{Pv\left(1-e\right)i}{P\left(1-ve\right)i} = \frac{v-ve}{1-ve}\]</span></p>
+<p>Note that if <span class="math inline">\(v=0\)</span> the ratio is equal to zero, and if <span class="math inline">\(v=1\)</span> is equal to one. This makes sense, as in the later case there are no unvaccinated people left.</p>
+<p>Let’s examine the ratio of vaccinated, infected people for the <a href="https://www.nejm.org/doi/full/10.1056/NEJMoa210889">Pfizer and AZ vaccines with the delta variant</a> (88% and 67% respectively), together with an hypothetical vaccine of efficacy of 30% as vaccination rate grows.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>The good news is that as we increase the vaccination rate, the value of <span class="math inline">\(I_n\)</span> will decrease:</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Increasing the number of vaccinated people has two effects:</p>
+<ul>
+<li>reducing the number of infected people</li>
+<li>reducing the number of unvaccinated people.</li>
+</ul>
+<p>These two effects combined make that, for <strong>high rates of vaccination, there are more vaccinated than unvaccinated people among the infected</strong>. <a href="https://www.abc.es/sociedad/abci-vacunacion-espana-datos-porcentajes-poblacion-vacunada-coronavirus-comunidades-nsv-202107201018_noticia.html?ref=https%3A%2F%2Fkeep.google.com%2F">In Spain</a>, the 100% of individuals of 80 years or more are vaccinated. The 98.4% of 70-79 years old and 95.2% of 60-69 years old are vaccinated. These values of <span class="math inline">\(v\)</span> are high enough to observe high values of <span class="math inline">\(r\)</span>.</p>
+<p>As a conclusion, we must pay attention to the evolution of total number of infected people to track the evolution of COVID-19, rather than the proportion of infected, vaccinated people.</p>
+<div id="covid-19-and-the-delta-variant" class="section level2">
+<h2>COVID-19 and the delta variant</h2>
+<p>In this post, I have been using efficacy values for the delta variant of COVID-19. <a href="https://www.cdc.gov/coronavirus/2019-ncov/variants/delta-variant.html">According to the CDC</a>, the delta variant of COVID-19 is more contagious, and might cause more severe illness than previous variants in unvaccinated people. A recent study from <a href="https://www.nejm.org/doi/full/10.1056/NEJMoa2108891">Lopez Bernal et al.</a> has shown that the Pfizer and Astra Zeneca vaccines have lower efficacy for the delta variant.</p>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+vaccine
+</th>
+<th style="text-align:left;">
+efficacy alpha
+</th>
+<th style="text-align:left;">
+efficacy delta
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Pfizer (BNT162b2)
+</td>
+<td style="text-align:left;">
+93.7% (95% CI, 91.6 to 95.3)
+</td>
+<td style="text-align:left;">
+88.0% (95% CI, 85.3 to 90.1)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Astra Zeneca (ChAdOx1)
+</td>
+<td style="text-align:left;">
+74.5% (95% CI, 68.4 to 79.4)
+</td>
+<td style="text-align:left;">
+67.0% (95% CI, 61.3 to 71.8)
+</td>
+</tr>
+</tbody>
+</table>
+<p>Although the efficacy of vaccines might have been reduced because of this delta variant, the dire consequences of this variant for the unvaccinated make getting your vaccine the wisest thing to do.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Lopez Bernal, J., Andrews, N., Gower, C., Gallagher, E., Simmons, R., Thelwall, S., … &amp; Ramsay, M. (2021). Effectiveness of Covid-19 vaccines against the B. 1.617. 2 (Delta) variant. <em>New England Journal of Medicine</em>, 385:585-594 <a href="https://www.nejm.org/doi/full/10.1056/NEJMoa2108891" class="uri">https://www.nejm.org/doi/full/10.1056/NEJMoa2108891</a></li>
+<li>Vaccine efficacy, effectiveness and protection <a href="https://www.who.int/news-room/feature-stories/detail/vaccine-efficacy-effectiveness-and-protection" class="uri">https://www.who.int/news-room/feature-stories/detail/vaccine-efficacy-effectiveness-and-protection</a></li>
+<li>Delta variant: What we know about the science <a href="https://www.cdc.gov/coronavirus/2019-ncov/variants/delta-variant.html" class="uri">https://www.cdc.gov/coronavirus/2019-ncov/variants/delta-variant.html</a></li>
+</ul>
+</div>

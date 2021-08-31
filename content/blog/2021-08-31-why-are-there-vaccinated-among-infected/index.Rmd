@@ -1,0 +1,142 @@
+---
+title: Why are there vaccinated among COVID-19 infected?
+author: Jose M Sallan
+date: '2021-08-31'
+slug: why-are-there-vaccinated-among-infected
+categories:
+  - news
+tags:
+  - COVID-19
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+library(tidyverse)
+library(kableExtra)
+library(viridis)
+```
+
+In the moment of the COVID-19 pandemic we are living, we sometimes hear concerns about the efficacy of vaccines. One of the reasons argued against vaccination is that among infected with COVID-19 there is more vaccinated than unvaccinated people. The aim of this post is to show that **as the number of people receiving effective vaccines increases, the proportion of vaccinated among infected people will also increase.**
+
+Let's suppose that we have a population $P$ of one million people in a region where a fraction $i$ of 10% is infected with COVID-19 when not vaccinated. This means that with **no vaccination** we have **100,000** people infected.
+
+Let's introduce a vaccine with an [efficacy](https://www.who.int/news-room/feature-stories/detail/vaccine-efficacy-effectiveness-and-protection) $e$ of 80%. An efficacy of 80% means that 80% of the people that would be infected without the vaccine will get rid of the disease if vaccinated. So, if only 20% out of 10% will be infected, the vaccine reduces the infection rate from 10% to 2%.
+
+When we have the **30%** of the population vaccinated, we can expect 70,000 (10% out of 700,000) of infected among the unvaccinated, but among the 300,000 vaccinated, we will have only 6,000 people infected (the 2% of 300,000). So we have **70,000 + 6,000 = 76,000** people infected.
+
+What happens when the vaccination rate raises to **70%**? We can expect 30,000 infected among the 300,000 unvaccinated, but only 14,000 out of the 700,000 vaccinated. So we have now **30,000 + 14,000 = 44,000** people infected. The proportion of vaccinated among infected raises to 31.8%.
+
+With a vaccination rate of **90%**, we have only 10,000 infected among a population of 100,000 still unvaccinated, and 18,000 infected among the 900,000 vaccinated. We have now **10,000 + 18,000 = 28,000** infected. Now the 64% of infected are vaccinated people.
+
+In the plot below I am presenting how is evolving the number of vaccinated and unvaccinated infected as the coverage of the vaccine increases.
+
+```{r, fig.align='center', fig.height=5}
+vax_sample <- data.frame(v=seq(0.1, 0.9, 0.2))
+
+vax_sample <- vax_sample %>% 
+  mutate(unv = 100000*(1-v), vax = 20000*v)
+
+vax_sample <- vax_sample %>%
+  pivot_longer(-v)
+
+vax_sample %>%
+  ggplot(aes(v, value, fill = name)) +
+  geom_bar(stat = "identity") +
+  theme_classic() +
+  labs(title = "Evolution of infected with vaccination", x = "vaccination rate", y = "infected") +
+  scale_fill_manual(name = "population", label = c("unvaccinated", "vaccinated"), values = c("#FF6666", "#66B2FF")) +
+  scale_x_continuous(breaks = seq(0.1, 0.9, 0.2), labels = scales::percent) +
+  theme(legend.position = "bottom")
+```
+
+We observe that **as the fraction of vaccinated people increases, the total number of infected decreases, and the proportion of vaccinated among the infected also increases.** As we want less people infected, media should pay more attention to the evolution of the total of infected people, rather than to the proportion of vaccinated among infected.
+
+Let's examine more formally the evolution of the fraction of vaccinated among infected $r$ as a function of the fraction of vaccinated $v$. The parameters to consider are:
+
+* The population $P$.
+* The proportion of infected people $i$ when there are no vaccines available. Its value depends on the measures taken to control the spread of the infection, so it can be different for each population.
+* The efficacy of the vaccine $e$.
+
+The number of **infected, unvaccinated** people is:
+
+\[P\left(1-v\right)i\]
+
+While an unvaccinated individual has a probability of $i$ of being infected, a vaccinated individual will have a lower probability of infection $\left(1-e\right)i$. So, the number of **infected, vaccinated** people is:
+
+\[Pv\left(1-e\right)i\]
+
+The **total number of infected people** will be:
+
+\[I = P\left(1-v\right)i + Pv\left(1-e\right)i = P\left(1-ve\right)i \]
+
+If we normalize this value with the number of infected people with no vaccines $Pi$:
+
+\[ I_n = \frac{I}{Pi}  = 1-ve \]
+
+And the ratio of **vaccinated and infected respect to total infected** will be:
+
+\[r = \frac{Pv\left(1-e\right)i}{P\left(1-ve\right)i} = \frac{v-ve}{1-ve}\]
+
+Note that if $v=0$ the ratio is equal to zero, and if $v=1$ is equal to one. This makes sense, as in the later case there are no unvaccinated people left.
+
+Let's examine the ratio of vaccinated, infected people for the [Pfizer and AZ vaccines with the delta variant](https://www.nejm.org/doi/full/10.1056/NEJMoa210889) (88% and 67% respectively), together with an hypothetical vaccine of efficacy of 30% as vaccination rate grows.
+
+```{r, fig.align='center', fig.height=5}
+vax_table <- data.frame(v = rep(seq(0, 1, 0.05), 3), e = c(rep(0.88, 21), rep(0.67, 21), rep(0.3, 21)))
+vax_table <- vax_table %>%
+  mutate(r = (v-v*e)/(1-v*e)) %>%
+  mutate(p = 1 - v*e) %>%
+  mutate(e_f = as.factor(e))
+
+vax_table %>%
+  ggplot(aes(v, r, color = e_f)) +
+  geom_line() +
+  scale_color_viridis_d(name="vaccine", label=c("e=0.3", "AZ (e=0.67)", "Pfizer (e=0.88)")) +
+  theme_bw() +
+  labs(title = "proportion of vaccinated infected", x = "vaccination rate", y = "ratio") +
+  theme(legend.position = "bottom")
+```
+
+The good news is that as we increase the vaccination rate, the value of $I_n$ will decrease:
+
+```{r, fig.align='center', fig.height=5}
+vax_table %>%
+  ggplot(aes(v, p, color = e_f)) +
+  geom_line() +
+  scale_color_viridis_d(name="vaccine", label=c("e=0.3", "AZ (e=0.67)", "Pfizer (e=0.88)")) +
+  theme_bw() +
+  labs(title = "proportion of total infected respect to no vaccination", x = "vaccination rate", y = "In") +
+  theme(legend.position = "bottom")
+```
+
+Increasing the number of vaccinated people has two effects:
+
+* reducing the number of infected people
+* reducing the number of unvaccinated people. 
+
+These two effects combined make that, for **high rates of vaccination, there are more vaccinated than unvaccinated people among the infected**. [In Spain](https://www.abc.es/sociedad/abci-vacunacion-espana-datos-porcentajes-poblacion-vacunada-coronavirus-comunidades-nsv-202107201018_noticia.html?ref=https%3A%2F%2Fkeep.google.com%2F), the 100% of individuals of 80 years or more are vaccinated. The 98.4% of 70-79 years old and 95.2% of 60-69 years old are vaccinated. These values of $v$ are high enough to observe high values of $r$.
+
+As a conclusion, we must pay attention to the evolution of total number of infected people to track the evolution of COVID-19, rather than the proportion of infected, vaccinated people.
+
+## COVID-19 and the delta variant
+
+In this post, I have been using efficacy values for the delta variant of COVID-19. [According to the CDC](https://www.cdc.gov/coronavirus/2019-ncov/variants/delta-variant.html), the delta variant of COVID-19 is more contagious, and might cause more severe illness than previous variants in unvaccinated people. A recent study from [Lopez Bernal et al.](https://www.nejm.org/doi/full/10.1056/NEJMoa2108891) has shown that the Pfizer and Astra Zeneca vaccines have lower efficacy for the delta variant.
+
+```{r}
+vax_eff <- data.frame(vaccine = c("Pfizer (BNT162b2)", "Astra Zeneca (ChAdOx1)"), eff_alpha = c("93.7% (95% CI, 91.6 to 95.3)", "74.5% (95% CI, 68.4 to 79.4)"), eff_delta = c("88.0% (95% CI, 85.3 to 90.1)", "67.0% (95% CI, 61.3 to 71.8)"))
+names(vax_eff) <- c("vaccine", "efficacy alpha", "efficacy delta")
+
+vax_eff %>%
+  kbl() %>%
+  kable_styling(full_width = F)
+```
+
+Although the efficacy of vaccines might have been reduced because of this delta variant, the dire consequences of this variant for the unvaccinated make getting your vaccine the wisest thing to do.
+
+## References
+
+* Lopez Bernal, J., Andrews, N., Gower, C., Gallagher, E., Simmons, R., Thelwall, S., ... & Ramsay, M. (2021). Effectiveness of Covid-19 vaccines against the B. 1.617. 2 (Delta) variant. *New England Journal of Medicine*, 385:585-594 <https://www.nejm.org/doi/full/10.1056/NEJMoa2108891>
+* Vaccine efficacy, effectiveness and protection <https://www.who.int/news-room/feature-stories/detail/vaccine-efficacy-effectiveness-and-protection>
+* Delta variant: What we know about the science <https://www.cdc.gov/coronavirus/2019-ncov/variants/delta-variant.html>
