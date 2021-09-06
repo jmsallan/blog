@@ -1,0 +1,214 @@
+---
+title: Categorical variables in linear regression
+author: Jose M Sallan
+date: '2021-09-06'
+slug: categorical-variables-in-linear-regression
+categories:
+  - R
+  - statistics
+tags:
+  - ggplot
+  - dplyr
+  - linear regression
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>In this post, I will introduce how to add <strong>categorical and ordinal variables</strong> to a linear regression model. I will use <code>dplyr</code> and <code>ggplot2</code> for data handling and visualization, and <code>kableExtra</code> to present HTML tables. I will also present how to plot <strong>error bars</strong> with <code>ggplot2</code>.</p>
+<pre class="r"><code>library(dplyr)
+library(ggplot2)
+library(kableExtra)</code></pre>
+<p>A <strong>categorical variable</strong> can take only a limited and usually fixed set of values. Each of these values is a <strong>category</strong>. An example of categorical variable is the <code>Species</code> variable of the <code>iris</code> database, which represents the species that each observation belongs to. It can take three values: <code>setosa</code>, <code>versicolor</code> and <code>virginica</code>.</p>
+<p>An <strong>ordinal variable</strong> is a categorical variable whose categories can be ordered. The dose variable of the ToothGrowth is the dose of Vitamin C administered to each Guinea pig of the sample. It can take three values: <code>0.5</code>, <code>1</code> and <code>2</code>.</p>
+<p>Categorical and ordinal variables can be encoded in R as <strong>factor variables</strong>. That’s how <code>Species</code> is encoded in <code>iris</code>.</p>
+<pre class="r"><code>str(iris)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    150 obs. of  5 variables:
+##  $ Sepal.Length: num  5.1 4.9 4.7 4.6 5 5.4 4.6 5 4.4 4.9 ...
+##  $ Sepal.Width : num  3.5 3 3.2 3.1 3.6 3.9 3.4 3.4 2.9 3.1 ...
+##  $ Petal.Length: num  1.4 1.4 1.3 1.5 1.4 1.7 1.4 1.5 1.4 1.5 ...
+##  $ Petal.Width : num  0.2 0.2 0.2 0.2 0.2 0.4 0.3 0.2 0.2 0.1 ...
+##  $ Species     : Factor w/ 3 levels &quot;setosa&quot;,&quot;versicolor&quot;,..: 1 1 1 1 1 1 1 1 1 1 ...</code></pre>
+<p>We can use the <code>levels</code> function to obtain the categories or levels of a factor:</p>
+<pre class="r"><code>levels(iris$Species)</code></pre>
+<pre><code>## [1] &quot;setosa&quot;     &quot;versicolor&quot; &quot;virginica&quot;</code></pre>
+<p>The <code>dose</code> variable of <code>ToothGrowth</code> is encoded as numeric. We can transform it to ordinal doing:</p>
+<pre class="r"><code>ToothGrowth &lt;- ToothGrowth %&gt;%
+  mutate(dose = as.factor(dose))</code></pre>
+<p>Let’s see the levels of <code>dose</code>:</p>
+<pre class="r"><code>levels(ToothGrowth$dose)</code></pre>
+<pre><code>## [1] &quot;0.5&quot; &quot;1&quot;   &quot;2&quot;</code></pre>
+<div id="dummy-variables" class="section level2">
+<h2>Dummy variables</h2>
+<p>In linear regression, we want to examine the relationship between one dependent variable and a set of independent variables. The dependent variable must be quantitative, but we can use categorical and ordinal variables as dependent variables too. To to that we need to create a binary variable for each category minus one. These variables are called <strong>dummy variables</strong> and the process of generating them <strong>one hot encoding</strong>. Let’s see the dummy variables for Species:</p>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+species
+</th>
+<th style="text-align:right;">
+versicolor
+</th>
+<th style="text-align:right;">
+virginica
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+versicolor
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+virginica
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+</tbody>
+</table>
+<p>We are not defining a third dummy variable for <code>setosa</code> because it could be obtained as <code>1 - versicolor - virginica</code>. For this encoding, <code>setosa</code> is the baseline level or category.</p>
+<p>Let’s examine how the variable <code>Sepal.Length</code> of <code>iris</code> is affected by <code>Species</code>. We can do that with a boxplot:</p>
+<pre class="r"><code>ggplot(iris, aes(Species, Sepal.Length)) +
+  geom_boxplot() +
+  labs(title = &quot;Values of Sepal.Length for each Species&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Or by comparing the 95% confidence intervals for the mean, using the <code>mean_se</code> function. This function returns three values: the sample mean, and the upper amd lower bound of a confidence interval obtained from the <strong>standard error</strong>, the standard deviation of the mean. I have set <code>mult = 1.96</code> to obtain the 95% confidence interval. Note the wawing notation to define the <code>ci</code> function, introduced since R 4.0.0.</p>
+<pre class="r"><code>ci &lt;- \(x) mean_se(x, mult = 1.96)
+ggplot(iris, aes(Species, Sepal.Length)) +
+  stat_summary(fun.data = ci) +
+  labs(title = &quot;95% confidence intervals for the mean&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>We can also draw an <a href="https://www.data-to-viz.com/caveat/error_bar.html">error bar</a> plot, defining an <code>iris_summary</code> table of statistics. Using that table, I have plotted the bars with <code>geom_bar</code> and the CI intervals with <code>geom_errorbar</code>.</p>
+<pre class="r"><code>iris_summary &lt;- iris %&gt;% group_by(Species) %&gt;%
+  summarise(y=mean(Sepal.Length), sd = sd(Sepal.Length)) %&gt;%
+  mutate(ymin = y - 1.96*sd/sqrt(50), ymax = y + 1.96*sd/sqrt(50))
+ggplot(iris_summary, aes(Species, y)) +
+  geom_bar(stat = &quot;identity&quot;, fill = &quot;#8FBC8F&quot;) +
+  geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.2) +
+  labs(title = &quot;Error bars with 95% CI for the mean&quot;, y = &quot;Sepal.Length&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
+<p>The three plots show that the mean of <code>Sepal.Length</code> is affected by <code>Species</code>. If we want to examine this using linear regression, we should define the two dummy variables described above. But we don’t need to do that if we use R: if we set a factor as a dependent variable, R generates the dummy variables, taking the first level of the factor as baseline.</p>
+<pre class="r"><code>m1 &lt;- lm(Sepal.Length ~ Species, data = iris)
+summary(m1)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = Sepal.Length ~ Species, data = iris)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -1.6880 -0.3285 -0.0060  0.3120  1.3120 
+## 
+## Coefficients:
+##                   Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)         5.0060     0.0728  68.762  &lt; 2e-16 ***
+## Speciesversicolor   0.9300     0.1030   9.033 8.77e-16 ***
+## Speciesvirginica    1.5820     0.1030  15.366  &lt; 2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 0.5148 on 147 degrees of freedom
+## Multiple R-squared:  0.6187, Adjusted R-squared:  0.6135 
+## F-statistic: 119.3 on 2 and 147 DF,  p-value: &lt; 2.2e-16</code></pre>
+<p>The two dummy variables are presented as <code>Speciesversicolor</code> and <code>Speciesvirginica</code>. The regression coefficients of the dummy variables represent the difference of the mean of the dependent variable between observations from the baseline category and the category represented by each dummy variable. Here we learn that the mean of <code>Sepal.Length</code> of <code>versicolor</code> is the mean of <code>setosa</code> plus 0.93, and that the mean of <code>virginica</code> the mean of <code>setosa</code> plus 1.58. This is congruent with the values we observe in the error bar plot. Both regression coefficients appear to be significantly different from zero, as their <em>p</em>-values (in the <code>Pr(&gt;|t|)</code> column) are very close to zero.</p>
+<p>Just for checking, let’s see what happens if we make <code>versicolor</code> the baseline category. We can achieve that with <code>relevel</code>:</p>
+<pre class="r"><code>iris_relevel &lt;- iris %&gt;%
+  mutate(Species = relevel(Species, &quot;versicolor&quot;))</code></pre>
+<p>Let’s estimate the new model:</p>
+<pre class="r"><code>m1b &lt;- lm(Sepal.Length ~ Species, data = iris_relevel)
+summary(m1b)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = Sepal.Length ~ Species, data = iris_relevel)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -1.6880 -0.3285 -0.0060  0.3120  1.3120 
+## 
+## Coefficients:
+##                  Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)        5.9360     0.0728  81.536  &lt; 2e-16 ***
+## Speciessetosa     -0.9300     0.1030  -9.033 8.77e-16 ***
+## Speciesvirginica   0.6520     0.1030   6.333 2.77e-09 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 0.5148 on 147 degrees of freedom
+## Multiple R-squared:  0.6187, Adjusted R-squared:  0.6135 
+## F-statistic: 119.3 on 2 and 147 DF,  p-value: &lt; 2.2e-16</code></pre>
+<p>Now the dummy variables are <code>Speciessetosa</code> and <code>Speciesvirginica</code>. From the regression coefficients, now we observe that for <code>setosa</code> the mean of <code>Sepal.Length</code> for <code>setosa</code> is the mean of <code>versicolor</code> <em>minus</em> 0.93, and that the mean of <code>virginica</code> is equal to the mean of <code>versicolor</code> <em>plus</em> 0.65. Again, this is congruent with the results of the error bar plot.</p>
+</div>
+<div id="a-model-with-categorical-and-ordinal-variables" class="section level2">
+<h2>A model with categorical and ordinal variables</h2>
+<p>Let’s move now to <code>ToothGrowth</code>:</p>
+<pre class="r"><code>str(ToothGrowth)</code></pre>
+<pre><code>## &#39;data.frame&#39;:    60 obs. of  3 variables:
+##  $ len : num  4.2 11.5 7.3 5.8 6.4 10 11.2 11.2 5.2 7 ...
+##  $ supp: Factor w/ 2 levels &quot;OJ&quot;,&quot;VC&quot;: 2 2 2 2 2 2 2 2 2 2 ...
+##  $ dose: Factor w/ 3 levels &quot;0.5&quot;,&quot;1&quot;,&quot;2&quot;: 1 1 1 1 1 1 1 1 1 1 ...</code></pre>
+<p>The variables of the database are:</p>
+<ul>
+<li>tooth length <code>len</code>, which is the dependent variable.</li>
+<li>the supplement type <code>supp</code>, that can be <code>VC</code> (ascorbic acid) or <code>OJ</code> (orange juice).</li>
+<li>the <code>dose</code> of vitamin C, which I have transformed into an ordinal variable with three levels (0.5, 1 and 2) previously.</li>
+</ul>
+<p>Here we will have one dummy variable for <code>supp</code>, and two for <code>dose</code>. It is convenient to assign the lowest value of the ordinal variable as baseline level. In this case, I have obtained that by default.</p>
+<p>Let’s rule the model:</p>
+<pre class="r"><code>m2 &lt;- lm(len ~ supp + dose, data = ToothGrowth)
+summary(m2)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = len ~ supp + dose, data = ToothGrowth)
+## 
+## Residuals:
+##    Min     1Q Median     3Q    Max 
+## -7.085 -2.751 -0.800  2.446  9.650 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  12.4550     0.9883  12.603  &lt; 2e-16 ***
+## suppVC       -3.7000     0.9883  -3.744 0.000429 ***
+## dose1         9.1300     1.2104   7.543 4.38e-10 ***
+## dose2        15.4950     1.2104  12.802  &lt; 2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 3.828 on 56 degrees of freedom
+## Multiple R-squared:  0.7623, Adjusted R-squared:  0.7496 
+## F-statistic: 59.88 on 3 and 56 DF,  p-value: &lt; 2.2e-16</code></pre>
+<p>From this model, we learn that:</p>
+<ul>
+<li><code>OJ</code> is more effective than <code>VC</code> for tooth growth. From the regression coefficient of <code>suppVC</code>, the average of tooth growth increases by and additional 3.7 longer respect to <code>OJ</code>.</li>
+<li>The largest tooth growth is achieved with the largest <code>dose</code> of Vitamin C: 2 miligrams/day.</li>
+</ul>
+</div>
+<div id="categorical-variables-in-linear-regression" class="section level2">
+<h2>Categorical variables in linear regression</h2>
+<p>Through <strong>categorical</strong> and <strong>ordinal</strong> variables, we can classify the elements of a dataset into a discrete number of categories. We can add categorical variables as predictors in linear regression using <strong>binary or dummy variables</strong> for each category except the baseline. The <strong>regression coefficients</strong> of binary variables can be interpreted as the difference of means of the dependent variable between observations of the incumbent category and observations of the baseline.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>The new R pipe <a href="https://www.r-bloggers.com/2021/05/the-new-r-pipe/#google_vignette" class="uri">https://www.r-bloggers.com/2021/05/the-new-r-pipe/#google_vignette</a></li>
+<li>The issue with error bars <a href="https://www.data-to-viz.com/caveat/error_bar.html" class="uri">https://www.data-to-viz.com/caveat/error_bar.html</a></li>
+</ul>
+<p><em>Built with R 4.1.0, dplyr 1.0.7, ggplot2 3.3.4 and KableExtra 1.3.4</em></p>
+</div>

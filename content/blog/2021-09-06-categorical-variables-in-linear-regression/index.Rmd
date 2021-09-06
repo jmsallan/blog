@@ -1,0 +1,165 @@
+---
+title: Categorical variables in linear regression
+author: Jose M Sallan
+date: '2021-09-06'
+slug: categorical-variables-in-linear-regression
+categories:
+  - R
+  - statistics
+tags:
+  - ggplot
+  - dplyr
+  - linear regression
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post, I will introduce how to add **categorical and ordinal variables** to a linear regression model. I will use `dplyr` and `ggplot2` for data handling and visualization, and `kableExtra` to present HTML tables. I will also present how to plot **error bars** with `ggplot2`.
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(kableExtra)
+```
+
+A **categorical variable** can take only a limited and usually fixed set of values. Each of these values is a **category**. An example of categorical variable is the `Species` variable of the `iris` database, which represents the species that each observation belongs to. It can take three values: `setosa`, `versicolor` and `virginica`.
+
+An **ordinal variable** is a categorical variable whose categories can be ordered. The dose variable of the ToothGrowth is the dose of Vitamin C administered to each Guinea pig of the sample. It can take three values: `0.5`, `1` and `2`.
+
+Categorical and ordinal variables can be encoded in R as **factor variables**. That's how `Species` is encoded in `iris`. 
+
+```{r}
+str(iris)
+```
+
+We can use the `levels` function to obtain the categories or levels of a factor:
+
+```{r}
+levels(iris$Species)
+```
+
+The `dose` variable of `ToothGrowth` is encoded as numeric. We can transform it to ordinal doing:
+
+```{r}
+ToothGrowth <- ToothGrowth %>%
+  mutate(dose = as.factor(dose))
+```
+
+Let's see the levels of `dose`:
+
+```{r}
+levels(ToothGrowth$dose)
+```
+
+## Dummy variables
+
+In linear regression, we want to examine the relationship between one dependent variable and a set of independent variables. The dependent variable must be quantitative, but we can use categorical and ordinal variables as dependent variables too. To to that we need to create a binary variable for each category minus one. These variables are called **dummy variables** and the process of generating them **one hot encoding**. Let's see the dummy variables for Species:
+
+```{r, echo=FALSE, fig.align='center'}
+species_df <- data.frame(species = c("versicolor", "virginica"), versicolor = c(1, 0), virginica = c(0, 1))
+
+species_df %>% 
+  kbl() %>%
+  kable_styling(full_width = FALSE)
+```
+
+We are not defining a third dummy variable for `setosa` because it could be obtained as `1 - versicolor - virginica`. For this encoding, `setosa` is the baseline level or category.
+
+Let's examine how the variable `Sepal.Length` of `iris` is affected by `Species`. We can do that with a boxplot:
+
+```{r, fig.align='center'}
+ggplot(iris, aes(Species, Sepal.Length)) +
+  geom_boxplot() +
+  labs(title = "Values of Sepal.Length for each Species")
+```
+
+Or by comparing the 95% confidence intervals for the mean, using the `mean_se` function. This function returns three values: the sample mean, and the upper amd lower bound of a confidence interval obtained from the **standard error**, the standard deviation of the mean. I have set `mult = 1.96` to obtain the 95% confidence interval. Note the wawing notation to define the `ci` function, introduced since R 4.0.0.
+
+```{r, fig.align='center'}
+ci <- \(x) mean_se(x, mult = 1.96)
+ggplot(iris, aes(Species, Sepal.Length)) +
+  stat_summary(fun.data = ci) +
+  labs(title = "95% confidence intervals for the mean")
+```
+
+We can also draw an [error bar](https://www.data-to-viz.com/caveat/error_bar.html) plot, defining an `iris_summary` table of statistics. Using that table, I have plotted the bars with `geom_bar` and the CI intervals with `geom_errorbar`.
+
+```{r}
+iris_summary <- iris %>% group_by(Species) %>%
+  summarise(y=mean(Sepal.Length), sd = sd(Sepal.Length)) %>%
+  mutate(ymin = y - 1.96*sd/sqrt(50), ymax = y + 1.96*sd/sqrt(50))
+ggplot(iris_summary, aes(Species, y)) +
+  geom_bar(stat = "identity", fill = "#8FBC8F") +
+  geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.2) +
+  labs(title = "Error bars with 95% CI for the mean", y = "Sepal.Length")
+```
+
+The three plots show that the mean of `Sepal.Length` is affected by `Species`. If we want to examine this using linear regression, we should define the two dummy variables described above. But we don't need to do that if we use R: if we set a factor as a dependent variable, R generates the dummy variables, taking the first level of the factor as baseline.
+
+```{r}
+m1 <- lm(Sepal.Length ~ Species, data = iris)
+summary(m1)
+```
+
+The two dummy variables are presented as `Speciesversicolor` and `Speciesvirginica`. The regression coefficients of the dummy variables represent the difference of the mean of the dependent variable between observations from the baseline category and the category represented by each dummy variable. Here we learn that the mean of `Sepal.Length` of `versicolor` is the mean of `setosa` plus 0.93, and that the mean of `virginica` the mean of `setosa` plus 1.58. This is congruent with the values we observe in the error bar plot. Both regression coefficients appear to be significantly different from zero, as their *p*-values (in the `Pr(>|t|)` column) are very close to zero.
+
+Just for checking, let's see what happens if we make `versicolor` the baseline category. We can achieve that with `relevel`:
+
+```{r}
+iris_relevel <- iris %>%
+  mutate(Species = relevel(Species, "versicolor"))
+```
+
+Let's estimate the new model:
+
+```{r}
+m1b <- lm(Sepal.Length ~ Species, data = iris_relevel)
+summary(m1b)
+```
+
+Now the dummy variables are `Speciessetosa` and `Speciesvirginica`. From the regression coefficients, now we observe that for `setosa` the mean of `Sepal.Length` for `setosa` is the mean of `versicolor` *minus* 0.93, and that the mean of `virginica` is equal to the mean of `versicolor` *plus* 0.65. Again, this is congruent with the results of the error bar plot.
+
+## A model with categorical and ordinal variables
+
+Let's move now to `ToothGrowth`:
+
+```{r}
+str(ToothGrowth)
+```
+
+The variables of the database are:
+
+* tooth length `len`, which is the dependent variable.
+* the supplement type `supp`, that can be `VC` (ascorbic acid) or `OJ` (orange juice).
+* the `dose` of vitamin C, which I have transformed into an ordinal variable with three levels (0.5, 1 and 2) previously.
+
+Here we will have one dummy variable for `supp`, and two for `dose`. It is convenient to assign the lowest value of the ordinal variable as baseline level. In this case, I have obtained that by default.
+
+Let's rule the model:
+
+```{r}
+m2 <- lm(len ~ supp + dose, data = ToothGrowth)
+summary(m2)
+```
+
+From this model, we learn that:
+
+* `OJ` is more effective than `VC` for tooth growth. From the regression coefficient of `suppVC`, the average of tooth growth increases by and additional 3.7 longer respect to `OJ`.
+* The largest tooth growth is achieved with the largest `dose` of Vitamin C: 2 miligrams/day.
+
+## Categorical variables in linear regression
+
+Through **categorical** and **ordinal** variables, we can classify the elements of a dataset into a discrete number of categories. We can add categorical variables as predictors in linear regression using **binary or dummy variables** for each category except the baseline. The **regression coefficients** of binary variables can be interpreted as the difference of means of the dependent variable between observations of the incumbent category and observations of the baseline.
+
+
+## References 
+
+* The new R pipe <https://www.r-bloggers.com/2021/05/the-new-r-pipe/#google_vignette>
+* The issue with error bars <https://www.data-to-viz.com/caveat/error_bar.html>
+
+*Built with R 4.1.0, dplyr 1.0.7, ggplot2 3.3.4 and KableExtra 1.3.4*
