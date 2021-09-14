@@ -1,0 +1,124 @@
+---
+title: What is ANOVA and how to do it with R
+author: Jose M Sallan
+date: '2021-09-14'
+slug: what-is-anova-and-how-to-do-it-with-r
+categories:
+  - R
+  - statistics
+tags:
+  - dplyr
+  - ggplot
+  - linear regression
+  - R
+  - ANOVA
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>In this post I will introduce how to perform analysis of variance (ANOVA) witb R. I will use <code>dplyr</code> and <code>ggplot2</code> for data handling and visualization.</p>
+<pre class="r"><code>library(dplyr)
+library(ggplot2)</code></pre>
+<p><strong>Analysis of variance (ANOVA)</strong> is a statistical technique to examine if a treatment that splits the sample into <span class="math inline">\(t \geq 2\)</span> categories affects a dependent variable <span class="math inline">\(y\)</span>, so that the average value of <span class="math inline">\(y\)</span> for at least one of the treatments is different from the rest of treatments. ANOVA was created by Ronald Fisher in 1918 (Fisher, 1918). ANOVA is equivalent to examine the overall significance of the linear regression model:</p>
+<p><span class="math display">\[ y_i = \beta_0 + \beta_1d_{1,i} + \dots + \beta_{t-1}d_{t_1,i} + \varepsilon_i\]</span></p>
+<p>where <span class="math inline">\(d_j\)</span> are binary or dummy variables equal to one if observation <span class="math inline">\(i\)</span> has received treatment <span class="math inline">\(j\)</span> and zero otherwise.</p>
+<p>The approach of ANOVA is to decompose the variance of <span class="math inline">\(y\)</span> into two terms: the <em>variance explained</em> by the treatment and the <em>residual variance</em>. We do that decomposing the sum of squares of <span class="math inline">\(y\)</span> as follows:</p>
+<p><span class="math display">\[ \sum_{i=1}^n \left(y_i - \bar{y}\right)^2 = \sum_{i=1}^n \left(\hat{y}_i - \bar{y}\right)^2 + \sum_{i=1}^n \left(y_i + \hat{y}_i\right)^2 \]</span></p>
+<p>where <span class="math inline">\(\bar{y}\)</span> is the mean of <span class="math inline">\(y\)</span> for the whole sample and <span class="math inline">\(\hat{y}_i\)</span> is the estimation of observation <span class="math inline">\(y_i\)</span> by the linear regression model. This expression can be interpreted as that the total sum of squares <span class="math inline">\(TSS\)</span> is equal to the sum of squares of the treatment <span class="math inline">\(SST\)</span> plus the sum of squares of errors <span class="math inline">\(SSE\)</span>:</p>
+<p><span class="math display">\[ TSS = SST + SSE\]</span></p>
+<p>We can define terms analogous to variance for the treatment and the residuals dividing by their degrees of freedom. Then we obtain the mean of squares of treatment <span class="math inline">\(MST\)</span> and the mean of squares of errors <span class="math inline">\(MSE\)</span>.</p>
+<p><span class="math display">\[ \begin{align} 
+MST &amp;= \frac{SST}{t-1} &amp; MSE &amp;= \frac{SSE}{n-t}
+\end{align}\]</span></p>
+<p>We examine if the treatment affects the dependent variable through an <strong>F-test</strong>. The null hypothesis of this tests can be stated as:</p>
+<p><span class="math display">\[H_0: \mu_1 = \dots = \mu_p\]</span></p>
+<p>If the null hypothesis holds, we have that:</p>
+<p><span class="math display">\[ \frac{MST}{MSE} \sim F_{t-1, n-t}  \]</span></p>
+<p>where <span class="math inline">\(F_{t-1, n-t}\)</span> is a F-Snedecor distribution with <span class="math inline">\(n_1= t-1\)</span> and <span class="math inline">\(n_2 = n-t\)</span>. We can reject the null hypothesis if we obtain values of <span class="math inline">\(MST/MSE\)</span> inusually large for a <span class="math inline">\(F_{t-1, n-t}\)</span> distribution.</p>
+<p>The <strong>validity assumptions</strong> of ANOVA are similar to the linear regression with ordinary least squares: observations must be independent and the residual variance <span class="math inline">\(MSE\)</span> must follow a normal distribution with mean zero and equal variance across predicted values.</p>
+<div id="applying-anova-to-the-iris-dataset" class="section level2">
+<h2>Applying ANOVA to the iris dataset</h2>
+<p>To perform an ANOVA analysis with R we need to:</p>
+<ul>
+<li>Define a linear model with the variable defining the category of each observation as independent variable, encoded as a factor.</li>
+<li>Run the <code>anova</code> function with the defined linear model as argument.</li>
+</ul>
+<p>Let’s do that with <code>iris</code> with <code>Sepal.Length</code> as dependent variable, and <code>Species</code> as categorical variable. As you may know, there are three different species of iris in the dataset: setosa, versicolor and virginica.</p>
+<pre class="r"><code>m1 &lt;- lm(Sepal.Length ~ Species, data = iris)
+anova(m1)</code></pre>
+<pre><code>## Analysis of Variance Table
+## 
+## Response: Sepal.Length
+##            Df Sum Sq Mean Sq F value    Pr(&gt;F)    
+## Species     2 63.212  31.606  119.26 &lt; 2.2e-16 ***
+## Residuals 147 38.956   0.265                      
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<p>The outcome of the <code>anova</code> function is the ANOVA table:</p>
+<ul>
+<li>the treatment values are in the <code>Species</code> row, and the residuals in <code>Residuals</code>.</li>
+<li>the column <code>Df</code> contains the degrees of freedom, <code>Sum Sq</code> the sums of squares and <code>Mean Sq</code> each sum of squares divided by its degrees of freedom.</li>
+<li>columns <code>F value</code> and <code>Pr(&gt;F)</code> contain the results of the F-test.</li>
+</ul>
+<p>The value of the F-test is an unlikely value for a <em>F(2, 147)</em> distribution. In fact, the 0.95 tail of this distribution is:</p>
+<pre class="r"><code>qf(0.95, 2, 172)</code></pre>
+<pre><code>## [1] 3.04852</code></pre>
+<p>So it is safe to reject the null hypothesis here, and assert that the species an iris flower belongs to affects its sepal length.</p>
+</div>
+<div id="applying-anova-with-synthetic-data" class="section level2">
+<h2>Applying ANOVA with synthetic data</h2>
+<p>Let’s see what happens if population means of all treatments are equal. I have built a table with three different categories or treatments with 50 observations each. In all categories, the population mean of the dependent variable is equal to zero:</p>
+<pre class="r"><code>set.seed(1313)
+df &lt;- data.frame(y = rnorm(150), t = as.factor(c(rep(&quot;a&quot;, 50), rep(&quot;b&quot;, 50), rep(&quot;c&quot;, 50))))
+df %&gt;% glimpse()</code></pre>
+<pre><code>## Rows: 150
+## Columns: 2
+## $ y &lt;dbl&gt; 1.18935584, 0.55138478, 0.35363427, -0.70397072, 0.11842555, -0.4236…
+## $ t &lt;fct&gt; a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a, a,…</code></pre>
+<p>Let’s see how the ANOVA looks like now:</p>
+<pre class="r"><code>mdf &lt;- lm(y ~ t, df)
+anova(mdf)</code></pre>
+<pre><code>## Analysis of Variance Table
+## 
+## Response: y
+##            Df  Sum Sq Mean Sq F value Pr(&gt;F)
+## t           2   0.155 0.07764  0.0881 0.9157
+## Residuals 147 129.602 0.88164</code></pre>
+<p>In this case, the value of <em>F</em> is a plausible value of a <em>F(2, 147)</em> distribution, so we cannot reject the null hypothesis.</p>
+<p>Let’s see what happens when we test ANOVA to a sample which means are equal in all categories but one. In <code>df2</code> the mean of the dependent variable is 1 for category <code>a</code>, and zero for categories <code>b</code> and <code>c</code>.</p>
+<pre class="r"><code>df2 &lt;- data.frame(y = c(rnorm(50, 1, 1), rnorm(100, 0, 1)), t = as.factor(c(rep(&quot;a&quot;, 50), rep(&quot;b&quot;, 50), rep(&quot;c&quot;, 50))))</code></pre>
+<p>The results of ANOVA are:</p>
+<pre class="r"><code>mdf2 &lt;- lm(y ~ t, df2)
+anova(mdf2)</code></pre>
+<pre><code>## Analysis of Variance Table
+## 
+## Response: y
+##            Df  Sum Sq Mean Sq F value    Pr(&gt;F)    
+## t           2  57.237 28.6184  26.879 1.125e-10 ***
+## Residuals 147 156.511  1.0647                      
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<p>The <em>p</em>-value is far lower than the usual benchmark of 0.05, so we can reject the null hypothesis. To see what’s going on with the means, we may plot confidence intervals for each of the mean:</p>
+<pre class="r"><code>ci &lt;- \(t) mean_se(t, mult = 1.96)
+ggplot(df2, aes(t, y)) +
+  stat_summary(fun.data = ci) +
+  labs(title = &quot;95% CI for the mean for each treatment&quot;, x = &quot;treatment&quot;, y = &quot;dependent variable&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Here we observe that while confidence intervals for the mean overlap for <code>b</code> and <code>c</code>, the CI for category <code>a</code> does not overlap. This suggests that we cannot discard that population means for <code>b</code> and <code>c</code> are equal (or very close), while it is highly likely that category <code>a</code> has a higher mean.</p>
+</div>
+<div id="analysis-of-variance" class="section level2">
+<h2>Analysis of variance</h2>
+<p><strong>Analysis of variance</strong> is a statistical technique for testing if the mean of a dependent variable is the same across the two or more categories the sample is divided. ANOVA splits total variance into two components: a component explained by the treatment and a residual component.</p>
+<p>The null hypothesis of equality of the mean of the dependent variable across all categories can be tested with a <strong>F-test</strong>. If the mean of squares of the treatment is higher enough than the mean of squares of errors, we can discard the null hypothesis with a given confidence level.</p>
+<p>The ANOVA in R is tested through a linear model that uses binary independent variables for each treatment, except the baseline. For the results of ANOVA to be valid, the sample should comply with the same requirements are ordinary least squares (OLS) regression. An ANOVA-like test of overall significance can be obtained for any OLS regression.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Ronald Fisher (1918). The Correlation between Relatives on the Supposition of Mendelian Inheritance. <em>Transactions of the Royal Society of Edinburgh</em>, 52(2): 399-433.</li>
+</ul>
+<p><em>Built with R 4.1.0, dplyr 1.0.7 and ggplot2 3.3.4</em></p>
+</div>
