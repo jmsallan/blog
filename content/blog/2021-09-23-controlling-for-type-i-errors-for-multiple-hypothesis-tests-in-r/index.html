@@ -1,0 +1,197 @@
+---
+title: Controlling for Type I errors for multiple hypothesis tests in R
+author: Jose M Sallan
+date: '2021-09-23'
+slug: controlling-for-type-i-errors-for-multiple-hypothesis-tests-in-r
+categories:
+  - R
+  - statistics
+tags:
+  - hypothesis testing
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p><strong>Hypothesis testing</strong> is a statistical inference technique to acquire information about a population parameter from observations of a sample, a subet of the population. Let’s suppose that we are testing a new drug to lower blood pressure. We will do that giving the drug to a set of patients on a test group, and a placebo to a test of patients on a control group. We examine the effectiveness of the drug evaluating if it is reasonable to reject the <strong>null hypothesis</strong> that the mean value of blood pressure in the test group and control group are equal.</p>
+<p>There are two types of error in hypothesis testing:</p>
+<ul>
+<li>We commit a <strong>Type I error</strong> when we reject the null hypothesis when it is true. This means that we are detecting an effect that is not present.</li>
+<li>We commit a <strong>Type II error</strong> when we do not reject the null hypothesis when it is false. This means that we are not detecting an effect when it is present.</li>
+</ul>
+<p>We can control the type I error obtaining a <strong><em>p</em>-value</strong>, the probability of observing the obtained value or one more extreme if the hull hypothesis is true.</p>
+<p>We reject the null hypothesis if the absolute value of the <em>p</em>-value is smaller than a <strong>significance level</strong> <span class="math inline">\(\alpha\)</span>. Although the significance level should be fixed by the investigator, the common practice in social sciences is to fix it at <span class="math inline">\(\alpha = 0.05\)</span>. More generally:</p>
+<ul>
+<li>if the absolute value of the <em>p</em>-value is lower than significance level <span class="math inline">\(\alpha\)</span> we can reject the null hypothesis,</li>
+<li>if the absolute value of the <em>p</em>-value is higher than significance level <span class="math inline">\(\alpha\)</span>, we don’t know if the null hypothesis is true or false.</li>
+</ul>
+<div id="family-of-hypotheses" class="section level2">
+<h2>Family of hypotheses</h2>
+<p>When doing a statistical analysis, it is frequent that we test a group of <span class="math inline">\(m\)</span> hypotheses, rather just one. Examples of this are multivariate regression, or a set of experiments with control and experimental groups. A <strong>family of hypotheses</strong> is a set of hypotheses that are tested together in a statistical analysis.</p>
+<p>As we increase the number of hypotheses <span class="math inline">\(m\)</span>, the probability of making at least one Type I er ror increases. Let’s suppose that <span class="math inline">\(m_0 &lt; m\)</span> null hypotheses are true (this value <span class="math inline">\(m_0\)</span> is not known by the investigator). The <strong>familywise error rate (FWER)</strong> is the probability of making at least one Type I error.</p>
+<p>For a significance level <span class="math inline">\(\alpha\)</span>, an upper bound of FWER can be obtained if we set <span class="math inline">\(m_0 = m\)</span>:</p>
+<p><span class="math display">\[ 1 - \left(1-\alpha\right)^m \]</span></p>
+<p>Let’s wrap this expression into a function:</p>
+<pre class="r"><code>mult_test &lt;- \(alpha, m){
+  m_alpha &lt;- 1 - (1-alpha)^m
+  return(m_alpha)
+}</code></pre>
+<p>If we have to perform many tests, this upper bound of FWER can escalate quickly:</p>
+<pre class="r"><code>mult_test(alpha = 0.05, m = 10)</code></pre>
+<pre><code>## [1] 0.4012631</code></pre>
+<p>In this plot, I am presenting values of the upper bound of FWER for different values of <span class="math inline">\(m\)</span> and <span class="math inline">\(\alpha\)</span>.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="bonferroni-and-šidák-corrections" class="section level2">
+<h2>Bonferroni and Šidák corrections</h2>
+<p>When we perform tests for a family of hypotheses, we need to reduce the significance level <span class="math inline">\(\alpha\)</span> of each hypotheses to control the familywise error rate.</p>
+<p>The most common method to control FWER is the <strong>Bonferroni correction</strong>. Although named after Carlo Emilio Bonferroni for being grounded on the Bonferroni inequalities, the correction is attributed to Olive Jean Dunn. This correction consists simply of lowering the significance level to:</p>
+<p><span class="math display">\[\alpha_{BON} = \alpha/m\]</span></p>
+<p>So, if we have <span class="math inline">\(m=20\)</span> tests of hypotheses and <span class="math inline">\(\alpha=0.05\)</span>, we need to reset the significance level of each test to <span class="math inline">\(\alpha/m = 0.05/20 = 0.0025\)</span>.</p>
+<p>This correction can be considered too restrictive for two reasons:</p>
+<ul>
+<li>Assumes that all null hypotheses are true,</li>
+<li>and leads to a FWER smaller to the original <span class="math inline">\(\alpha\)</span>. For <span class="math inline">\(m=20\)</span> we have:</li>
+</ul>
+<pre class="r"><code>mult_test(alpha = 0.05/20, m = 20)</code></pre>
+<pre><code>## [1] 0.04883012</code></pre>
+<p>To account for this later effect, we can use the <strong>Šidák correction</strong>, developed by Zbyněk Šidák. The significance level for each test is defined as:</p>
+<p><span class="math display">\[ \alpha_{SID} = 1 - \left( 1 - \alpha \right)^{\frac{1}{m}} \]</span></p>
+<p>For <span class="math inline">\(\alpha = 0.05\)</span> and <span class="math inline">\(m=20\)</span> we have a value of Šidák correction:</p>
+<pre class="r"><code>alpha_sidak &lt;- 1 - (1-0.05)^{1/20}
+alpha_sidak</code></pre>
+<pre><code>## [1] 0.002561379</code></pre>
+<p>This value is slightly larger than the obtained with the Bonferroni correction, so we are gaining some statistical power.</p>
+<pre class="r"><code>mult_test(alpha = alpha_sidak, m = 20)</code></pre>
+<pre><code>## [1] 0.05</code></pre>
+</div>
+<div id="the-holm-bonferroni-method" class="section level2">
+<h2>The Holm-Bonferroni method</h2>
+<p>Developed by Sture Holm, this method aims to control FWER in a less stringent way than the Bonferroni and Šidák corrections, thus gaining statistical power for the family of test of hypotheses. It is an interative method, when we adjust the significance level at each step:</p>
+<ul>
+<li>Sorting the p-values in non-decreasing order (from smallest to largest) <span class="math inline">\(P_1, P_2, \dots, P_m\)</span>.</li>
+<li>For <span class="math inline">\(k=1, \dots, m\)</span> check if <span class="math inline">\(P_k &lt; \alpha/\left(m+1-k\right)\)</span>, reject the hypothesis if it is true and stop the procedure when it is false.</li>
+</ul>
+</div>
+<div id="example-of-application" class="section level2">
+<h2>Example of application</h2>
+<p>Let’s suppose that we have performed a family of test of hypotheses and we have obtained the following <em>p</em>-values:</p>
+<pre class="r"><code>pvalues &lt;- c(0.01, 0.04, 0.03, 0.005)</code></pre>
+<p>If we set <span class="math inline">\(\alpha = 0.05\)</span>, we will reject all four, and therefore we will assume that all effects are significant. But as we are doing the four tests together, the probability of making at least one Type I error is equal to:</p>
+<pre class="r"><code>mult_test(alpha = 0.05, m = 4)</code></pre>
+<pre><code>## [1] 0.1854938</code></pre>
+<p>In the following table, we will see the results of applying the three methods described here to limit the familywise error rate.</p>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+test
+</th>
+<th style="text-align:right;">
+p-values
+</th>
+<th style="text-align:right;">
+Bonf
+</th>
+<th style="text-align:right;">
+Šidák
+</th>
+<th style="text-align:right;">
+Holm
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+P4
+</td>
+<td style="text-align:right;">
+0.005
+</td>
+<td style="text-align:right;">
+0.0125
+</td>
+<td style="text-align:right;">
+0.0127415
+</td>
+<td style="text-align:right;">
+0.0125000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+P1
+</td>
+<td style="text-align:right;">
+0.010
+</td>
+<td style="text-align:right;">
+0.0125
+</td>
+<td style="text-align:right;">
+0.0127415
+</td>
+<td style="text-align:right;">
+0.0166667
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+P3
+</td>
+<td style="text-align:right;">
+0.030
+</td>
+<td style="text-align:right;">
+0.0125
+</td>
+<td style="text-align:right;">
+0.0127415
+</td>
+<td style="text-align:right;">
+0.0250000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+P2
+</td>
+<td style="text-align:right;">
+0.040
+</td>
+<td style="text-align:right;">
+0.0125
+</td>
+<td style="text-align:right;">
+0.0127415
+</td>
+<td style="text-align:right;">
+0.0500000
+</td>
+</tr>
+</tbody>
+</table>
+<p>From the results of the table, we can conclude that:</p>
+<ul>
+<li>We will accept all null hypothesis if we use the Bonferroni and Šidák methods.</li>
+<li>We will reject hypothesis 4 and 1, but not 3 and 2 if we use the Holm-Bonferroni method. Note that we stop the method with <span class="math inline">\(P_3\)</span>, so we do not asses <span class="math inline">\(P_2\)</span>.</li>
+</ul>
+<p>In this example we can appreciate how the Bonferroni and Šidák methods are conservative when it comes to reject null hypotheses when a family of these is examined together. The Holm-Bonferroni method is less conservative, and allows to take into account the effect of multiple testing loosing a smaller amount statistical power.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Amat Rodrigo, J. (2016). <em>Comparaciones múltiples: corrección de p-value y FDR</em> <a href="https://rpubs.com/Joaquin_AR/236898" class="uri">https://rpubs.com/Joaquin_AR/236898</a>.</li>
+<li>Dunn, Olive Jean (1961). Multiple Comparisons Among Means. <em>Journal of the American Statistical Association</em>. 56 (293): 52–64.</li>
+<li>Glen, Stephanie. Holm-Bonferroni Method: Step by Step, <em>StatisticsHowTo.com: Elementary Statistics for the rest of us!</em> <a href="https://www.statisticshowto.com/holm-bonferroni-method/" class="uri">https://www.statisticshowto.com/holm-bonferroni-method/</a>. Retrieved at 2021-09-23.</li>
+<li>Holm, S. (1979). A simple sequentially rejective multiple test procedure. <em>Scandinavian Journal of Statistics</em>. 6 (2): 65–70.</li>
+<li>Šidák, Z. K. (1967). Rectangular Confidence Regions for the Means of Multivariate Normal Distributions. <em>Journal of the American Statistical Association</em>. 62 (318): 626–633. <a href="doi:10.1080/01621459.1967.10482935" class="uri">doi:10.1080/01621459.1967.10482935</a>.</li>
+</ul>
+<p><em>Built with R 4.1.0, dplyr 1.0.7, ggplot2 3.3.4, kableExtra 1.3.4 and RColorBrewer 1.1-2</em></p>
+</div>
