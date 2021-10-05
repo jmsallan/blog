@@ -1,0 +1,186 @@
+---
+title: Fuzzy sets for qualitative comparative analysis (QCA) using R
+author: Jose M Sallan
+date: '2021-10-05'
+slug: fuzzy-sets-for-qualitative-comparative-analysis-qca-using-r
+categories:
+  - R
+tags:
+  - ggplot
+  - QCA
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+**Qualitative comparative analysis (QCA)** is a data analysis technique that examines the relationships between an outcome and a set of explanatory variables. Unlike other techniques like linear regression, QCA is focused mainly on examining complex combinations of explanatory variables as antecedents of the outcome. Also unlike linear regression and structural equation modelling, QCA is grounded on Boolean algebra, rather than on correlation or covariance structures.
+
+In this post, I will introduce how to define fuzzy memberships in QCA using the `QCA` package for qualitative comparative analysis. This intends to be the first of a serie of posts about how to perform QCA in R.
+
+I will also use the `tidyverse` and `patchwork` for data manipulation and plotting.
+
+```{r, message=FALSE}
+library(QCA)
+library(tidyverse)
+library(patchwork)
+```
+
+The meaning of variables in QCA is different from regression or correlation analysis. A variable in QCA establishes if an observation belongs or not to a set. Depending of the type of data we are analyzing, we have two variants of QCA:
+
+* **Crisp-set QCA (csQCA)**, in which variables can only take values of zero (false) and one (true). It can be extended to multi-value variables, thus we have **multi-value QCA (mvQCA)**. In csQCA and mvQCA each observation can belong or not to the set defined by each variable.
+* **Fuzzy-set QCA (fsQCA)**, where variables have too much values to be treated as multi-value. Fuzzy-set variables represent a degree of membership to a set. They can take any real value from zero (no inclusion) to one (full inclusion).
+
+## Obtaining fuzzy memberships with calibration
+
+The *calibration* of a variable is the process to assign a **fuzzy membership** score for each observation. Fuzzy membership can take values between zero (no membership) and one (full membership). Intermediate values represent the continuum of grades of observation's membership of a set.
+
+Let's examine how calibration works with the `LR` dataset of Lipset's (1959) indicators for the survival of democracy during the inter-war period, included in the `QCA` package.
+
+```{r}
+head(LR)
+```
+
+Calibrating `LR` consists of assigning a fuzzy membership to each observation for each of the six variables. In this case, variables are monotonous. For instance, high values of DEV represent a high value of development, so observations with high values of `DEV` will tend to belong to the set of highly-developed countries. For these kind of variables we will define a **S-shaped calibration** using three parameters:
+
+* `e`: the threshold for **non-membership** or exclusion `e`,
+* `c`: the **crossover** point `c`,
+* `i`: the **threshold** for full membership or inclusion `i`.
+
+These values are crucial to replicate a fsQCA analysis, so it is important to report the calibration method and the values of calibration parameteres.
+
+The `calibrate` function of `QCA` package allows logistic and linear S-shaped calibration by setting the logistic parameter to `TRUE` or `FALSE`, respectively. Let's calibrate the `DEV` variable in both ways:
+
+```{r}
+dev <- LR %>%
+  select(DEV) %>%
+  mutate(logistic = calibrate(DEV, type = "fuzzy", thresholds = "e=500, c=700, i=900", logistic=TRUE),
+         linear = calibrate(DEV, ype = "fuzzy", thresholds = "e=500, c=700, i=900", logistic=FALSE))
+```
+
+Let's plot the calibration results to see the difference between the two methods, and the role of `e`, `c` and `i` parameters:
+
+```{r, fig.align='center', echo=FALSE, fig.height=4, fig.width=5}
+dev %>%
+  pivot_longer(-DEV) %>%
+  ggplot(aes(DEV, value, color=name)) +
+  geom_line(size = 1.1) +
+  geom_point() +
+  labs(x = "variable", y = "fuzzy membership") +
+  theme_classic() +
+  theme(legend.position = "bottom") +
+  geom_vline(xintercept = 500, size = 0.3, linetype = "dashed") +
+  geom_vline(xintercept = 700, size = 0.3, linetype = "dashed") +
+  geom_vline(xintercept = 900, size = 0.3, linetype = "dashed") +
+  annotate("text", x = 450, y = 0.6, label = "e=500", size =4) +
+  annotate("text", x = 650, y = 0.6, label = "c=700", size =4) +
+  annotate("text", x = 850, y = 0.6, label = "i=900", size =4) +
+  scale_color_manual(values = c("#CC0000", "#0000CC"))
+```
+
+In some ocassions, it might happen that full membership to a set is associated with intermediate values of the variable. This would be the case if we wanted to define a set of mid-developed countries from `DEV`. To do this we need to calibrate variables using a **bell-shaped curve**. For these functions, we need to define in `calibrate` the parameters `e1`, `c1`, `i1` for the left-hand side of the bell, and `e2`, `c2`, `i2` for the right-hand side. The `below` and `above` parameters allow a non-linear fit when assigning membership scores. Let's see some examples with artificial data going from zero to 1000. I am defining a triangular calibration making `i1` equal to `i2`, and a trapezoidal calibration making both variables different.
+
+```{r}
+bell_test <- data.frame(X = seq(0, 1000, 50)) %>%
+  mutate(tr_linear = calibrate(X, thresholds = "e1=100, c1=250, i1=500, i2=500, c2=750, e2=900"),
+         tr_curve = calibrate(X, thresholds = "e1=100, c1=250, i1=500, i2=500, c2=750, e2=900", below = 3, above = 3),
+         tp_linear = calibrate(X, thresholds = "e1=100, c1=250, i1=400, i2=600, c2=750, e2=900"),
+         tp_curve = calibrate(X, thresholds = "e1=100, c1=250, i1=400, i2=600, c2=750, e2=900", below = 3, above = 3))
+```
+
+The following plot shows how each calibration works:
+
+```{r, fig.align='center', echo=FALSE, fig.height=4, fig.width=7}
+
+plot_tr <- 
+  bell_test %>%
+  select(X, tr_linear, tr_curve) %>%
+  pivot_longer(-X) %>%
+  ggplot(aes(X, value, color=name)) +
+  geom_line(size = 1.1) +
+  geom_point() +
+  scale_color_manual(name = "Calibration", values = c("#CC0000", "#0000CC")) +
+  scale_x_continuous(name = "variable", breaks = seq(0, 1000, 200), labels = as.character(seq(0, 1000, 200))) +
+  labs(title = "Triangular calibration", x = "variable", y = "fuzzy membership") +
+  theme_classic() +
+  theme(legend.position = "bottom") +
+  geom_vline(xintercept = 100, size = 0.3, linetype = "dashed") +
+  geom_vline(xintercept = 250, size = 0.3, linetype = "dashed") +
+  geom_vline(xintercept = 500, size = 0.3, linetype = "dashed") +
+  geom_vline(xintercept = 750, size = 0.3, linetype = "dashed") +
+  geom_vline(xintercept = 900, size = 0.3, linetype = "dashed") +
+  annotate("text", x = 70, y = 0.6, label = "e1", size =4) +
+  annotate("text", x = 220, y = 0.6, label = "c1", size =4) +
+  annotate("text", x = 460, y = 0.6, label = "i1=i2", size =4) +
+  annotate("text", x = 720, y = 0.4, label = "c2", size =4) +
+  annotate("text", x = 870, y = 0.6, label = "e1", size =4)
+  
+plot_tp <- 
+bell_test %>%
+  select(X, tp_linear, tp_curve) %>%
+  pivot_longer(-X) %>%
+  ggplot(aes(X, value, color=name)) +
+  geom_line(size = 1.1) +
+  geom_point() +
+  scale_color_manual(name = "Calibration", values = c("#CC0000", "#0000CC")) +
+  scale_x_continuous(name = "variable", breaks = seq(0, 1000, 200), labels = as.character(seq(0, 1000, 200))) +
+  labs(title = "Trapezoidal calibration", x = "variable", y = "fuzzy membership") +
+  theme_classic() +
+  theme(legend.position = "bottom") +
+  geom_vline(xintercept = 100, size = 0.3, linetype = "dashed") +
+  geom_vline(xintercept = 250, size = 0.3, linetype = "dashed") +
+  geom_vline(xintercept = 400, size = 0.3, linetype = "dashed") +
+  geom_vline(xintercept = 600, size = 0.3, linetype = "dashed") +
+  geom_vline(xintercept = 750, size = 0.3, linetype = "dashed") +
+  geom_vline(xintercept = 900, size = 0.3, linetype = "dashed") +
+  annotate("text", x = 70, y = 0.6, label = "e1", size =4) +
+  annotate("text", x = 220, y = 0.6, label = "c1", size =4) +
+  annotate("text", x = 370, y = 0.6, label = "i1", size =4) +
+  annotate("text", x = 570, y = 0.6, label = "i2", size =4) +
+  annotate("text", x = 720, y = 0.4, label = "c2", size =4) +
+  annotate("text", x = 870, y = 0.6, label = "e2", size =4)
+
+plot_tr + plot_tp
+```
+
+The `QCA` package provides `LF`, a version of the Lipset dataset calibrated to fuzzy sets:
+
+```{r}
+head(LF)
+```
+
+## Boolean algebra with fuzzy memberships
+
+The `QCA` package provides `LF`, a version of the Lipset dataset calibrated to fuzzy sets:
+
+```{r}
+head(LF)
+```
+
+In QCA we can examine relationships between an outcome and complex relationships between antecedents. In the Lipset dataset, we can explore the relationship between the outcome survival of democracy `SURV` and level of development `DEV`, but we also can explore the relationship between the outcome and variable level of development *and* literacy `DEV*LIT`. We can do that defining a **Boolean algebra** for fuzzy sets:
+
+* **Set intersection or AND operator**: $A*B = min\left(A,B\right)$.
+* **Set union or OR operator**: $A+B = max\left(A,B\right)$.
+* **Set negation or NOT operator**: $\sim A = 1-A$.
+
+The result of a complex logical operation like $DEV*URB + LIT*\sim IND$ returns a fuzzy membership score, similar to the ones obtained from calibration of the original explanatory variables. We can use the `compute` function from the `admisc` package (loaded when calling `QCA`) to obtain fuzzy memberships for relationships written as sum of products, where the product stands for logical AND / set intersection, and the sum for logical OR / set union (we need to write `admisc::compute` to differentiate the function from the `compute` function of `dplyr`).
+
+```{r}
+admisc::compute("DEV*URB + LIT*~IND", data = LF)
+```
+
+## Fuzzy sets and qualitative comparative analysis
+
+Zadeh (1965) defined fuzzy sets as objects with continuum of grades of membership. Rather than belonging or not to a set, the membership of an object is defined by a continuous function between zero and one. We can define a Boolean algebra for fuzzy sets with AND, OR and NOT operations, based on intersection, union and negation of sets. Among many other applications, fuzzy sets and fuzzy logic allow aplying qualitative comparative analysis to continuous variables.
+
+## Bibliography and resources
+
+* Dușa, Adrian (2021). *QCA with R: A Comprehensive Resource.* <https://bookdown.org/dusadrian/QCAbook/>
+* Lipset, S. M. (1959). Some Social Requisites of Democracy: Economic Development and Political Legitimacy. *American Political Science Review*, 53:69-105.
+* Zadeh, L. A. (1965). Fuzzy Sets. *Information and Control* 8:338–53.
+
+
+*Built with R 4.1.1, patchwork 1.1.1, QCA 3.12 and tidyverse 1.3.1*
