@@ -21,14 +21,14 @@ description: Description for the page
 <pre class="r"><code>library(QCA)
 library(tidyverse)
 library(patchwork)</code></pre>
-<p>The meaning of variables in QCA is different from regression or correlation analysis. A variable in QCA establishes if an observation belongs or not to a set. Depending of the type of data we are analyzing, we have two variants of QCA:</p>
+<p>The meaning of variables in QCA is different from regression or correlation analysis. A variable in QCA establishes if a case belongs or not to a set. Depending of the type of data we are analyzing, we have two variants of QCA:</p>
 <ul>
-<li><strong>Crisp-set QCA (csQCA)</strong>, in which variables can only take values of zero (false) and one (true). It can be extended to multi-value variables, thus we have <strong>multi-value QCA (mvQCA)</strong>. In csQCA and mvQCA each observation can belong or not to the set defined by each variable.</li>
+<li><strong>Crisp-set QCA (csQCA)</strong>, in which variables can only take values of zero (false) and one (true). It can be extended to multi-value variables, thus we have <strong>multi-value QCA (mvQCA)</strong>. In csQCA and mvQCA each case can belong or not to the set defined by each variable.</li>
 <li><strong>Fuzzy-set QCA (fsQCA)</strong>, where variables have too much values to be treated as multi-value. Fuzzy-set variables represent a degree of membership to a set. They can take any real value from zero (no inclusion) to one (full inclusion).</li>
 </ul>
 <div id="obtaining-fuzzy-memberships-with-calibration" class="section level2">
 <h2>Obtaining fuzzy memberships with calibration</h2>
-<p>The <em>calibration</em> of a variable is the process to assign a <strong>fuzzy membership</strong> score for each observation. Fuzzy membership can take values between zero (no membership) and one (full membership). Intermediate values represent the continuum of grades of observation’s membership of a set.</p>
+<p>The <em>calibration</em> of a variable is the process to assign a <strong>fuzzy membership</strong> score for each case. Fuzzy membership can take values between zero (no membership) and one (full membership). Intermediate values represent the continuum of grades of case’s membership of a set.</p>
 <p>Let’s examine how calibration works with the <code>LR</code> dataset of Lipset’s (1959) indicators for the survival of democracy during the inter-war period, included in the <code>QCA</code> package.</p>
 <pre class="r"><code>head(LR)</code></pre>
 <pre><code>##     DEV  URB  LIT  IND STB SURV
@@ -38,7 +38,7 @@ library(patchwork)</code></pre>
 ## EE  468 28.5 95.0 14.0   6   -6
 ## FI  590 22.0 99.1 22.0   9    4
 ## FR  983 21.2 96.2 34.8   5   10</code></pre>
-<p>Calibrating <code>LR</code> consists of assigning a fuzzy membership to each observation for each of the six variables. In this case, variables are monotonous. For instance, high values of DEV represent a high value of development, so observations with high values of <code>DEV</code> will tend to belong to the set of highly-developed countries. For these kind of variables we will define a <strong>S-shaped calibration</strong> using three parameters:</p>
+<p>Calibrating <code>LR</code> consists of assigning a fuzzy membership to each case for each of the six variables. In this case, variables are monotonous. For instance, high values of DEV represent a high value of development, so cases with high values of <code>DEV</code> will tend to belong to the set of highly-developed countries. For these kind of variables we will define a <strong>S-shaped calibration</strong> using three parameters:</p>
 <ul>
 <li><code>e</code>: the threshold for <strong>non-membership</strong> or exclusion <code>e</code>,</li>
 <li><code>c</code>: the <strong>crossover</strong> point <code>c</code>,</li>
@@ -69,6 +69,7 @@ library(patchwork)</code></pre>
 ## EE 0.16 0.07 0.98 0.01 0.91 0.12
 ## FI 0.58 0.03 0.99 0.08 0.58 0.77
 ## FR 0.98 0.03 0.99 0.81 0.95 0.95</code></pre>
+<p>An important thing to consider is that you should avoid getting calibration values of exactly 0.5, as these will be problematic in further steps of the analysis.</p>
 </div>
 <div id="boolean-algebra-with-fuzzy-memberships" class="section level2">
 <h2>Boolean algebra with fuzzy memberships</h2>

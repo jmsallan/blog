@@ -58,7 +58,7 @@ library(patchwork)</code></pre>
 ## NL   1   1   1   1   1    1
 ## SE   1   0   1   1   1    1
 ## UK   1   1   1   1   1    1</code></pre>
-<p>We observe that all elements of set <code>SURV</code> are also included in sets <code>DEV</code>, <code>LIT</code> and <code>STB</code>. So, these are necessary conditions for <code>SURV</code> to happen. The reverse implication does not hold: for instance, if we pick all observations where <code>DEV</code> occurs we observe that there are two observations not belonging to <code>SURV</code>.</p>
+<p>We observe that all elements of set <code>SURV</code> are also included in sets <code>DEV</code>, <code>LIT</code> and <code>STB</code>. So, these are necessary conditions for <code>SURV</code> to happen. The reverse implication does not hold: for instance, if we pick all cases where <code>DEV</code> occurs we observe that two of them to <code>SURV</code>.</p>
 <pre class="r"><code>LC %&gt;% select(DEV, SURV) %&gt;% filter(DEV == 1)</code></pre>
 <pre><code>##    DEV SURV
 ## AU   1    0
@@ -71,7 +71,7 @@ library(patchwork)</code></pre>
 ## NL   1    1
 ## SE   1    1
 ## UK   1    1</code></pre>
-<p>With fuzzy sets, the condition of necessity that <span class="math inline">\(Y\)</span> is a subset of <span class="math inline">\(X\)</span> means that <strong>if <span class="math inline">\(X\)</span> is a necessary condition of <span class="math inline">\(Y\)</span>, fuzzy scores of <span class="math inline">\(X\)</span> are higher than fuzzy scores of <span class="math inline">\(Y\)</span>.</strong> If we plot fuzzy memberships of <span class="math inline">\(Y\)</span> versus fuzzy memberships of <span class="math inline">\(X\)</span>, observations of necessary conditions will appear in the lower area of the plot:</p>
+<p>With fuzzy sets, the condition of necessity that <span class="math inline">\(Y\)</span> is a subset of <span class="math inline">\(X\)</span> means that <strong>if <span class="math inline">\(X\)</span> is a necessary condition of <span class="math inline">\(Y\)</span>, fuzzy scores of <span class="math inline">\(X\)</span> are higher than fuzzy scores of <span class="math inline">\(Y\)</span>.</strong> If we plot fuzzy memberships of <span class="math inline">\(Y\)</span> versus fuzzy memberships of <span class="math inline">\(X\)</span>, cases of necessary conditions will appear in the lower area of the plot:</p>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="480" style="display: block; margin: auto;" /></p>
 <p>In real datasets, a condition is rarely a perfect necessary condition. We examine the extent to which a condition is necessary with consistency and coverage.</p>
 <p>The <strong>consistency</strong> or <strong>inclusion</strong> of a necessary condition is the extent to which <span class="math inline">\(X\)</span> is a necessary condition of <span class="math inline">\(Y\)</span>. In fuzzy sets it is defined as:</p>
@@ -98,7 +98,7 @@ library(patchwork)</code></pre>
 ## PL   1    0
 ## SE   1    1
 ## UK   1    1</code></pre>
-<p>Thirteen out of eighteen observations of the dataset are included in <code>LIT</code>. As a consequence, its relevance is of 0.5 and it can be considered as a condition of low relevance. .</p>
+<p>Thirteen out of eighteen cases of the dataset are included in <code>LIT</code>. As a consequence, its relevance is of 0.5 and it can be considered as a condition of low relevance. .</p>
 <p>We can obtain consistency, coverage and relevance for specific conditions with the <code>pof</code> function. <code>setms</code> is a data frame with columns with the conditions or a sum of products expression, and <code>data</code> is the dataset with the scores. Here we are assessing the fuzzy-set dataset <code>LF</code>:</p>
 <pre class="r"><code>pof(setms = LF %&gt;% select(-SURV),  outcome = &quot;SURV&quot;, data = LF, relation = &quot;necessity&quot;)</code></pre>
 <pre><code>## 
@@ -130,7 +130,7 @@ library(patchwork)</code></pre>
 <li><code>URB</code>: a condition with low consistency.</li>
 </ul>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="672" style="display: block; margin: auto;" /></p>
-<p>Note that as scores of <span class="math inline">\(X\)</span> should be higher than scores of <span class="math inline">\(Y\)</span>, most of the observations must be in the lower triangle for a necessary condition to be consistent. This is what is happening with <code>DEV</code> and <code>LIT</code>, but not with <code>URB</code>. In the <code>LIT</code> plot, we observe that many observations have an score near to one: that’s why <code>LIT</code> has less relevance than <code>DEV</code>.</p>
+<p>Note that as scores of <span class="math inline">\(X\)</span> should be higher than scores of <span class="math inline">\(Y\)</span>, most of the cases must be in the lower triangle for a necessary condition to be consistent. This is what is happening with <code>DEV</code> and <code>LIT</code>, but not with <code>URB</code>. In the <code>LIT</code> plot, we observe that many cases have an score near to one: that’s why <code>LIT</code> has less relevance than <code>DEV</code>.</p>
 <p>We can do an analysis of necessity with logical expressions presented in a <strong>sum of products format</strong>, where the product <code>*</code> stands for the AND logical operator (set intersection) and the sum <code>+</code> for the OR operator (set union). We can negate variables using the <code>~</code> symbol.</p>
 <pre class="r"><code>pof(setms = &quot;DEV*~LIT+IND*STB&quot;, outcome = &quot;SURV&quot;, data = LF, relation = &quot;necessity&quot;)</code></pre>
 <pre><code>## 
@@ -156,7 +156,7 @@ library(patchwork)</code></pre>
 <li>every time <span class="math inline">\(X\)</span> is present, <span class="math inline">\(Y\)</span> is present.</li>
 <li><span class="math inline">\(X\)</span> does not occur in the absence of <span class="math inline">\(Y\)</span>.</li>
 </ul>
-<p>In terms of set theory, <span class="math inline">\(X\)</span> is a sufficient condition for <span class="math inline">\(Y\)</span> if <span class="math inline">\(X\)</span> is a subset of <span class="math inline">\(Y\)</span>. When applying fuzzy logic, <strong>the fuzzy scores of <span class="math inline">\(Y\)</span> must be higher than the ones of <span class="math inline">\(X\)</span></strong>. For perfect sufficiency, all observations must be in the upper triangle of the <span class="math inline">\(\left(X,Y\righ)\)</span> plot.</p>
+<p>In terms of set theory, <span class="math inline">\(X\)</span> is a sufficient condition for <span class="math inline">\(Y\)</span> if <span class="math inline">\(X\)</span> is a subset of <span class="math inline">\(Y\)</span>. When applying fuzzy logic, <strong>the fuzzy scores of <span class="math inline">\(Y\)</span> must be higher than the ones of <span class="math inline">\(X\)</span></strong>. For perfect sufficiency, all cases must be in the upper triangle of the <span class="math inline">\(\left(X,Y\righ)\)</span> plot.</p>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-13-1.png" width="480" style="display: block; margin: auto;" /></p>
 <p>We can define the <strong>consistency</strong> or <strong>inclusion</strong> of a sufficient relationship as:</p>
 <p><span class="math display">\[inc\left(X \Rightarrow Y \right) = \frac{ \sum min\left(X,Y\right)}{\sum X}\]</span></p>

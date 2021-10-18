@@ -29,14 +29,14 @@ library(tidyverse)
 library(patchwork)
 ```
 
-The meaning of variables in QCA is different from regression or correlation analysis. A variable in QCA establishes if an observation belongs or not to a set. Depending of the type of data we are analyzing, we have two variants of QCA:
+The meaning of variables in QCA is different from regression or correlation analysis. A variable in QCA establishes if a case belongs or not to a set. Depending of the type of data we are analyzing, we have two variants of QCA:
 
-* **Crisp-set QCA (csQCA)**, in which variables can only take values of zero (false) and one (true). It can be extended to multi-value variables, thus we have **multi-value QCA (mvQCA)**. In csQCA and mvQCA each observation can belong or not to the set defined by each variable.
+* **Crisp-set QCA (csQCA)**, in which variables can only take values of zero (false) and one (true). It can be extended to multi-value variables, thus we have **multi-value QCA (mvQCA)**. In csQCA and mvQCA each case can belong or not to the set defined by each variable.
 * **Fuzzy-set QCA (fsQCA)**, where variables have too much values to be treated as multi-value. Fuzzy-set variables represent a degree of membership to a set. They can take any real value from zero (no inclusion) to one (full inclusion).
 
 ## Obtaining fuzzy memberships with calibration
 
-The *calibration* of a variable is the process to assign a **fuzzy membership** score for each observation. Fuzzy membership can take values between zero (no membership) and one (full membership). Intermediate values represent the continuum of grades of observation's membership of a set.
+The *calibration* of a variable is the process to assign a **fuzzy membership** score for each case. Fuzzy membership can take values between zero (no membership) and one (full membership). Intermediate values represent the continuum of grades of case's membership of a set.
 
 Let's examine how calibration works with the `LR` dataset of Lipset's (1959) indicators for the survival of democracy during the inter-war period, included in the `QCA` package.
 
@@ -44,7 +44,7 @@ Let's examine how calibration works with the `LR` dataset of Lipset's (1959) ind
 head(LR)
 ```
 
-Calibrating `LR` consists of assigning a fuzzy membership to each observation for each of the six variables. In this case, variables are monotonous. For instance, high values of DEV represent a high value of development, so observations with high values of `DEV` will tend to belong to the set of highly-developed countries. For these kind of variables we will define a **S-shaped calibration** using three parameters:
+Calibrating `LR` consists of assigning a fuzzy membership to each case for each of the six variables. In this case, variables are monotonous. For instance, high values of DEV represent a high value of development, so cases with high values of `DEV` will tend to belong to the set of highly-developed countries. For these kind of variables we will define a **S-shaped calibration** using three parameters:
 
 * `e`: the threshold for **non-membership** or exclusion `e`,
 * `c`: the **crossover** point `c`,
@@ -151,6 +151,8 @@ The `QCA` package provides `LF`, a version of the Lipset dataset calibrated to f
 ```{r}
 head(LF)
 ```
+
+An important thing to consider is that you should avoid getting calibration values of exactly 0.5, as these will be problematic in further steps of the analysis.
 
 ## Boolean algebra with fuzzy memberships
 

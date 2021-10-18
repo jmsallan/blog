@@ -1,0 +1,146 @@
+---
+title: Obtaining sufficient conditions in QCA minimizing the truth table using R
+author: Jose M Sallan
+date: '2021-10-18'
+slug: obtaining-sufficient-conditions-in-qca-minimizing-the-truth-table-using-r
+categories:
+  - R
+tags:
+  - QCA
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Qualitative comparative analysis (QCA)** is a data analysis technique that examines the relationships between an outcome and a set of explanatory variables using Boolean algebra, rather than analysis of correlation or covariance structures. Unlike other techniques like linear regression, QCA is focused mainly on examining complex combinations of explanatory variables as antecedents of the outcome.
+
+The aim of most QCA analysis is to find the sufficient conditions for the outcome. In this post, I will introduce the exploration of sufficient conditions with the truth table, and its minimization through the Quine-McCluskey algorithm in the fuzzy-set QCA (fsQCA). I will be using using the `QCA` package for QCA analysis.
+
+```{r, message=FALSE}
+library(QCA)
+```
+
+Along this post, I will be using the fuzzy-set version of Lipset's (1959) indicators for the survival of democracy during the inter-war period, included in the `QCA` package.
+
+```{r}
+head(LF)
+```
+
+In QCA, we use the truth table analysis to find all the sufficient conditions. The analysis is carried out in two steps:
+
+* First, we construct the **truth table** assigning each case to a combination of observable variables and an outcome.
+* Second, we simplify the conditions where the outcome is observed with a **logical minimization** process using the Quine-McCluskey algorithm.
+
+As a result, we obtain a set of conditions related to the outcome as a simplified sum of products, where the product is the logical AND and the sum the logical OR. This sum of products can be also obtained for the negated outcome. A sample of exemplary research about obtaining sufficient conditions in QCA can be found at Fiss (2011).
+
+## Constructing the truth table
+
+In the context of QCA, the truth table contains all possible combinations of AND logical expressions that can take the explanatory variables and its negations. For the LF dataset we have five variables, so we have $2^5 = 32$ different rows. For instance, the expression:
+
+\[DEV* \sim URB * \sim LIT* IND * STB\]
+
+corresponds with the row of the truth table:
+
+```{r, echo=FALSE, }
+toy_df1 <- data.frame(DEV = 1, URB = 0, LIT = 0, IND = 1, STB = 1)
+toy_df1
+```
+
+We start assigning each case to a row of the truth table. This is straightforward for a crisp set, as each case has values zero or one for each variable. In fuzzy set QCA (fsQCA) we assing each case to a row of the truth table dychotomizing  fuzzy scores: we set to one fuzzy scores greater than 0.5 and to zero scores lower than 0.5. We must take care that in the calibration process no fuzzy score is exactly equal to 0.5. This simple rule assigns each case to its closest row of the truth table. For instance, the case:
+
+```{r, echo=FALSE}
+LF[1, ]
+```
+
+is included in the row of the truth table:
+
+```{r, echo=FALSE}
+toy_df2 <- data.frame(DEV = 1, URB = 0, LIT = 1, IND = 1, STB = 0)
+toy_df2
+```
+
+We are not including `SURV` here, as it is the outcome variable.
+
+As the number of possible combinations of the truth table can be larger than the number of cases, only a subset of rows of the truth table will be present in the sample. Sometimes we might want to exclude rows with a number of cases `n` too small.
+
+The second step is to assign each row to a value of the outcome, either one or zero. For doing that, we need to specify an **inclusion cut-off**. Rows with a consistency score for sufficient condition above the score will be assigned to the outcome, and the other rows to the negated outcome.
+
+Let's see how can we obtain the truth table for the `LF` dataset with an inclusion cut-off of 0.8:
+
+```{r}
+truthTable(LF, outcome = "SURV", conditions = "DEV, URB, LIT, IND, STB", complete = TRUE, show.cases = TRUE, incl.cut = 0.8)
+```
+
+We have used `complete = TRUE` to show all rows Rows without observations (or below the minimal value of observations, that we can specify with `n.cut`) are **remainders** and have as outcome `?`.
+
+If we want to see only the rows with consistency above  `incl.cut` and number of cases greater or equal than `n.cut`, we use the default `complete = FALSE`:
+
+```{r}
+truthTable(LF, outcome = "SURV", conditions = "DEV, URB, LIT, IND, STB", complete = FALSE, show.cases = TRUE, incl.cut = 0.8)
+```
+
+Rows 22 and 32 are associated to `OUT = 1`, and rows 1, 2, 5, 6, 23, 24 and 31 to `OUT = 0`. If we set as outcome `~SURV` instead of `SURV` we should observe reversed values of `OUT` for each row. Let's check that:
+
+```{r}
+truthTable(LF, outcome = "~SURV", conditions = "DEV, URB, LIT, IND, STB", complete = FALSE, show.cases = TRUE, incl.cut = 0.8)
+```
+
+Row 24 has `OUT = 0` for `SURV` and for `~SURV`. This is a contradiction. The consistency of this set is too low for both outcomes: 0.709 for `SURV` and 0.366 for `~SURV`:
+
+```{r}
+pof(setms = "DEV*~URB*LIT*IND*STB", outcome = "SURV", data = LF, relation = "sufficiency")
+pof(setms = "DEV*~URB*LIT*IND*STB", outcome = "~SURV", data = LF, relation = "sufficiency")
+```
+
+To account for that, we can specify an upper and lower bound for consistency passing a vector of two components in `incl.cut`. Values of consistency within these values will be labelled as contradictory. Here we are making `OUT = 1` conditions with consistency above 0.8, and `OUT = 0` consistencies below 0.6. Then, row 24 appears as contradictory `OUT = C`.
+
+```{r}
+truthTable(LF, outcome = "SURV", conditions = "DEV, URB, LIT, IND, STB", show.cases = TRUE, incl.cut = c(0.8, 0.6))
+```
+
+The sufficient conditions for the outcome will be the rows of the truth table with `OUT = 1`. In this case, these are rows 22 and 32:
+
+\[ DEV * \sim URB * LIT * \sim IND * STB + DEV * URB * LIT * IND * STB  \]
+
+## Logical minimization of sufficient conditions
+
+It is possible that the sufficient conditions for an outcome obtained from the truth table can be made simpler, taking advantage of the following theorem of Boolean algebra:
+
+\[ A*B + A*\sim B = A * \left(B + \sim B \right) = A  \]
+
+We can use the Quine-McCluskey algorithm to simplify a logical expression. This algorithm proceeds iteratively, looking in each iteration for expressions that differ only in one element and simplifying them, until no further minimization is possible. The solution resulting from this process is the **conservative solution**. Let's obtain this solution for our example using the `minimize` function. I am storing the truth table to minimize in a variable `tt` for clarity:
+
+```{r}
+tt <- truthTable(LF, outcome = "SURV", conditions = "DEV, URB, LIT, IND, STB", incl.cut = c(0.8, 0.6))
+minimize(tt, details = TRUE, show.cases = TRUE)
+```
+
+For this particular case, no minimization has been possible, as the two products differ in two variables.
+
+In this table, we obtain:
+
+* The obtained solution M1 as sum of products expression.
+* The consistency, proportional reduction of inconsistency (PRI), raw and unique coverage for each product.
+* The consistency, PRI and coverage of M1.
+* The cases attached to each product.
+
+We can obtain a similar solution for the negated outcome:
+
+```{r}
+tt_neg <- truthTable(LF, outcome = "~SURV", conditions = "DEV, URB, LIT, IND, STB", incl.cut = c(0.8, 0.6))
+minimize(tt_neg, details = TRUE, show.cases = TRUE)
+```
+
+Through the minimization of the truth table, we obtain a sufficient solution for the outcome (and for its negation), expressed as a sum of products. The appearance of sum or logical OR in the final expression makes salient the equifinality of the studied phenomenon, as there are several, alternative ways to obtain the outcome. 
+
+## Bibliography and resources
+
+* Dușa, Adrian (2021). *QCA with R: A Comprehensive Resource.* <https://bookdown.org/dusadrian/QCAbook/>
+* Fiss, P. C. (2011). Building better causal theories: A fuzzy set approach to typologies in organization research. *Academy of management journal*, 54(2), 393-420. <https://doi.org/10.5465/amj.2011.60263120>
+* Lipset, S. M. (1959). Some Social Requisites of Democracy: Economic Development and Political Legitimacy. *American Political Science Review*, 53:69-105.
+
+*Built with R 4.1.1 and QCA 3.12*
+

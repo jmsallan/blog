@@ -55,13 +55,13 @@ Let's examine which variables are necessary conditions of the outcome `SURV` in 
 LC %>% filter(SURV == 1)
 ```
 
-We observe that all elements of set `SURV` are also included in sets `DEV`, `LIT` and `STB`. So, these are necessary conditions for `SURV` to happen. The reverse implication does not hold: for instance, if we pick all observations where `DEV` occurs we observe that there are two observations not belonging to `SURV`.
+We observe that all elements of set `SURV` are also included in sets `DEV`, `LIT` and `STB`. So, these are necessary conditions for `SURV` to happen. The reverse implication does not hold: for instance, if we pick all cases where `DEV` occurs we observe that two of them to `SURV`.
 
 ```{r}
 LC %>% select(DEV, SURV) %>% filter(DEV == 1)
 ```
 
-With fuzzy sets, the condition of necessity that $Y$ is a subset of $X$ means that **if $X$ is a necessary condition of $Y$, fuzzy scores of $X$ are higher than fuzzy scores of $Y$.** If we plot fuzzy memberships of $Y$ versus fuzzy memberships of $X$, observations of necessary conditions will appear in the lower area of the plot:
+With fuzzy sets, the condition of necessity that $Y$ is a subset of $X$ means that **if $X$ is a necessary condition of $Y$, fuzzy scores of $X$ are higher than fuzzy scores of $Y$.** If we plot fuzzy memberships of $Y$ versus fuzzy memberships of $X$, cases of necessary conditions will appear in the lower area of the plot:
 
 ```{r, fig.align='center', echo=FALSE, fig.height=4, fig.width=5}
 pol_nec <- data.frame(x = c(0, 1, 1), y = c(0, 1, 0))
@@ -100,7 +100,7 @@ An example of non-relevant condition for the `LC` crisp dataset is the `LIT` var
 LC %>% select(LIT, SURV) %>% filter(LIT == 1)
 ```
 
-Thirteen out of eighteen observations of the dataset are included in `LIT`. As a consequence, its relevance is of 0.5 and it can be considered as a condition of low relevance. .
+Thirteen out of eighteen cases of the dataset are included in `LIT`. As a consequence, its relevance is of 0.5 and it can be considered as a condition of low relevance. .
 
 We can obtain consistency, coverage and relevance for specific conditions with the `pof` function. `setms` is a data frame with columns with the conditions or a sum of products expression, and `data` is the dataset with the scores. Here we are assessing the fuzzy-set dataset `LF`: 
 
@@ -146,7 +146,7 @@ dev_plot + lit_plot + urb_plot
 
 ```
 
-Note that as scores of $X$ should be higher than scores of $Y$, most of the observations must be in the lower triangle for a necessary condition to be consistent. This is what is happening with `DEV` and `LIT`, but not with `URB`. In the `LIT` plot, we observe that many observations have an score near to one: that's why `LIT` has less relevance than `DEV`.
+Note that as scores of $X$ should be higher than scores of $Y$, most of the cases must be in the lower triangle for a necessary condition to be consistent. This is what is happening with `DEV` and `LIT`, but not with `URB`. In the `LIT` plot, we observe that many cases have an score near to one: that's why `LIT` has less relevance than `DEV`.
 
 We can do an analysis of necessity with logical expressions presented in a **sum of products format**, where the product `*` stands for the AND logical operator (set intersection) and the sum `+` for the OR operator (set union). We can negate variables using the `~` symbol.
 
@@ -167,7 +167,7 @@ The aim of the analysis of sufficiency is to find the minimal configurations tha
 * every time $X$ is present, $Y$ is present.
 * $X$ does not occur in the absence of $Y$.
 
-In terms of set theory, $X$ is a sufficient condition for $Y$ if $X$ is a subset of $Y$. When applying fuzzy logic, **the fuzzy scores of $Y$ must be higher than the ones of $X$**. For perfect sufficiency, all observations must be in the upper triangle of the $\left(X,Y\righ)$ plot. 
+In terms of set theory, $X$ is a sufficient condition for $Y$ if $X$ is a subset of $Y$. When applying fuzzy logic, **the fuzzy scores of $Y$ must be higher than the ones of $X$**. For perfect sufficiency, all cases must be in the upper triangle of the $\left(X,Y\righ)$ plot. 
 
 ```{r, fig.align='center', echo=FALSE, fig.height=4, fig.width=5}
 pol_suf <- data.frame(x = c(0, 0, 1), y = c(0, 1, 1))
