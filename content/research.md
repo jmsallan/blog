@@ -23,6 +23,10 @@ description: "A description of the page"
 
 **2021**
 
+* Grimaldi, D.; Bianca Villar, E.; Dupont, L.; Jose M Sallan & Carrasco-Farré, C. (2021). Governance, decision-making, and strategy for urban development. <https://doi.org/10.1016/B978-0-12-821122-9.00001-4>. In Grimaldi, D. & Carrasco-Farré, C.  Implementing Data-Driven Strategies in Smart Cities (47-87). Elsevier <https://doi.org/10.1016/C2019-0-01442-2>
+
+* Grimaldi, D.; Jose M Sallan; Pique, J.; Soler Puebla, J.; Shalla, K. & Carrasco-Farré, C. (2021). Roadmap to develop a data-driven city <https://doi.org/10.1016/B978-0-12-821122-9.00006-3>. In Grimaldi, D. & Carrasco-Farré, C.  Implementing Data-Driven Strategies in Smart Cities (111-151). Elsevier <https://doi.org/10.1016/C2019-0-01442-2>
+
 * Cumelles, J.; Lordan, O. & Sallan, J. M. (2021). Cascading failures in airport networks. Journal of Air Transport Management, 92, 102026. <https://doi.org/10.1016/j.jairtraman.2021.102026>
 
 **2020**
