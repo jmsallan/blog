@@ -156,9 +156,7 @@ Establishing a counterfactual means defining which remainders to include in the 
 
 Let's consider directional expectations stating that the presence of explanatory variables are sufficient conditions to the outcome:
 
-\[ \begin{align}
-DEV \Rightarrow SURV & & URB \Rightarrow SURV & & LIT \Rightarrow SURV & & IND \Rightarrow SURV & & STB \Rightarrow SURV 
-\end{align} \]
+`DEV => SURV  URB => SURV  LIT => SURV  IND => SURV  STB => SURV`
 
 Once established the directional expectations, we need to control for **incoherent counterfactuals**: if a condition is necessary for an outcome, its negation cannot be a sufficient condition for the same outcome. Let's check the necessity of the negated expressions of the directional expectations with the `pof` function:
 

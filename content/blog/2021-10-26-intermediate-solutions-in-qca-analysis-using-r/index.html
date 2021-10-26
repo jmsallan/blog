@@ -260,9 +260,7 @@ eps_surv</code></pre>
 <p>Once we have removed the untenable assumptions, we are ready to obtain an <strong>intermediate solution</strong> incorporating theory-driven <strong>counterfactuals</strong>. The intermediate solution must be a superset of the conservative solution, and a subset of the enhanced parsimonious solution.</p>
 <p>Establishing a counterfactual means defining which remainders to include in the simplification process based on extant theoretical knowledge. Counterfactuals can be expressed in terms of <strong>directional expectations</strong>, hypothesized relationships of sufficiency between combinations of explanatory variables and the outcome.</p>
 <p>Let’s consider directional expectations stating that the presence of explanatory variables are sufficient conditions to the outcome:</p>
-<p><span class="math display">\[ \begin{align}
-DEV \Rightarrow SURV &amp; &amp; URB \Rightarrow SURV &amp; &amp; LIT \Rightarrow SURV &amp; &amp; IND \Rightarrow SURV &amp; &amp; STB \Rightarrow SURV 
-\end{align} \]</span></p>
+<p><code>DEV =&gt; SURV  URB =&gt; SURV  LIT =&gt; SURV  IND =&gt; SURV  STB =&gt; SURV</code></p>
 <p>Once established the directional expectations, we need to control for <strong>incoherent counterfactuals</strong>: if a condition is necessary for an outcome, its negation cannot be a sufficient condition for the same outcome. Let’s check the necessity of the negated expressions of the directional expectations with the <code>pof</code> function:</p>
 <pre class="r"><code>pof(setms = &quot;~DEV+~URB+~LIT+~IND+~STB&quot;, outcome = &quot;SURV&quot;, relation = &quot;necessity&quot;, data = LF)</code></pre>
 <pre><code>## 
