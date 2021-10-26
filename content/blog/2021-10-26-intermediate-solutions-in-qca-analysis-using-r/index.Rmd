@@ -1,0 +1,210 @@
+---
+title: Intermediate solutions in QCA analysis using R
+author: Jose M Sallan
+date: '2021-10-26'
+slug: intermediate-solutions-in-qca-analysis-using-r
+categories:
+  - R
+tags:
+  - QCA
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Qualitative comparative analysis (QCA)** is a data analysis technique that examines the relationships between an outcome and a set of explanatory variables using Boolean algebra, rather than analysis of correlation or covariance structures. Unlike other techniques like linear regression, QCA is focused mainly on examining complex combinations of explanatory variables as antecedents of the outcome.
+
+The minimization of the rows of the truth table associated to the outcome allows us to obtain a solution covering all observed sufficient conditions for the outcome. It is frequent to obtain a similar set of solutions for the negated outcome. As QCA is asymmetric, the later is not the negation of the former. As we will see in this post, both solutions must be considered simultaneously.
+
+Social science phenomena have **limited diversity**: many of the rows of the truth table do not have any or not enough observations, even for large datasets. These rows with not enough observations are called **remainders**. The solutions considering only rows related to the outcome are complex or conservative solutions, as they assume that none of the remainders is associated to the outcome. Through the Standard Analysis (SA) (Raggin & Sonnet, 2005), the Enhanced Standard Analysis (ESA) and the Theory-Guided Standard Analysis (TESA) (Schneider & Wagemann, 2013) we can obtain more parsimonious (simpler) sufficient solutions, more easy to interpret theoretically. To do so, we use **counterfactual analysis**, that allows to add some of the remainders to the solution.
+
+In this post, I will discuss the details of the implementation of SA, ESA and TESA using the the R `QCA` package for fuzzy-set QCA (fsQCA) analysis.
+
+```{r, message=FALSE}
+library(QCA)
+```
+
+Along this post, I will be using the fuzzy-set version of Lipset's (1959) indicators for the survival of democracy during the inter-war period, included in the `QCA` package.
+
+```{r}
+head(LF)
+```
+
+The first step to obtain a sufficient solution in fsQCA is to obtain the **truth table**. We assign each case to the row of the truth table closer to its membership scores, and we assign to the outcome the rows with a consistency score above the minimum consistency threshold `incl.cut`. We can also set a minimum number of cases `n.cut` to consider the row. Here I obtain the truth table of `LF` for `incl.cut = 0.8` and the default `n.cut = 1`:
+
+```{r}
+tt_surv <- truthTable(LF, outcome = "SURV", conditions = "DEV, URB, LIT, IND, STB", complete = TRUE, show.cases = TRUE, incl.cut = 0.8)
+tt_surv
+```
+
+Looking at the truth table, we observe that:
+
+* rows 22 and 32 have value `OUT = 1`, so they are associated to the outcome.
+* rows 1, 2, 5, 6, 23, 24 and 31 have value `OUT = 0`, so they have more than `n.cut` cases but are not associated to the outcome.
+* the other 23 rows have less than `n.cut` cases so they have `OUT = ?`. These are the remainders of the truth table.
+
+Let's examine the truth table of the negated outcome:
+
+```{r}
+tt_not_surv <- truthTable(LF, outcome = "~SURV", conditions = "DEV, URB, LIT, IND, STB", complete = TRUE, show.cases = TRUE, incl.cut = 0.8)
+tt_not_surv
+```
+
+For this truth table we observe that:
+
+* rows 1, 2, 5, 6, 23 and 31 are associated with the negated outcome and have `OUT = 1`.
+* rows 22, 24 and 32 have `OUT = 0`, so they are not associated with the negated outcome.
+* the remainders are the same 23 rows with `OUT = ?` of the `SURV` truth table.
+
+Row 24 has `OUT = 0` in both tables, so it is not associated neither to the outcome nor its negation.
+
+## The complex or conservative solution
+
+We obtain the complex or conservative solution using the default values of the `minimize` function:
+
+```{r}
+com_surv <- minimize(tt_surv, details = TRUE, show.cases = TRUE)
+com_surv
+```
+
+In this case, the minimization does not have any effect, and the solution are the expressions of rows 32 and 22 united by an OR operator.
+
+This solution is called **conservative** because it is the most restrictive: we consider that none of the remainders is associated to the outcome. It is the most **complex** because it is the one using less rows, and so it is the hardest to minimize.
+
+Let's also obtain the conservative solution for the negated outcome:
+
+```{r}
+com_not_surv <- minimize(tt_not_surv, details = TRUE, show.cases = TRUE)
+com_not_surv
+```
+
+## The parsimonious solution
+
+While in the conservative solution we treat the remainders as not belonging to the solution, in the parsimonious solution we treat remainders as *don't care*. We can include any of the remainders, as long as it contributes to obtain a simpler solution, through setting `include = "?"` in the `minimize` function.
+
+```{r}
+par_surv <- minimize(tt_surv, details = TRUE, show.cases = TRUE, include = "?")
+par_surv
+```
+
+The **parsimonious solution** `DEV*~IND + URB*STB` is simpler (more parsimonious) than the complex `DEV*URB*LIT*IND*STB + DEV*~URB*LIT*~IND*STB`. As the former has been formed adding rows to the later, the parsimonious solution contains the complex solution. In other words:
+
+* The conservative solution is a subset of the parsimonious solution.
+* The parsimonious solution is a superset of the complex solution.
+
+We can see which remainders we have used to obtain the parsimonious solution doing:
+
+```{r}
+par_surv$SA$M1
+```
+
+Only 12 out of the 23 remainders have been added to obtain the parsimonious solution.
+
+Let's also obtain the parsimonious solution for the negated outcome:
+
+```{r}
+par_not_surv <- minimize(tt_not_surv, details = TRUE, show.cases = TRUE, include = "?")
+par_not_surv
+par_not_surv$SA$M1
+```
+
+The parsimonious and conservative solutions are the two extremes of a continuum: the conservative solution makes no assumptions but can be hard to interpret, while the parsimonious solution is easier to interpret, but to obtain it we are making many assumptions that can be untenable or contrary to previous theoretical knowledge.
+
+## The enhanced parsimonious solution
+
+The Enhanced Standard Analysis (ESA) considers the inclusion of some rows of the truth table as **untenable assumptions**. For instance, it is contradictory to use the same remainders to simplify the necessary conditions of the outcome and of the negated outcome. In our example, this happens in the following rows:
+
+```{r}
+intersect(row.names(par_not_surv$SA$M1), row.names(par_surv$SA$M1))
+```
+
+We can find these same rows with the `findRows` function:
+
+```{r}
+findRows(obj = tt_surv, type= 2)
+```
+
+These rows are **contradictory simplifying assumptions**. To exclude them from the minimization process, we can proceed as follows:
+
+```{r}
+contradictory_rows <- findRows(obj = tt_surv, type= 2)
+eps_surv <- minimize(tt_surv, details = TRUE, show.cases = TRUE, include = "?", exclude = contradictory_rows)
+eps_surv
+```
+
+The solution `eps_surv` is the **enhanced parsimonious solution**: it is a subset of the parsimonious solution, and a superset of the complex solution. to build this solution, we have excluded 8 of the 12 remainders that we used to build the parsimonious solution:
+
+```{r}
+eps_surv$SA$M1
+```
+
+There are other situations in which we need to remove rows of the truth table representing untenable assumptions:
+
+Combinations of variables that are **logical impossibilities**. A hypothetical study described in Schneider and Wagemann (2013) contains three variables: whether a person is biologically female `A`, whether is pregnant `B` and sober `C`. It is easy to see that the condition `~AB` is a logical impossibility, in our current state of affairs. Logical impossibilities must be detected by the researcher, and added to the `exclude` parameter of `minimize`.
+
+When used with`type = 3`, the `findRows` function excludes those rows with observations above `n.cut` that are above the consistency threshold in the outcome and the negated outcome. Note that these rows are not remainders, but rows with observations that are included in both solutions. This situation is known as **simultaneous subset relations** in the `QCA` package.
+
+# The intermediate solution
+
+Once we have removed the untenable assumptions, we are ready to obtain an **intermediate solution** incorporating theory-driven **counterfactuals**. The intermediate solution must be a superset of the conservative solution, and a subset of the enhanced parsimonious solution. 
+
+Establishing a counterfactual means defining which remainders to include in the simplification process based on extant theoretical knowledge. Counterfactuals can be expressed in terms of **directional expectations**, hypothesized relationships of sufficiency between combinations of explanatory variables and the outcome.
+
+Let's consider directional expectations stating that the presence of explanatory variables are sufficient conditions to the outcome:
+
+\[ \begin{align}
+DEV \Rightarrow SURV & & URB \Rightarrow SURV & & LIT \Rightarrow SURV & & IND \Rightarrow SURV & & STB \Rightarrow SURV 
+\end{align} \]
+
+Once established the directional expectations, we need to control for **incoherent counterfactuals**: if a condition is necessary for an outcome, its negation cannot be a sufficient condition for the same outcome. Let's check the necessity of the negated expressions of the directional expectations with the `pof` function:
+
+```{r}
+pof(setms = "~DEV+~URB+~LIT+~IND+~STB", outcome = "SURV", relation = "necessity", data = LF)
+```
+
+None of the values of consistency in the `inclN` column is high enough to consider that the negated counterfactuals are necessary conditions of the outcome, so we have no incoherent counterfactuals.
+
+To obtain the intermediate solution, we add the counterfactuals defined above with the `dir.exp` parameter.
+
+```{r}
+int_surv <- minimize(tt_surv, details = TRUE, show.cases = TRUE, include = "?", exclude = contradictory_rows, dir.exp = c(DEV, URB, LIT, IND, STB))
+int_surv
+```
+
+To see how we have obtained the intermediate solution, let's recap the conservative and the enhanced parsimonious solutions:
+
+```{r}
+com_surv$solution[[1]]
+eps_surv$solution[[1]]
+```
+
+Then, we examine what terms can we eliminate from the conservative solution to obtain a subset of the parsimonious solution compatible with directional expectations:
+
+* The term `~IND` appears in the enhanced parsimonious solution, while `IND` does not. So we need to remove the counterfactual related with `IND`.
+* The first term of the enhanced parsimonious solution `DEV*URB*STB` is a superset of the term of the complex solution `DEV*URB*LIT*IND*STB`. From the later term we can only remove `IND`, so we get `DEV*URB*LIT*IND*STB`.
+* The second term of the enhanced parsimonious solution `DEV*~IND*STB` is a superset of the term `DEV*~URB*LIT*~IND*STB`. From the later we can only remove `~URB`, so we obtain `DEV*LIT*~IND*STB`.
+
+## Obtaining a simplified solution in QCA analysis.
+
+In this post, I have presented a workflow to obtain an intermediate solution in QCA analysis. This solution is a superset of the complex solution, and a subset of the enhanced parsimonious solution:
+
+* The complex solution is obtained under the assumption that no remainders are related to the outcome. 
+* The enhanced parsimonious solution is obtained under the assumption that any remainder whose inclusion is not an untenable assumption has been considered to be related to the outcome 
+
+We obtain the intermediate solution incorporating theory-driven directional expectations. The resulting solution should be compatible with extant theoretical knowledge, and easier to interpret than the complex solution.
+
+To deduce how to obtain the intermediate solution from directional expectations, I have adapted the reasoning of Raggin & Sonnet (2005) to the `LF` dataset. The discussion about untenable assumptions and the enhanced parsimonious solution comes from Schneider & Wagemann (2013). I refer the reader to these reference to learn about other concepts related to this workflow, like easy and difficult counterfactuals, and more examples of application.
+
+## Bibliography and resources
+
+* Dușa, Adrian (2021). *QCA with R: A Comprehensive Resource.* <https://bookdown.org/dusadrian/QCAbook/>
+* Lipset, S. M. (1959). Some Social Requisites of Democracy: Economic Development and Political Legitimacy. *American Political Science Review*, 53:69-105.
+* Ragin, C. C., & Sonnett, J. (2005). Between complexity and parsimony: Limited diversity, counterfactual cases, and comparative analysis. In Sabine Kropp, S. & Minkenberg, M. (eds.) *Vergleichen in der Politikwissenschaft* (pp. 180-197). VS Verlag für Sozialwissenschaften. <https://escholarship.org/uc/item/1zf567tt>
+* Schneider, C. Q., & Wagemann, C. (2013). Doing justice to logical remainders in QCA: Moving beyond the standard analysis. *Political Research Quarterly*, 211-220.
+
+*Built with R 4.1.1 and QCA 3.12*
+

@@ -1,0 +1,324 @@
+---
+title: Intermediate solutions in QCA analysis using R
+author: Jose M Sallan
+date: '2021-10-26'
+slug: intermediate-solutions-in-qca-analysis-using-r
+categories:
+  - R
+tags:
+  - QCA
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p><strong>Qualitative comparative analysis (QCA)</strong> is a data analysis technique that examines the relationships between an outcome and a set of explanatory variables using Boolean algebra, rather than analysis of correlation or covariance structures. Unlike other techniques like linear regression, QCA is focused mainly on examining complex combinations of explanatory variables as antecedents of the outcome.</p>
+<p>The minimization of the rows of the truth table associated to the outcome allows us to obtain a solution covering all observed sufficient conditions for the outcome. It is frequent to obtain a similar set of solutions for the negated outcome. As QCA is asymmetric, the later is not the negation of the former. As we will see in this post, both solutions must be considered simultaneously.</p>
+<p>Social science phenomena have <strong>limited diversity</strong>: many of the rows of the truth table do not have any or not enough observations, even for large datasets. These rows with not enough observations are called <strong>remainders</strong>. The solutions considering only rows related to the outcome are complex or conservative solutions, as they assume that none of the remainders is associated to the outcome. Through the Standard Analysis (SA) (Raggin &amp; Sonnet, 2005), the Enhanced Standard Analysis (ESA) and the Theory-Guided Standard Analysis (TESA) (Schneider &amp; Wagemann, 2013) we can obtain more parsimonious (simpler) sufficient solutions, more easy to interpret theoretically. To do so, we use <strong>counterfactual analysis</strong>, that allows to add some of the remainders to the solution.</p>
+<p>In this post, I will discuss the details of the implementation of SA, ESA and TESA using the the R <code>QCA</code> package for fuzzy-set QCA (fsQCA) analysis.</p>
+<pre class="r"><code>library(QCA)</code></pre>
+<p>Along this post, I will be using the fuzzy-set version of Lipset’s (1959) indicators for the survival of democracy during the inter-war period, included in the <code>QCA</code> package.</p>
+<pre class="r"><code>head(LF)</code></pre>
+<pre><code>##     DEV  URB  LIT  IND  STB SURV
+## AU 0.81 0.12 0.99 0.73 0.43 0.05
+## BE 0.99 0.89 0.98 1.00 0.98 0.95
+## CZ 0.58 0.98 0.98 0.90 0.91 0.89
+## EE 0.16 0.07 0.98 0.01 0.91 0.12
+## FI 0.58 0.03 0.99 0.08 0.58 0.77
+## FR 0.98 0.03 0.99 0.81 0.95 0.95</code></pre>
+<p>The first step to obtain a sufficient solution in fsQCA is to obtain the <strong>truth table</strong>. We assign each case to the row of the truth table closer to its membership scores, and we assign to the outcome the rows with a consistency score above the minimum consistency threshold <code>incl.cut</code>. We can also set a minimum number of cases <code>n.cut</code> to consider the row. Here I obtain the truth table of <code>LF</code> for <code>incl.cut = 0.8</code> and the default <code>n.cut = 1</code>:</p>
+<pre class="r"><code>tt_surv &lt;- truthTable(LF, outcome = &quot;SURV&quot;, conditions = &quot;DEV, URB, LIT, IND, STB&quot;, complete = TRUE, show.cases = TRUE, incl.cut = 0.8)
+tt_surv</code></pre>
+<pre><code>## 
+##   OUT: output value
+##     n: number of cases in configuration
+##  incl: sufficiency inclusion score
+##   PRI: proportional reduction in inconsistency
+## 
+##      DEV URB LIT IND STB   OUT    n  incl  PRI   cases      
+##  1    0   0   0   0   0     0     3  0.216 0.000 GR,PT,ES   
+##  2    0   0   0   0   1     0     2  0.278 0.000 IT,RO      
+##  3    0   0   0   1   0     ?     0    -     -              
+##  4    0   0   0   1   1     ?     0    -     -              
+##  5    0   0   1   0   0     0     2  0.521 0.113 HU,PL      
+##  6    0   0   1   0   1     0     1  0.529 0.228 EE         
+##  7    0   0   1   1   0     ?     0    -     -              
+##  8    0   0   1   1   1     ?     0    -     -              
+##  9    0   1   0   0   0     ?     0    -     -              
+## 10    0   1   0   0   1     ?     0    -     -              
+## 11    0   1   0   1   0     ?     0    -     -              
+## 12    0   1   0   1   1     ?     0    -     -              
+## 13    0   1   1   0   0     ?     0    -     -              
+## 14    0   1   1   0   1     ?     0    -     -              
+## 15    0   1   1   1   0     ?     0    -     -              
+## 16    0   1   1   1   1     ?     0    -     -              
+## 17    1   0   0   0   0     ?     0    -     -              
+## 18    1   0   0   0   1     ?     0    -     -              
+## 19    1   0   0   1   0     ?     0    -     -              
+## 20    1   0   0   1   1     ?     0    -     -              
+## 21    1   0   1   0   0     ?     0    -     -              
+## 22    1   0   1   0   1     1     2  0.804 0.719 FI,IE      
+## 23    1   0   1   1   0     0     1  0.378 0.040 AU         
+## 24    1   0   1   1   1     0     2  0.709 0.634 FR,SE      
+## 25    1   1   0   0   0     ?     0    -     -              
+## 26    1   1   0   0   1     ?     0    -     -              
+## 27    1   1   0   1   0     ?     0    -     -              
+## 28    1   1   0   1   1     ?     0    -     -              
+## 29    1   1   1   0   0     ?     0    -     -              
+## 30    1   1   1   0   1     ?     0    -     -              
+## 31    1   1   1   1   0     0     1  0.445 0.050 DE         
+## 32    1   1   1   1   1     1     4  0.904 0.886 BE,CZ,NL,UK</code></pre>
+<p>Looking at the truth table, we observe that:</p>
+<ul>
+<li>rows 22 and 32 have value <code>OUT = 1</code>, so they are associated to the outcome.</li>
+<li>rows 1, 2, 5, 6, 23, 24 and 31 have value <code>OUT = 0</code>, so they have more than <code>n.cut</code> cases but are not associated to the outcome.</li>
+<li>the other 23 rows have less than <code>n.cut</code> cases so they have <code>OUT = ?</code>. These are the remainders of the truth table.</li>
+</ul>
+<p>Let’s examine the truth table of the negated outcome:</p>
+<pre class="r"><code>tt_not_surv &lt;- truthTable(LF, outcome = &quot;~SURV&quot;, conditions = &quot;DEV, URB, LIT, IND, STB&quot;, complete = TRUE, show.cases = TRUE, incl.cut = 0.8)
+tt_not_surv</code></pre>
+<pre><code>## 
+##   OUT: output value
+##     n: number of cases in configuration
+##  incl: sufficiency inclusion score
+##   PRI: proportional reduction in inconsistency
+## 
+##      DEV URB LIT IND STB   OUT    n  incl  PRI   cases      
+##  1    0   0   0   0   0     1     3  1.000 1.000 GR,PT,ES   
+##  2    0   0   0   0   1     1     2  0.982 0.975 IT,RO      
+##  3    0   0   0   1   0     ?     0    -     -              
+##  4    0   0   0   1   1     ?     0    -     -              
+##  5    0   0   1   0   0     1     2  0.855 0.732 HU,PL      
+##  6    0   0   1   0   1     1     1  0.861 0.772 EE         
+##  7    0   0   1   1   0     ?     0    -     -              
+##  8    0   0   1   1   1     ?     0    -     -              
+##  9    0   1   0   0   0     ?     0    -     -              
+## 10    0   1   0   0   1     ?     0    -     -              
+## 11    0   1   0   1   0     ?     0    -     -              
+## 12    0   1   0   1   1     ?     0    -     -              
+## 13    0   1   1   0   0     ?     0    -     -              
+## 14    0   1   1   0   1     ?     0    -     -              
+## 15    0   1   1   1   0     ?     0    -     -              
+## 16    0   1   1   1   1     ?     0    -     -              
+## 17    1   0   0   0   0     ?     0    -     -              
+## 18    1   0   0   0   1     ?     0    -     -              
+## 19    1   0   0   1   0     ?     0    -     -              
+## 20    1   0   0   1   1     ?     0    -     -              
+## 21    1   0   1   0   0     ?     0    -     -              
+## 22    1   0   1   0   1     0     2  0.498 0.281 FI,IE      
+## 23    1   0   1   1   0     1     1  0.974 0.960 AU         
+## 24    1   0   1   1   1     0     2  0.495 0.366 FR,SE      
+## 25    1   1   0   0   0     ?     0    -     -              
+## 26    1   1   0   0   1     ?     0    -     -              
+## 27    1   1   0   1   0     ?     0    -     -              
+## 28    1   1   0   1   1     ?     0    -     -              
+## 29    1   1   1   0   0     ?     0    -     -              
+## 30    1   1   1   0   1     ?     0    -     -              
+## 31    1   1   1   1   0     1     1  0.971 0.950 DE         
+## 32    1   1   1   1   1     0     4  0.250 0.106 BE,CZ,NL,UK</code></pre>
+<p>For this truth table we observe that:</p>
+<ul>
+<li>rows 1, 2, 5, 6, 23 and 31 are associated with the negated outcome and have <code>OUT = 1</code>.</li>
+<li>rows 22, 24 and 32 have <code>OUT = 0</code>, so they are not associated with the negated outcome.</li>
+<li>the remainders are the same 23 rows with <code>OUT = ?</code> of the <code>SURV</code> truth table.</li>
+</ul>
+<p>Row 24 has <code>OUT = 0</code> in both tables, so it is not associated neither to the outcome nor its negation.</p>
+<div id="the-complex-or-conservative-solution" class="section level2">
+<h2>The complex or conservative solution</h2>
+<p>We obtain the complex or conservative solution using the default values of the <code>minimize</code> function:</p>
+<pre class="r"><code>com_surv &lt;- minimize(tt_surv, details = TRUE, show.cases = TRUE)
+com_surv</code></pre>
+<pre><code>## 
+## M1: DEV*URB*LIT*IND*STB + DEV*~URB*LIT*~IND*STB -&gt; SURV
+## 
+##                           inclS   PRI   covS   covU   cases 
+## ----------------------------------------------------------------- 
+## 1    DEV*URB*LIT*IND*STB  0.904  0.886  0.454  0.393  BE,CZ,NL,UK 
+## 2  DEV*~URB*LIT*~IND*STB  0.804  0.719  0.265  0.204  FI,IE 
+## ----------------------------------------------------------------- 
+##                       M1  0.870  0.843  0.658</code></pre>
+<p>In this case, the minimization does not have any effect, and the solution are the expressions of rows 32 and 22 united by an OR operator.</p>
+<p>This solution is called <strong>conservative</strong> because it is the most restrictive: we consider that none of the remainders is associated to the outcome. It is the most <strong>complex</strong> because it is the one using less rows, and so it is the hardest to minimize.</p>
+<p>Let’s also obtain the conservative solution for the negated outcome:</p>
+<pre class="r"><code>com_not_surv &lt;- minimize(tt_not_surv, details = TRUE, show.cases = TRUE)
+com_not_surv</code></pre>
+<pre><code>## 
+## M1: ~DEV*~URB*~IND + DEV*LIT*IND*~STB -&gt; ~SURV
+## 
+##                      inclS   PRI   covS   covU   cases 
+## --------------------------------------------------------------------------- 
+## 1    ~DEV*~URB*~IND  0.886  0.854  0.678  0.582  GR,PT,ES; IT,RO; HU,PL; EE 
+## 2  DEV*LIT*IND*~STB  0.981  0.973  0.220  0.124  AU; DE 
+## --------------------------------------------------------------------------- 
+##                  M1  0.897  0.871  0.803</code></pre>
+</div>
+<div id="the-parsimonious-solution" class="section level2">
+<h2>The parsimonious solution</h2>
+<p>While in the conservative solution we treat the remainders as not belonging to the solution, in the parsimonious solution we treat remainders as <em>don’t care</em>. We can include any of the remainders, as long as it contributes to obtain a simpler solution, through setting <code>include = "?"</code> in the <code>minimize</code> function.</p>
+<pre class="r"><code>par_surv &lt;- minimize(tt_surv, details = TRUE, show.cases = TRUE, include = &quot;?&quot;)
+par_surv</code></pre>
+<pre><code>## 
+## M1: DEV*~IND + URB*STB -&gt; SURV
+## 
+##              inclS   PRI   covS   covU   cases 
+## ---------------------------------------------------- 
+## 1  DEV*~IND  0.815  0.721  0.284  0.194  FI,IE 
+## 2   URB*STB  0.874  0.845  0.520  0.430  BE,CZ,NL,UK 
+## ---------------------------------------------------- 
+##          M1  0.850  0.819  0.714</code></pre>
+<p>The <strong>parsimonious solution</strong> <code>DEV*~IND + URB*STB</code> is simpler (more parsimonious) than the complex <code>DEV*URB*LIT*IND*STB + DEV*~URB*LIT*~IND*STB</code>. As the former has been formed adding rows to the later, the parsimonious solution contains the complex solution. In other words:</p>
+<ul>
+<li>The conservative solution is a subset of the parsimonious solution.</li>
+<li>The parsimonious solution is a superset of the complex solution.</li>
+</ul>
+<p>We can see which remainders we have used to obtain the parsimonious solution doing:</p>
+<pre class="r"><code>par_surv$SA$M1</code></pre>
+<pre><code>##    DEV URB LIT IND STB
+## 10   0   1   0   0   1
+## 12   0   1   0   1   1
+## 14   0   1   1   0   1
+## 16   0   1   1   1   1
+## 17   1   0   0   0   0
+## 18   1   0   0   0   1
+## 21   1   0   1   0   0
+## 25   1   1   0   0   0
+## 26   1   1   0   0   1
+## 28   1   1   0   1   1
+## 29   1   1   1   0   0
+## 30   1   1   1   0   1</code></pre>
+<p>Only 12 out of the 23 remainders have been added to obtain the parsimonious solution.</p>
+<p>Let’s also obtain the parsimonious solution for the negated outcome:</p>
+<pre class="r"><code>par_not_surv &lt;- minimize(tt_not_surv, details = TRUE, show.cases = TRUE, include = &quot;?&quot;)
+par_not_surv</code></pre>
+<pre><code>## 
+## M1: ~DEV + ~STB -&gt; ~SURV
+## 
+##          inclS   PRI   covS   covU   cases 
+## --------------------------------------------------------------- 
+## 1  ~DEV  0.837  0.798  0.783  0.231  GR,PT,ES; IT,RO; HU,PL; EE 
+## 2  ~STB  0.902  0.871  0.657  0.105  GR,PT,ES; HU,PL; AU; DE 
+## --------------------------------------------------------------- 
+##      M1  0.849  0.816  0.888</code></pre>
+<pre class="r"><code>par_not_surv$SA$M1</code></pre>
+<pre><code>##    DEV URB LIT IND STB
+## 3    0   0   0   1   0
+## 4    0   0   0   1   1
+## 7    0   0   1   1   0
+## 8    0   0   1   1   1
+## 9    0   1   0   0   0
+## 10   0   1   0   0   1
+## 11   0   1   0   1   0
+## 12   0   1   0   1   1
+## 13   0   1   1   0   0
+## 14   0   1   1   0   1
+## 15   0   1   1   1   0
+## 16   0   1   1   1   1
+## 17   1   0   0   0   0
+## 19   1   0   0   1   0
+## 21   1   0   1   0   0
+## 25   1   1   0   0   0
+## 27   1   1   0   1   0
+## 29   1   1   1   0   0</code></pre>
+<p>The parsimonious and conservative solutions are the two extremes of a continuum: the conservative solution makes no assumptions but can be hard to interpret, while the parsimonious solution is easier to interpret, but to obtain it we are making many assumptions that can be untenable or contrary to previous theoretical knowledge.</p>
+</div>
+<div id="the-enhanced-parsimonious-solution" class="section level2">
+<h2>The enhanced parsimonious solution</h2>
+<p>The Enhanced Standard Analysis (ESA) considers the inclusion of some rows of the truth table as <strong>untenable assumptions</strong>. For instance, it is contradictory to use the same remainders to simplify the necessary conditions of the outcome and of the negated outcome. In our example, this happens in the following rows:</p>
+<pre class="r"><code>intersect(row.names(par_not_surv$SA$M1), row.names(par_surv$SA$M1))</code></pre>
+<pre><code>## [1] &quot;10&quot; &quot;12&quot; &quot;14&quot; &quot;16&quot; &quot;17&quot; &quot;21&quot; &quot;25&quot; &quot;29&quot;</code></pre>
+<p>We can find these same rows with the <code>findRows</code> function:</p>
+<pre class="r"><code>findRows(obj = tt_surv, type= 2)</code></pre>
+<pre><code>## [1] 10 12 14 16 17 21 25 29</code></pre>
+<p>These rows are <strong>contradictory simplifying assumptions</strong>. To exclude them from the minimization process, we can proceed as follows:</p>
+<pre class="r"><code>contradictory_rows &lt;- findRows(obj = tt_surv, type= 2)
+eps_surv &lt;- minimize(tt_surv, details = TRUE, show.cases = TRUE, include = &quot;?&quot;, exclude = contradictory_rows)
+eps_surv</code></pre>
+<pre><code>## 
+## M1: DEV*URB*STB + DEV*~IND*STB -&gt; SURV
+## 
+##                  inclS   PRI   covS   covU   cases 
+## -------------------------------------------------------- 
+## 1   DEV*URB*STB  0.901  0.879  0.468  0.378  BE,CZ,NL,UK 
+## 2  DEV*~IND*STB  0.814  0.721  0.282  0.191  FI,IE 
+## -------------------------------------------------------- 
+##              M1  0.866  0.839  0.660</code></pre>
+<p>The solution <code>eps_surv</code> is the <strong>enhanced parsimonious solution</strong>: it is a subset of the parsimonious solution, and a superset of the complex solution. to build this solution, we have excluded 8 of the 12 remainders that we used to build the parsimonious solution:</p>
+<pre class="r"><code>eps_surv$SA$M1</code></pre>
+<pre><code>##    DEV URB LIT IND STB
+## 18   1   0   0   0   1
+## 26   1   1   0   0   1
+## 28   1   1   0   1   1
+## 30   1   1   1   0   1</code></pre>
+<p>There are other situations in which we need to remove rows of the truth table representing untenable assumptions:</p>
+<p>Combinations of variables that are <strong>logical impossibilities</strong>. A hypothetical study described in Schneider and Wagemann (2013) contains three variables: whether a person is biologically female <code>A</code>, whether is pregnant <code>B</code> and sober <code>C</code>. It is easy to see that the condition <code>~AB</code> is a logical impossibility, in our current state of affairs. Logical impossibilities must be detected by the researcher, and added to the <code>exclude</code> parameter of <code>minimize</code>.</p>
+<p>When used with<code>type = 3</code>, the <code>findRows</code> function excludes those rows with observations above <code>n.cut</code> that are above the consistency threshold in the outcome and the negated outcome. Note that these rows are not remainders, but rows with observations that are included in both solutions. This situation is known as <strong>simultaneous subset relations</strong> in the <code>QCA</code> package.</p>
+</div>
+<div id="the-intermediate-solution" class="section level1">
+<h1>The intermediate solution</h1>
+<p>Once we have removed the untenable assumptions, we are ready to obtain an <strong>intermediate solution</strong> incorporating theory-driven <strong>counterfactuals</strong>. The intermediate solution must be a superset of the conservative solution, and a subset of the enhanced parsimonious solution.</p>
+<p>Establishing a counterfactual means defining which remainders to include in the simplification process based on extant theoretical knowledge. Counterfactuals can be expressed in terms of <strong>directional expectations</strong>, hypothesized relationships of sufficiency between combinations of explanatory variables and the outcome.</p>
+<p>Let’s consider directional expectations stating that the presence of explanatory variables are sufficient conditions to the outcome:</p>
+<p><span class="math display">\[ \begin{align}
+DEV \Rightarrow SURV &amp; &amp; URB \Rightarrow SURV &amp; &amp; LIT \Rightarrow SURV &amp; &amp; IND \Rightarrow SURV &amp; &amp; STB \Rightarrow SURV 
+\end{align} \]</span></p>
+<p>Once established the directional expectations, we need to control for <strong>incoherent counterfactuals</strong>: if a condition is necessary for an outcome, its negation cannot be a sufficient condition for the same outcome. Let’s check the necessity of the negated expressions of the directional expectations with the <code>pof</code> function:</p>
+<pre class="r"><code>pof(setms = &quot;~DEV+~URB+~LIT+~IND+~STB&quot;, outcome = &quot;SURV&quot;, relation = &quot;necessity&quot;, data = LF)</code></pre>
+<pre><code>## 
+##                inclN   RoN   covN  
+## ---------------------------------- 
+## 1        ~DEV  0.285  0.587  0.274 
+## 2        ~URB  0.568  0.452  0.402 
+## 3        ~LIT  0.096  0.764  0.168 
+## 4        ~IND  0.417  0.576  0.367 
+## 5        ~STB  0.218  0.687  0.269 
+## 6  expression  0.623  0.337  0.387 
+## ----------------------------------</code></pre>
+<p>None of the values of consistency in the <code>inclN</code> column is high enough to consider that the negated counterfactuals are necessary conditions of the outcome, so we have no incoherent counterfactuals.</p>
+<p>To obtain the intermediate solution, we add the counterfactuals defined above with the <code>dir.exp</code> parameter.</p>
+<pre class="r"><code>int_surv &lt;- minimize(tt_surv, details = TRUE, show.cases = TRUE, include = &quot;?&quot;, exclude = contradictory_rows, dir.exp = c(DEV, URB, LIT, IND, STB))
+int_surv</code></pre>
+<pre><code>## 
+## From C1P1: 
+## 
+## M1:    DEV*URB*LIT*STB + DEV*LIT*~IND*STB -&gt; SURV 
+## 
+##                      inclS   PRI   covS   covU   cases 
+## ------------------------------------------------------------ 
+## 1   DEV*URB*LIT*STB  0.901  0.879  0.468  0.378  BE,CZ,NL,UK 
+## 2  DEV*LIT*~IND*STB  0.814  0.721  0.282  0.191  FI,IE 
+## ------------------------------------------------------------ 
+##                  M1  0.866  0.839  0.660</code></pre>
+<p>To see how we have obtained the intermediate solution, let’s recap the conservative and the enhanced parsimonious solutions:</p>
+<pre class="r"><code>com_surv$solution[[1]]</code></pre>
+<pre><code>## [1] &quot;DEV*URB*LIT*IND*STB&quot;   &quot;DEV*~URB*LIT*~IND*STB&quot;</code></pre>
+<pre class="r"><code>eps_surv$solution[[1]]</code></pre>
+<pre><code>## [1] &quot;DEV*URB*STB&quot;  &quot;DEV*~IND*STB&quot;</code></pre>
+<p>Then, we examine what terms can we eliminate from the conservative solution to obtain a subset of the parsimonious solution compatible with directional expectations:</p>
+<ul>
+<li>The term <code>~IND</code> appears in the enhanced parsimonious solution, while <code>IND</code> does not. So we need to remove the counterfactual related with <code>IND</code>.</li>
+<li>The first term of the enhanced parsimonious solution <code>DEV*URB*STB</code> is a superset of the term of the complex solution <code>DEV*URB*LIT*IND*STB</code>. From the later term we can only remove <code>IND</code>, so we get <code>DEV*URB*LIT*IND*STB</code>.</li>
+<li>The second term of the enhanced parsimonious solution <code>DEV*~IND*STB</code> is a superset of the term <code>DEV*~URB*LIT*~IND*STB</code>. From the later we can only remove <code>~URB</code>, so we obtain <code>DEV*LIT*~IND*STB</code>.</li>
+</ul>
+<div id="obtaining-a-simplified-solution-in-qca-analysis." class="section level2">
+<h2>Obtaining a simplified solution in QCA analysis.</h2>
+<p>In this post, I have presented a workflow to obtain an intermediate solution in QCA analysis. This solution is a superset of the complex solution, and a subset of the enhanced parsimonious solution:</p>
+<ul>
+<li>The complex solution is obtained under the assumption that no remainders are related to the outcome.</li>
+<li>The enhanced parsimonious solution is obtained under the assumption that any remainder whose inclusion is not an untenable assumption has been considered to be related to the outcome</li>
+</ul>
+<p>We obtain the intermediate solution incorporating theory-driven directional expectations. The resulting solution should be compatible with extant theoretical knowledge, and easier to interpret than the complex solution.</p>
+<p>To deduce how to obtain the intermediate solution from directional expectations, I have adapted the reasoning of Raggin &amp; Sonnet (2005) to the <code>LF</code> dataset. The discussion about untenable assumptions and the enhanced parsimonious solution comes from Schneider &amp; Wagemann (2013). I refer the reader to these reference to learn about other concepts related to this workflow, like easy and difficult counterfactuals, and more examples of application.</p>
+</div>
+<div id="bibliography-and-resources" class="section level2">
+<h2>Bibliography and resources</h2>
+<ul>
+<li>Dușa, Adrian (2021). <em>QCA with R: A Comprehensive Resource.</em> <a href="https://bookdown.org/dusadrian/QCAbook/" class="uri">https://bookdown.org/dusadrian/QCAbook/</a></li>
+<li>Lipset, S. M. (1959). Some Social Requisites of Democracy: Economic Development and Political Legitimacy. <em>American Political Science Review</em>, 53:69-105.</li>
+<li>Ragin, C. C., &amp; Sonnett, J. (2005). Between complexity and parsimony: Limited diversity, counterfactual cases, and comparative analysis. In Sabine Kropp, S. &amp; Minkenberg, M. (eds.) <em>Vergleichen in der Politikwissenschaft</em> (pp. 180-197). VS Verlag für Sozialwissenschaften. <a href="https://escholarship.org/uc/item/1zf567tt" class="uri">https://escholarship.org/uc/item/1zf567tt</a></li>
+<li>Schneider, C. Q., &amp; Wagemann, C. (2013). Doing justice to logical remainders in QCA: Moving beyond the standard analysis. <em>Political Research Quarterly</em>, 211-220.</li>
+</ul>
+<p><em>Built with R 4.1.1 and QCA 3.12</em></p>
+</div>
+</div>
