@@ -1,0 +1,209 @@
+---
+title: Covariance and Pearson correlation in R
+author: Jose M Sallan
+date: '2021-11-01'
+slug: covariance-and-pearson-correlation-in-r
+categories:
+  - R
+  - statistics
+tags:
+  - R
+  - hypothesis testing
+  - '#correlation'
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, echo = FALSE)
+```
+
+Correlation and covariance are the two main measures to evaluate the association between two numeric variables. In this post, I will define both measures, give some clues to interpret them and describe a test of hypothesis of association between two variables. I will also introduce some R base functions related with covariances and correlations. I will be using the `tidyverse` packages to handle data and create plots.
+
+```{r}
+library(tidyverse)
+```
+
+we define the **population covariance** of variables $x$ and $y$:
+
+\[ \sigma_{xy} = \frac{1}{N} \sum_{i=1}^N \left(x_i - \mu_x\right) \left(y_i - \mu_y\right) \]
+
+The covariance of a variable with itself is the sample variance:
+
+\[ \sigma_{xx} = \sigma^2_x =  \frac{1}{N} \sum_{i=1}^N \left(x_i - \mu_x\right)^2 \]
+
+Usually we don't know the population means, and we need to estimate them with sample means. The **sample covariance** of variables $x$ and $y$:
+
+\[ s_{xy} = \frac{1}{N-1} \sum_{i=1}^N \left(x_i - \bar{x}\right) \left(y_i - \bar{y} \right) \]
+
+We proceed similarly with sample variance:
+
+\[ s_{xx} = s^2_x =  \frac{1}{N-1} \sum_{i=1}^N \left(x_i -  \bar{x}\right)^2 \]
+
+We divide by sample size minus one to obtain unbiased estimators of covariance and variance.
+
+Covariance between two variables can be positive or negative, while variance is always positive. The sign of covariance gives us information about how both variables relate. Let's see how with an example:
+
+```{r, fig.align='center'}
+mean_sepal <- mean(iris$Sepal.Length)
+mean_petal <- mean(iris$Petal.Length)
+plot_alpha <- 0.005
+ggplot(iris, aes(Sepal.Length, Petal.Length)) +
+  geom_point() +
+  geom_hline(yintercept = mean_petal, size = 0.3, linetype = "dashed") +
+  geom_vline(xintercept = mean_sepal, size = 0.3, linetype = "dashed") +
+  geom_rect(aes(xmin = mean_sepal, ymin = mean_petal, xmax = Inf, ymax = Inf), fill = "#9999FF", alpha = plot_alpha) +
+  geom_rect(aes(xmin = -Inf, ymin = , xmax = mean_sepal, ymax = mean_petal, ymin = -Inf), fill = "#9999FF", alpha = plot_alpha) +
+  geom_rect(aes(xmin = -Inf, ymin = mean_petal, xmax = mean_sepal, ymax = Inf), fill = "#FF9999", alpha = plot_alpha) +
+  geom_rect(aes(xmin = mean_sepal, ymin = -Inf, xmax = Inf, ymax = mean_petal), fill = "#FF9999", alpha = plot_alpha) +
+  labs(x = "sepal length", y = "petal length", title = "Sepal vs petal length (iris dataset)")
+```
+
+When centering (substracting the mean) of both variables, we can put each observation in one of the four zones. The ones in blue return a positive value of the product of centered variables, and the red return a negative value. If $y$ tends to increase when $x$ does, most observations will be in the blue zones, and the covariance will be positive. If it tends to decrease, most observations will be in the red zones, and the covariance will be negative. The same reasoning can be done with increases of $y$, as covariance is a symmetric measure. In the example of the plot above, we can guees the covariance is positive. We use the R base `cov` function to confirm that:
+
+```{r}
+cov(iris$Sepal.Length, iris$Petal.Length)
+```
+
+Covariance values depend on the units of the variables, so it can be hard to interpret the strength of the association. A remedy for this is to divide covariance by the standard deviation of both variables. This is equivalent to computing the covariance with standardized variables. The resulting measure is the **Pearson correlation**, abridged here to **correlation**. The expressions of the population $\rho_{xy}$ and sample $r_{xy}$ correlation are:
+
+\begin{align} 
+
+\rho_{xy} &= \frac{\sigma_{xy}}{\sigma_{x}\sigma_{y}} & r_{xy} &= \frac{s_{xy}}{s_xs_y}
+
+\end{align}
+
+We use the R base `cor` function to calculate the correlation between two numerical vectors:
+
+```{r}
+cor(iris$Sepal.Length, iris$Petal.Length)
+```
+
+Correlations can take values between -1 and 1. Absolute values equal to one are sign of a perfect linear relationship, and a value of to zero indicates no association. In this plot I am presenting examples of five data sets with different values of correlation.
+
+```{r}
+correlated <- function(rho, x){
+  n <- length(x)
+  y <- rnorm(n, 0, 1)
+  y_res <- residuals(lm(y ~ x))
+  names(y_res) <- NULL
+  return(rho*sd(y_res) * x + y_res * sd(x) * sqrt(1 - rho^2))
+}
+```
+
+
+```{r, fig.align='center', fig.height=3}
+set.seed(1313)
+tibble(x = rnorm(100, 0, 0.5)) %>%
+  mutate(`r=-0.9` = correlated(-0.9, x)) %>%
+  mutate(`r=-0.5` = correlated(-0.5, x)) %>%
+  mutate(`r=0` = correlated(0, x)) %>%
+  mutate(`r=0.5` = correlated(0.5, x)) %>%
+  mutate(`r=0.9` = correlated(0.9, x)) %>%
+  pivot_longer(-x) %>%
+  mutate(name = factor(name, levels = c("r=-0.9", "r=-0.5", "r=0", "r=0.5", "r=0.9"))) %>%
+  ggplot(aes(x, value)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme_bw() +
+  facet_grid(. ~ name)
+```
+
+Correlation values give a partial view of the relationship between two variables, so it is important to examine bivariate plots when possible. An example of the dangers of relying on correlation alone are the data sets of the Anscombe (1973) quartet. The four data sets is in the `anscombe` variable of R base:
+
+```{r}
+anscombe
+```
+
+The four pairs of variables have similar values of correlation between each `x` and `y`:
+
+```{r}
+anscombe_x <- anscombe %>%
+  select(x1:x4) %>%
+  pivot_longer(cols = x1:x4) %>%
+  mutate(name = recode(name, x1 = "a", x2 = "b", x3 = "c", x4 = "d")) %>%
+  rename(x = value, set = name)
+
+anscombe_y <- anscombe %>%
+  select(y1:y4) %>%
+  pivot_longer(cols = y1:y4) %>%
+  mutate(name = recode(name, y1 = "a", y2 = "b", y3 = "c", y4 = "d")) %>%
+  rename(y = value)
+
+anscombe_long <- bind_cols(anscombe_x, anscombe_y %>% select(y))
+```
+
+```{r}
+anscombe_long %>%
+  group_by(set) %>%
+  summarise(n = n(),
+            r = cor(x,y),
+            .groups = "drop")
+```
+
+But a bivariate plot of each pair gives us a quite different picture of the relationship between variables:
+
+```{r, fig.align='center'}
+anscombe_long %>%
+  ggplot(aes(x, y)) +
+  geom_point(size = 2) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_bw() +
+  facet_wrap(~ set, ncol = 2)
+```
+
+
+## Test of hypothesis for correlation
+
+When examining a sample of two variables, we may ask if there is an association between them. We can answer this question making this null hypothesis on the population correlation:
+
+\[ H_0: \rho = 0 \]
+
+If $H_0$ is true, the sample correlation $r$ follows:
+
+\[ \frac{r\sqrt{n-2}}{\sqrt{1-r^2}} \sim t_{N-2} \]
+
+Making some algebra, we obtain the following expression that allows rejecting the null hypothesis with a confidence $1-\alpha$, assuming a two-tailed test:
+
+\[ |r| \geq \sqrt{\frac{t^2_{N-2, \alpha/2}}{N - 2 + t^2_{N-2, \alpha/2}}} \]
+
+The minimum absolute value of correlation depends on sample size $N$. Increasing sample size, we also increase the **statistical power** of the test. To detect weak associations between variables, we will need large sample sizes.
+
+The plot below presents the minimum absolute value of correlation that can be considered significant for different values of sample size $N$ and $\alpha$:
+
+```{r}
+r_min <- function(N, alpha){
+  sqrt(qt(p = 1 - alpha/2, df = N -2)^2 / (N - 2 + qt(p = 1 - alpha/2, df = N-2)^2))
+} 
+```
+
+```{r, fig.align='center'}
+tibble(N = rep(c(seq(10, 100, 10), seq(200, 1000, 100)),3),
+       alpha = c(rep(0.1, 19), rep(0.05, 19), rep(0.01, 19))) %>%
+  mutate( cor = map2_dbl(N, alpha, r_min)) %>%
+  ggplot(aes(x = N, y = cor, color = as.factor(alpha))) +
+  geom_point() +
+  geom_line() +
+  scale_color_brewer(name = "alpha", palette = "Set1") +
+  theme_classic() +
+  labs(x = "sample size N", y = "absolute value of correlation", title = "Minimum value of significant correlation")
+```
+
+We can perform the test of hypothesis for two variables using the `cor.test` function with the defaults (Pearson correlation, two-sided test). The function returns also a 95 percent confidence interval and the sample estimate.
+
+```{r}
+cor.test(iris$Sepal.Length, iris$Petal.Length)
+```
+
+From the output of cor.test for these two variables, we learn that:
+
+* The $p$-value is extremely low. This $p$-value is the probability of observing the obtained value or higher if the null hypothesis is true.
+* The 95 percent interval does not include the zero.
+
+As a consequence, it is safe to assume that the population correlation is different from zero in this case.
+
+## References
+
+* Anscombe, F. J. (1973). Graphs in statistical analysis. *The American statistician*, 27(1), 17-21. <https://doi.org/10.1080/00031305.1973.10478966>
+
+*Built with R 4.1.1 and tidyverse 1.3.1*
