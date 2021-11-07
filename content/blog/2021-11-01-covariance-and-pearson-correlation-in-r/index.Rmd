@@ -56,7 +56,8 @@ ggplot(iris, aes(Sepal.Length, Petal.Length)) +
   geom_rect(aes(xmin = -Inf, ymin = , xmax = mean_sepal, ymax = mean_petal, ymin = -Inf), fill = "#9999FF", alpha = plot_alpha) +
   geom_rect(aes(xmin = -Inf, ymin = mean_petal, xmax = mean_sepal, ymax = Inf), fill = "#FF9999", alpha = plot_alpha) +
   geom_rect(aes(xmin = mean_sepal, ymin = -Inf, xmax = Inf, ymax = mean_petal), fill = "#FF9999", alpha = plot_alpha) +
-  labs(x = "sepal length", y = "petal length", title = "Sepal vs petal length (iris dataset)")
+  labs(x = "sepal length", y = "petal length", title = "Sepal vs petal length (iris dataset)") +
+  theme_classic()
 ```
 
 When centering (substracting the mean) of both variables, we can put each observation in one of the four zones. The ones in blue return a positive value of the product of centered variables, and the red return a negative value. If $y$ tends to increase when $x$ does, most observations will be in the blue zones, and the covariance will be positive. If it tends to decrease, most observations will be in the red zones, and the covariance will be negative. The same reasoning can be done with increases of $y$, as covariance is a symmetric measure. In the example of the plot above, we can guees the covariance is positive. We use the R base `cov` function to confirm that:
@@ -195,7 +196,7 @@ We can perform the test of hypothesis for two variables using the `cor.test` fun
 cor.test(iris$Sepal.Length, iris$Petal.Length)
 ```
 
-From the output of cor.test for these two variables, we learn that:
+From the output of `cor.test` for these two variables, we learn that:
 
 * The $p$-value is extremely low. This $p$-value is the probability of observing the obtained value or higher if the null hypothesis is true.
 * The 95 percent interval does not include the zero.
