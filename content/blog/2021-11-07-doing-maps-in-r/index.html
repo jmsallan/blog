@@ -1,0 +1,157 @@
+---
+title: Doing maps in R
+author: Jose M Sallan
+date: '2021-11-07'
+slug: doing-maps-in-r
+categories:
+  - R
+tags:
+  - ggplot
+  - R
+  - maps
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>In this document I will introduce how to plot maps in R, and to use them to convey spatial information.</p>
+<p>Representing geographical information requires loading packages able to deal with geographical data, and have available geographical information. I have wrapped some geographical data in a package called <code>BAdatasetsSpatial</code>. To acquire this package, first install the <code>devtools</code> package:</p>
+<pre class="r"><code>install.packages(&quot;devtools&quot;)</code></pre>
+<p>and then install the package from GitHub:</p>
+<pre class="r"><code>devtools::install_github(&quot;jmsallan/BAdatasetsSpatial&quot;)</code></pre>
+<p>Now you can access to package datasets doing:</p>
+<pre class="r"><code>library(BAdatasetsSpatial)</code></pre>
+<p>The package also loads the <code>sf</code> package, required to plot geographical data as simple features.</p>
+<p>We will also need the <code>tidyverse</code> for data handling and plotting:</p>
+<pre class="r"><code>library(tidyverse)</code></pre>
+<div id="geographical-objects-in-r" class="section level2">
+<h2>Geographical objects in R</h2>
+<p>A geographical object in R is a data frame with a <code>geometry</code> column that includes a spatial object (a <em>simple feature collection</em> <code>sfc</code>) for each region. Each region of the map is a row of the data frame object.</p>
+<p><code>WorldMap1_110</code> is a rough world map, but useful for representing global information. Let’s see its column names:</p>
+<pre class="r"><code>names(WorldMap1_110)</code></pre>
+<pre><code>##  [1] &quot;scalerank&quot;  &quot;LABELRANK&quot;  &quot;SOVEREIGNT&quot; &quot;SOV_A3&quot;     &quot;ADM0_DIF&quot;  
+##  [6] &quot;TYPE&quot;       &quot;ADMIN&quot;      &quot;ADM0_A3&quot;    &quot;GEOUNIT&quot;    &quot;GU_A3&quot;     
+## [11] &quot;SUBUNIT&quot;    &quot;SU_A3&quot;      &quot;BRK_DIFF&quot;   &quot;NAME&quot;       &quot;NAME_LONG&quot; 
+## [16] &quot;BRK_A3&quot;     &quot;BRK_NAME&quot;   &quot;ABBREV&quot;     &quot;POSTAL&quot;     &quot;FORMAL_EN&quot; 
+## [21] &quot;FORMAL_FR&quot;  &quot;NAME_CIAWF&quot; &quot;NOTE_ADM0&quot;  &quot;NOTE_BRK&quot;   &quot;NAME_SORT&quot; 
+## [26] &quot;NAME_ALT&quot;   &quot;MAPCOLOR7&quot;  &quot;MAPCOLOR8&quot;  &quot;MAPCOLOR9&quot;  &quot;MAPCOLOR13&quot;
+## [31] &quot;POP_EST&quot;    &quot;POP_RANK&quot;   &quot;GDP_MD_EST&quot; &quot;POP_YEAR&quot;   &quot;LASTCENSUS&quot;
+## [36] &quot;GDP_YEAR&quot;   &quot;ECONOMY&quot;    &quot;INCOME_GRP&quot; &quot;FIPS_10_&quot;   &quot;ISO_A2&quot;    
+## [41] &quot;ISO_A3&quot;     &quot;ISO_A3_EH&quot;  &quot;ISO_N3&quot;     &quot;UN_A3&quot;      &quot;WB_A2&quot;     
+## [46] &quot;WB_A3&quot;      &quot;WOE_ID&quot;     &quot;WOE_ID_EH&quot;  &quot;WOE_NOTE&quot;   &quot;ADM0_A3_IS&quot;
+## [51] &quot;ADM0_A3_US&quot; &quot;CONTINENT&quot;  &quot;REGION_UN&quot;  &quot;SUBREGION&quot;  &quot;REGION_WB&quot; 
+## [56] &quot;NAME_LEN&quot;   &quot;LONG_LEN&quot;   &quot;ABBREV_LEN&quot; &quot;TINY&quot;       &quot;HOMEPART&quot;  
+## [61] &quot;MIN_ZOOM&quot;   &quot;MIN_LABEL&quot;  &quot;MAX_LABEL&quot;  &quot;NE_ID&quot;      &quot;WIKIDATAID&quot;
+## [66] &quot;NAME_AR&quot;    &quot;NAME_BN&quot;    &quot;NAME_DE&quot;    &quot;NAME_EN&quot;    &quot;NAME_ES&quot;   
+## [71] &quot;NAME_FR&quot;    &quot;NAME_EL&quot;    &quot;NAME_HI&quot;    &quot;NAME_HU&quot;    &quot;NAME_ID&quot;   
+## [76] &quot;NAME_IT&quot;    &quot;NAME_JA&quot;    &quot;NAME_KO&quot;    &quot;NAME_NL&quot;    &quot;NAME_PL&quot;   
+## [81] &quot;NAME_PT&quot;    &quot;NAME_RU&quot;    &quot;NAME_SV&quot;    &quot;NAME_TR&quot;    &quot;NAME_VI&quot;   
+## [86] &quot;NAME_ZH&quot;    &quot;geometry&quot;</code></pre>
+<p>Each of its rows is a country, so we plot a world map by plotting each of the countries. Let’s see how can we plot a world map with ggplot:</p>
+<pre class="r"><code>ggplot(WorldMap1_110) + 
+  geom_sf() +
+  theme_void()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="100%" /></p>
+<p>We can plot a subset of countries by filtering rows. Here I am plotting a map of Spain, using a map with higher resolution that includes Balearic and Canary islands.</p>
+<pre class="r"><code>WorldMap1_10 %&gt;%
+  filter(ISO_A3 == &quot;ESP&quot;) %&gt;%
+ggplot + 
+  geom_sf() +
+  theme_void()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="60%" style="display: block; margin: auto;" /></p>
+</div>
+<div id="a-colored-world-map" class="section level1">
+<h1>A colored world map</h1>
+<p>Let’s do a more colourful version of the world map. We need to:</p>
+<ul>
+<li>Put the background of the map in pale blue. We do that in <code>theme</code> with the parameter <code>panel.background</code>.</li>
+<li>Assign a color to each country. We can use for that the <code>MAPCOLOR7</code> variable, turning it into a factor. I have also removed the legend of the variable in <code>theme</code>.</li>
+</ul>
+<p>For a better aesthetic, I have chosen a <strong>qualitative Brewer palette</strong>, added with <code>scale_fill_brewer</code>.</p>
+<pre class="r"><code>WorldMap1_110 %&gt;%
+  mutate(map_color = as.factor(MAPCOLOR7)) %&gt;%
+  ggplot + 
+  geom_sf(aes(fill= map_color)) +
+  theme_void() +
+  scale_fill_brewer(palette = &quot;Set1&quot;) +
+  theme(panel.background = element_rect(fill = &quot;#CCE5FF&quot;),
+        legend.position = &quot;none&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="100%" /></p>
+</div>
+<div id="a-choropleth-world-map" class="section level1">
+<h1>A choropleth world map</h1>
+<p>A <strong>choropleth map</strong> is the representation of a statistical variable in a set of geographical regions, using a color or pattern representing the value of the variable.</p>
+<p>The colors of the regions are selected among the values of a <strong>sequential palette</strong> of colors. The most frequently used are the Brewer palettes.</p>
+<p>To make a choropleth map we need:</p>
+<ul>
+<li>To transform the statistical variable into a factor with a significant number of areas for each level of the variable.</li>
+<li>To assign a value of the statistical variable to each region of the map.</li>
+<li>Select an adequate sequential palette of colors to represent the categorical variable.</li>
+</ul>
+<p>I will use the GDP per capita from <code>WB_gpd_per_capita</code> in <code>BAdatasetsSpatial</code>, selecting the values of 2019. I am using the <code>cut</code> function to obtain a factor resulting of dividing <code>value</code> into <code>breaks = 12</code>.</p>
+<pre class="r"><code>gdp &lt;- WB_gdp_per_capita %&gt;%
+  filter(year == 2019) %&gt;%
+  mutate(gdp = cut(value, breaks = 12))</code></pre>
+<p>Let’s examine how many countries fall into each category:</p>
+<pre class="r"><code>gdp %&gt;%
+  group_by(gdp) %&gt;%
+  summarise(n = n(), .groups = &quot;drop&quot;)</code></pre>
+<pre><code>## # A tibble: 11 × 2
+##    gdp                     n
+##    &lt;fct&gt;               &lt;int&gt;
+##  1 (656,1.15e+04]         94
+##  2 (1.15e+04,2.22e+04]    60
+##  3 (2.22e+04,3.3e+04]     23
+##  4 (3.3e+04,4.37e+04]     17
+##  5 (4.37e+04,5.44e+04]    18
+##  6 (5.44e+04,6.51e+04]    10
+##  7 (6.51e+04,7.58e+04]     4
+##  8 (7.58e+04,8.66e+04]     1
+##  9 (8.66e+04,9.73e+04]     2
+## 10 (9.73e+04,1.08e+05]     1
+## 11 (1.19e+05,1.3e+05]      2</code></pre>
+<p>The upper values have few countries. They may not be seen in a map and twelve categories are too much to be interpreted by the user. It makes sense to aggregate the richest countries into one category. We can do that with the <code>fct_lump</code> function of the <code>forcats</code> package.</p>
+<pre class="r"><code>gdp &lt;- gdp %&gt;%
+  mutate(gdp = fct_lump(gdp, 5))</code></pre>
+<p>Now the number of countries in each of the six categories looks more balanced.</p>
+<pre class="r"><code>gdp %&gt;%
+  group_by(gdp) %&gt;%
+  summarise(n = n(), .groups = &quot;drop&quot;)</code></pre>
+<pre><code>## # A tibble: 6 × 2
+##   gdp                     n
+##   &lt;fct&gt;               &lt;int&gt;
+## 1 (656,1.15e+04]         94
+## 2 (1.15e+04,2.22e+04]    60
+## 3 (2.22e+04,3.3e+04]     23
+## 4 (3.3e+04,4.37e+04]     17
+## 5 (4.37e+04,5.44e+04]    18
+## 6 Other                  20</code></pre>
+<p>Now we need to add the values of <code>gdp</code> to the map. We can do that because a map in R is a data frame. The way to do that is to perform a <code>left_join</code>, because we don’t want that rows of the map dataframe disappear after the merge. The merging variables are <code>ISO_A3</code> from the map and <code>country_code</code> from <code>gdp</code>. They contain ISO 3166-1 alpha-3 country codes. It is safer to use these codes than the name of the country, which is not standardized.</p>
+<pre class="r"><code>WorldMap1_110 &lt;- left_join(WorldMap1_110, gdp, by = c(&quot;ISO_A3&quot; = &quot;country_code&quot;))</code></pre>
+<p>Some remarks about the map:</p>
+<ul>
+<li>I have colored each country according to its GDP per capita level doing <code>geom_sf(aes(fill = gdp))</code>.</li>
+<li>I have selected a sequential Brewer palette, ranging from yellow to green: the greener the country, the richer it is. In the <code>scale_fill_brewer</code> function, I have used <code>name</code> and <code>labels</code> to custom the legend.</li>
+<li>In the plot <code>theme</code>, I have put the sea in blue, and set the legend to the bottom to plot a wider map.</li>
+</ul>
+<pre class="r"><code>WorldMap1_110 %&gt;%
+  ggplot +
+  geom_sf(aes(fill = gdp)) +
+  scale_fill_brewer(name = &quot;GDP per capita&quot;, labels = c(&quot;&lt;= 11.500&quot;, &quot;&lt;= 22.200&quot;, &quot;&lt;= 33.000&quot;, &quot;&lt;= 43.700&quot;, &quot;&lt;= 54.400&quot;, &quot;&gt; 54.000&quot;), palette = &quot;YlGn&quot;, na.value = &quot;#FF6666&quot;) +
+  theme_void() +
+  theme(panel.background = element_rect(fill = &quot;#CCE5FF&quot;),
+        legend.position = &quot;bottom&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-14-1.png" width="100%" /></p>
+<p>From the map we learn that most of the poorest countries are located in Africa, while the richest are mainly in North America, Europe and Oceania.</p>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Sallan, J. M. BAdatasetsSpatial package <a href="https://github.com/jmsallan/BAdatasetsSpatial" class="uri">https://github.com/jmsallan/BAdatasetsSpatial</a> Accessed on 7 November 2021.</li>
+<li>Sallan, J. M. (2021). <em>The Brewer palettes</em> <a href="https://jmsallan.netlify.app/blog/the-brewer-palettes/" class="uri">https://jmsallan.netlify.app/blog/the-brewer-palettes/</a></li>
+<li>Wickham, H. et al. <em>Mutating joins</em> <a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="uri">https://dplyr.tidyverse.org/reference/mutate-joins.html</a> Accessed on 7 November 2021.</li>
+</ul>
+<p><em>Built with R 4.1.2, BAdatasetsSpatial 0.1.0, sf 1.0-2 and tidyverse 1.3.1</em></p>
+</div>
+</div>
