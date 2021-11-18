@@ -1,0 +1,165 @@
+---
+title: Moderated multiple regression in R
+author: Jose M Sallan
+date: '2021-11-18'
+slug: moderated-multiple-regression-in-r
+categories:
+  - R
+  - statistics
+tags:
+  - dplyr
+  - ggplot
+  - linear regression
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+library(tidyverse)
+```
+
+In this post, I will introduce the moderation relationship in linear regression. After defining moderation, I am presenting two examples with a categorical and continuous moderating variables, respectively. I am taking advantage of the possiblities of the tidyverse to plot interactions with ggplot, and to define a function to compute simple slopes using dplyr programmatically. Finally, I brielfy introduce the interactions package to visualize interactions in linear regression.
+
+A **moderator** $z$ is a variable that affects the direction and/or strength of the relationship between an independent variable $x$ and a dependent variable $y$. We often express this relationship in terms of **interaction** between $x$ and $z$ respect to its relationship with $y$. In van Vegchel et al. (2005) we can find several possible modelisations of variable interaction.
+
+The most common modelisation of moderation is to assume a linear evolution of the influence of the moderating variable. This linear interaction occurs when the regression coefficient of the product of dependent and moderator is significant.
+
+\begin{align}
+y &= \beta_0 + \left( \beta_1 + \beta_2z \right) + \varepsilon \\
+y &= \beta_0 + \beta_1x + \beta_2xz + \varepsilon
+\end{align}
+
+The most common way of estimating a linear moderation effect is through **moderated multiple regression** (Aguinis & Gottfredson, 2010):
+
+\begin{align}
+y &= \beta_0 + \beta_1x + \beta_2z + \beta_3xz + \varepsilon
+\end{align}
+
+To confirm the existence of a moderating variable, we need to check if the regression coefficient of the product (interaction) term $\beta_3$ is significant. Note that in this model the distinction between dependent and moderating variable is theoretical, as ariables $x$ and $z$ are treated similarly.
+
+The moderated multiple regression model can be called from R using a formula like `y ~ x * z` in the `lm` function call. This syntax generates regression variables `x`, `z` and `x:z`, the later representing the interaction term. If we wanted to enter the interaction term alone, we just specify a formula like `y ~ x:z`.
+
+The workflow of the moderation analysis is slightly different depending if the moderator is categorical or continuous. Let's examine an example of each.
+
+## Categorical moderator
+
+We will use the `mtcars` dataset, that includes fuel consumption and 10 aspects of automobile design and performance for 32 automobiles (1973–74 models). My hypothesis is that the influence of weight `wt` on fuel consumption `mpg` in miles per gallon is moderated by the categorical variable type of transmission `am` (0 = automatic, 1 = manual).
+
+Let's build the moderated multiple regression model:
+
+```{r}
+mt_model <- lm(mpg ~ wt * am, mtcars)
+```
+
+Let's examine the summary of `mt_model`:
+
+```{r}
+summary(mt_model)
+```
+
+The interaction term `wt:am` is significant, so we can assert that `am` moderates the relationship between `wt` and `mpg`. I have chosen `am` as moderator instead of `wt` on theoretical grounds alone, as the moderated multiple regression model treats both variables equally.
+
+To observe how the interaction works, we can examine the effect of `wt` on `mpg` for the two values of `am` using ggplot:
+
+```{r, fig.align='center', out.width='70%'}
+ggplot(mtcars, aes(wt, mpg, color = factor(am))) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_manual(name = "transmission", labels = c("automatic", "manual"), values = c("#FF6666", "#6666FF")) +
+  theme_classic()
+```
+
+This plot allows us to see how it is the relationship between dependent and independent variables for each value of the categorical moderator. Fuel consumption always increases with weight, but this increase is higher for cars with manual transmission than for cars with automatic transmission. We learn this because the slope for manual transmission is steeper than for automatic transmission.
+
+## Continuous moderator
+
+To examine how to deal with a continuous moderator, we will use the `depress` dataset, obtained from Zhang and Wang (2016-2020):
+
+```{r}
+depress <- read.csv("depress.csv")
+head(depress)
+```
+
+The theoretical guess made by authors is that the influence of `stress` on depression `depress` is moderated by social `support`. Let's examine the results of the moderated multiple regression model.
+
+```{r}
+depress_model <- lm(depress ~ support * stress, depress)
+summary(depress_model)
+```
+
+We observe that the interaction term `support:stress` is significant. To know how is the effect of the moderator on the relationship between the dependent and independent variables, we use **simple slopes** plots. These plots present the relationship between dependent and independent variable for three subsets of data:
+
+* Observations with **high** values of the moderator $z > \bar{z} + s_z$.
+* Observations with **low** values of the moderator $z < \bar{z} - s_z$.
+* The rest of **medium** values of the moderator.
+
+I have defined a `simple_slopes` function, taking as inputs the dataset and character strings with the names of dependent, independent and moderator variables.
+
+```{r}
+simple_slopes <- function(data, dependent, independent, moderator){
+  
+  dataset <- data %>% select(.data[[dependent]], .data[[independent]], .data[[moderator]])
+  names(dataset) <- c("dep", "ind", "mod")
+  
+  sd_mod <- sd(dataset$mod)
+  mean_mod <- mean(dataset$mod)
+  
+  dataset <- dataset %>%
+    mutate(level_mod = case_when(mod < mean_mod - sd_mod ~ "low",
+                                mod > mean_mod + sd_mod ~ "high",
+                                TRUE ~ "medium")) %>%
+    mutate(level_mod = factor(level_mod, levels = c("high", "medium", "low")))
+  
+  plot <- ggplot(dataset, aes(ind, dep, color = level_mod)) +
+    geom_point() +
+    geom_smooth(method = "lm", se = FALSE) +
+    scale_color_manual(name = moderator, values = c("#336600", "#66CC00", "#B2FF66")) +
+    labs(x = independent, y = dependent) + 
+    theme_bw()
+  
+  return(plot)
+  
+}
+```
+
+The result of applying the function to the dataset is:
+
+```{r, fig.align='center', out.width='70%'}
+simple_slopes(depress, "depress", "stress", "support")
+```
+
+The simple slopes plot tells us a complex moderating relationship. For high values of support, the relationship between stress and depression is negative, while the relationship is positive for low values of social support.
+
+## The interactions package
+
+Instead of the function above, we can use the `interactions` package (Long, 2021).
+
+```{r}
+library(interactions)
+```
+
+The function `interact_plot` produces simple slopes plots by specifying the model and the names of the dependent and moderating variables:
+
+```{r, fig.align='center', out.width='70%'}
+interact_plot(depress_model, "stress", "support", plot.points = TRUE)
+```
+
+The package also works with categorical moderators:
+
+```{r, fig.align='center', out.width='70%'}
+interact_plot(mt_model, wt, am, plot.points = TRUE)
+```
+
+In Long (2021) can be found other functionalities of this package, designed to visualize interactions between variables in linear regression.
+
+## References
+
+* Aguinis, H., & Gottfredson, R. K. (2010). Best-practice recommendations for estimating interaction effects using moderated multiple regression. *Journal of Organizational Behavior*, 31(6), 776–786. <https://doi.org/10.1002/job.686>
+* Baron, R. M., & Kenny, D. A. (1986). The moderator-mediator variable distinction in social psychological research: conceptual, strategic, and statistical considerations. *Journal of Personality and Social Psychology*, 51(6), 1173–1182. Retrieved from <http://www.ncbi.nlm.nih.gov/pubmed/3806354>
+* Long, J. (2021). *Exploring interactions with continuous predictors in regression models.* <https://cran.r-project.org/web/packages/interactions/vignettes/interactions.html>
+* *Programming with dplyr* <https://cran.r-project.org/web/packages/dplyr/vignettes/programming.html>
+* van Vegchel, N., de Jonge, J., & Landsbergis, P. a. (2005). Occupational stress in (inter)action: the interplay between job demands and job resources. *Journal of Organizational Behavior*, 26(5), 535–560. <https://doi.org/10.1002/job.327>
+* Zhang, Z. & Lijuan Wang, L. (2016-2020). *Moderation analysis*, in *Advanced ataistics using R*. <https://advstats.psychstat.org/book/moderation/index.php>
+
+*Built with R 4.1.2, interactions 1.1.5 and tidyverse 1.3.1*
