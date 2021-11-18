@@ -65,7 +65,7 @@ y &amp;= \beta_0 + \beta_1x + \beta_2z + \beta_3xz + \varepsilon
   geom_smooth(method = &quot;lm&quot;, se = FALSE) +
   scale_color_manual(name = &quot;transmission&quot;, labels = c(&quot;automatic&quot;, &quot;manual&quot;), values = c(&quot;#FF6666&quot;, &quot;#6666FF&quot;)) +
   theme_classic()</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="70%" style="display: block; margin: auto;" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="100%" style="display: block; margin: auto;" /></p>
 <p>This plot allows us to see how it is the relationship between dependent and independent variables for each value of the categorical moderator. Fuel consumption always increases with weight, but this increase is higher for cars with manual transmission than for cars with automatic transmission. We learn this because the slope for manual transmission is steeper than for automatic transmission.</p>
 </div>
 <div id="continuous-moderator" class="section level2">
@@ -136,7 +136,7 @@ summary(depress_model)</code></pre>
 }</code></pre>
 <p>The result of applying the function to the dataset is:</p>
 <pre class="r"><code>simple_slopes(depress, &quot;depress&quot;, &quot;stress&quot;, &quot;support&quot;)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="70%" style="display: block; margin: auto;" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="100%" style="display: block; margin: auto;" /></p>
 <p>The simple slopes plot tells us a complex moderating relationship. For high values of support, the relationship between stress and depression is negative, while the relationship is positive for low values of social support.</p>
 </div>
 <div id="the-interactions-package" class="section level2">
@@ -145,10 +145,10 @@ summary(depress_model)</code></pre>
 <pre class="r"><code>library(interactions)</code></pre>
 <p>The function <code>interact_plot</code> produces simple slopes plots by specifying the model and the names of the dependent and moderating variables:</p>
 <pre class="r"><code>interact_plot(depress_model, &quot;stress&quot;, &quot;support&quot;, plot.points = TRUE)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="70%" style="display: block; margin: auto;" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="100%" style="display: block; margin: auto;" /></p>
 <p>The package also works with categorical moderators:</p>
 <pre class="r"><code>interact_plot(mt_model, wt, am, plot.points = TRUE)</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="70%" style="display: block; margin: auto;" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="100%" style="display: block; margin: auto;" /></p>
 <p>In Long (2021) can be found other functionalities of this package, designed to visualize interactions between variables in linear regression.</p>
 </div>
 <div id="references" class="section level2">

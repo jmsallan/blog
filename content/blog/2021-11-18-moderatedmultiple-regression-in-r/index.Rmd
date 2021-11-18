@@ -62,7 +62,7 @@ The interaction term `wt:am` is significant, so we can assert that `am` moderate
 
 To observe how the interaction works, we can examine the effect of `wt` on `mpg` for the two values of `am` using ggplot:
 
-```{r, fig.align='center', out.width='70%'}
+```{r, fig.align='center', out.width='100%'}
 ggplot(mtcars, aes(wt, mpg, color = factor(am))) +
   geom_point() +
   geom_smooth(method = "lm", se = FALSE) +
@@ -125,7 +125,7 @@ simple_slopes <- function(data, dependent, independent, moderator){
 
 The result of applying the function to the dataset is:
 
-```{r, fig.align='center', out.width='70%'}
+```{r, fig.align='center', out.width='100%'}
 simple_slopes(depress, "depress", "stress", "support")
 ```
 
@@ -141,13 +141,13 @@ library(interactions)
 
 The function `interact_plot` produces simple slopes plots by specifying the model and the names of the dependent and moderating variables:
 
-```{r, fig.align='center', out.width='70%'}
+```{r, fig.align='center', out.width='100%'}
 interact_plot(depress_model, "stress", "support", plot.points = TRUE)
 ```
 
 The package also works with categorical moderators:
 
-```{r, fig.align='center', out.width='70%'}
+```{r, fig.align='center', out.width='100%'}
 interact_plot(mt_model, wt, am, plot.points = TRUE)
 ```
 
