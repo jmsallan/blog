@@ -1,0 +1,310 @@
+---
+title: Plotting US airline airport networks
+author: Jose M Sallan
+date: '2021-11-29'
+slug: plotting-us-airline-airport-networks
+categories:
+  - R
+tags:
+  - maps
+  - tidygraph
+  - air transport
+  - complex networks
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>In this post, I intend to examine some airport networks operating in the United States using the information of the <code>USairports</code> graph delivered in the <code>igraphdata</code> package. It is an opportunity to introduce how to work with graphs using <code>tidygraph</code>, and to use <code>ggraph</code> to plot graphs with <code>ggplot2</code>. I will pick maps with <code>BAdatasetsSpatial</code>, that loads the <code>sf</code> package. For additional data manipulation, I need the <code>dplyr</code> and <code>stringr</code> packages.</p>
+<pre class="r"><code>library(dplyr)
+library(stringr)
+library(igraphdata)
+library(BAdatasetsSpatial)
+library(ggraph)
+library(tidygraph)</code></pre>
+<p><code>USairports</code> is the network of passenger flights between airports in the United States, based on flights in 2010 December. To visualize node and edge attributes in a tidy way, we create a <code>tidygraph</code> object with <code>as_tbl_graph</code></p>
+<pre class="r"><code>data(&quot;USairports&quot;) 
+US_airports &lt;- as_tbl_graph(USairports)
+US_airports</code></pre>
+<pre><code>## # A tbl_graph: 755 nodes and 23473 edges
+## #
+## # A directed multigraph with 6 components
+## #
+## # Node Data: 755 × 3 (active)
+##   name  City          Position        
+##   &lt;chr&gt; &lt;chr&gt;         &lt;chr&gt;           
+## 1 BGR   Bangor, ME    N444827 W0684941
+## 2 BOS   Boston, MA    N422152 W0710019
+## 3 ANC   Anchorage, AK N611028 W1495947
+## 4 JFK   New York, NY  N403823 W0734644
+## 5 LAS   Las Vegas, NV N360449 W1150908
+## 6 MIA   Miami, FL     N254736 W0801726
+## # … with 749 more rows
+## #
+## # Edge Data: 23,473 × 8
+##    from    to Carrier             Departures Seats Passengers Aircraft Distance
+##   &lt;int&gt; &lt;int&gt; &lt;chr&gt;                    &lt;dbl&gt; &lt;dbl&gt;      &lt;dbl&gt;    &lt;int&gt;    &lt;dbl&gt;
+## 1     1     4 British Airways Plc          1   226        193      627      382
+## 2     1     4 British Airways Plc          1   299        253      819      382
+## 3     2     7 British Airways Plc          1   216        141      627      200
+## # … with 23,470 more rows</code></pre>
+<p><code>US_airports</code> contains two tables containing node and edge attributes. The dataset contains number of passengers for each airline or carrier, so we could obtain a graph for each <code>Carrier</code>, being an <strong>airline airport network</strong>. The nodes of an airline airport network are the airports served by the airline, which are connected by a node if there is at least one flight connecting them. Defined in this way, airline airport networks are directed and unweighted, although it is a reasonable simplification to consider them undirected if the time window considered is large enough.</p>
+<p>Let’s order carriers by number of flights We can do that because <code>tidygraph</code> allows us to access to node and edge attributes in a tidy way. We access the table of edges with <code>activate(edges)</code>. To do grouping and summarizing we need to access the table of edges directly using <code>as_tibble</code>.</p>
+<pre class="r"><code>US_airports %&gt;%
+  activate(edges) %&gt;%
+  as_tibble() %&gt;% #we need this to summarise
+  group_by(Carrier) %&gt;%
+  summarise(flights = n(), .groups = &quot;drop&quot;) %&gt;%
+  arrange(-flights)</code></pre>
+<pre><code>## # A tibble: 118 × 2
+##    Carrier                      flights
+##    &lt;chr&gt;                          &lt;int&gt;
+##  1 Delta Air Lines Inc.            2593
+##  2 Southwest Airlines Co.          2253
+##  3 SkyWest Airlines Inc.           1181
+##  4 Hageland Aviation Service       1046
+##  5 United Air Lines Inc.            965
+##  6 US Airways Inc.                  906
+##  7 Comair Inc.                      884
+##  8 Continental Air Lines Inc.       845
+##  9 American Eagle Airlines Inc.     765
+## 10 American Airlines Inc.           701
+## # … with 108 more rows</code></pre>
+<p>We find Delta and Southwest in the first place, followed by the unexpected SkyWest and Hageland Aviation Service. These are regional airlines, the later covering routes between Alaskan airports.</p>
+<p>Let’s rank airlines by number of passengers.</p>
+<pre class="r"><code>US_airports %&gt;%
+  activate(edges) %&gt;%
+  as_tibble() %&gt;% #we need this to summarise
+  group_by(Carrier) %&gt;%
+  summarise(passengers = sum(Passengers), .groups = &quot;drop&quot;) %&gt;%
+  arrange(-passengers)</code></pre>
+<pre><code>## # A tibble: 118 × 2
+##    Carrier                     passengers
+##    &lt;chr&gt;                            &lt;dbl&gt;
+##  1 Southwest Airlines Co.         9707625
+##  2 Delta Air Lines Inc.           7172555
+##  3 American Airlines Inc.         5443753
+##  4 US Airways Inc.                3811869
+##  5 United Air Lines Inc.          3384557
+##  6 Continental Air Lines Inc.     2628803
+##  7 AirTran Airways Corporation    1965722
+##  8 SkyWest Airlines Inc.          1863194
+##  9 JetBlue Airways                1796865
+## 10 Alaska Airlines Inc.           1324029
+## # … with 108 more rows</code></pre>
+<p>Now we find the largest US airlines in the first positions. US Airways was acquired by American Airlines in October 2015.</p>
+<div id="geographical-coordinates" class="section level2">
+<h2>Geographical coordinates</h2>
+<p>To plot airport networks, we need the latitude and longitude of airports. This information is stored in the <code>Position</code> node attribute. Dataset help tells us that this position is presented as “WGS coordinates”. After some research, we can learn that the position is in the latitude/longitude in the form <code>PDDMMSS PDDDMMSS</code> or <code>PDDMMSS PDDMMSS</code>, where P is the position of coordinates (<code>N</code> and <code>S</code> for latitude, <code>E</code> and <code>W</code> for longitude) and <code>DD</code>, <code>MM</code> and <code>SS</code> are the degrees, minutes and seconds, respectively.</p>
+<p>The <code>WGS_latlon</code> function picks this format, and returns latitude and longitude values. Let’s apply it to airport coordenates.</p>
+<pre class="r"><code>WGS_latlon &lt;- function(wgs){
+  
+  m &lt;- str_split_fixed(wgs, &quot; &quot;, n = 2)
+  pos &lt;- str_sub(m, start = 1, end = 1)
+  sign &lt;- ifelse(pos %in% c(&quot;N&quot;, &quot;E&quot;), 1, -1)
+  value &lt;- matrix(str_sub(m, start = 2), ncol = 2)
+  value &lt;- ifelse(nchar(value) == 6, paste0(&quot;0&quot;, value), value)
+  
+  degree &lt;- as.numeric(str_sub(value, start = 1, end = 3))
+  minute &lt;- as.numeric(str_sub(value, start = 4, end = 5))
+  second &lt;- as.numeric(str_sub(value, start = 6, end = 7))
+  
+  dms &lt;- degree + minute/60 + second/3600
+  dms &lt;- dms * sign
+  dms &lt;- matrix(dms, ncol = 2)
+  
+  return(dms)
+}
+
+
+coords &lt;- WGS_latlon (US_airports %&gt;%
+                        activate(nodes) %&gt;%
+                        pull(Position))</code></pre>
+<pre><code>## Warning in WGS_latlon(US_airports %&gt;% activate(nodes) %&gt;% pull(Position)): NAs
+## introducidos por coerción
+
+## Warning in WGS_latlon(US_airports %&gt;% activate(nodes) %&gt;% pull(Position)): NAs
+## introducidos por coerción</code></pre>
+<p>I have obtained a <code>NAs introduced by coercion</code> warning, meaning that probably there are some missing data. Let’s load the function outcome as node attributes first:</p>
+<pre class="r"><code>US_airports &lt;- US_airports %&gt;%
+  activate(nodes) %&gt;%
+  mutate(lat = coords[ , 1],
+         lon = coords[, 2])</code></pre>
+<p>Now we can examine the missing data:</p>
+<pre class="r"><code>US_airports %&gt;%
+  activate(nodes) %&gt;%
+  filter(is.na(lat), is.na(lon))</code></pre>
+<pre><code>## # A tbl_graph: 1 nodes and 0 edges
+## #
+## # A rooted tree
+## #
+## # Node Data: 1 × 5 (active)
+##   name  City          Position   lat   lon
+##   &lt;chr&gt; &lt;chr&gt;         &lt;chr&gt;    &lt;dbl&gt; &lt;dbl&gt;
+## 1 KTN   Ketchikan, AK MIAMI       NA    NA
+## #
+## # Edge Data: 0 × 8
+## # … with 8 variables: from &lt;int&gt;, to &lt;int&gt;, Carrier &lt;chr&gt;, Departures &lt;dbl&gt;,
+## #   Seats &lt;dbl&gt;, Passengers &lt;dbl&gt;, Aircraft &lt;int&gt;, Distance &lt;dbl&gt;</code></pre>
+<p><code>KTN</code> happens to be the Ketchikan International Airport. I have retrieved its coordinates from Wikipedia and added them to the dataset:</p>
+<pre class="r"><code>lat_KTN &lt;- 55 + 21/60 + 15/3600
+lon_KTN &lt;- - (131 + 42/60 + 40/3600)
+
+US_airports &lt;- US_airports %&gt;%
+  activate(nodes) %&gt;%
+  mutate(lat = replace(lat, is.na(lat), lat_KTN),
+         lon = replace(lon, is.na(lon), lon_KTN))
+
+US_airports %&gt;%
+  activate(nodes) %&gt;%
+  filter(name == &quot;KTN&quot;)</code></pre>
+<pre><code>## # A tbl_graph: 1 nodes and 0 edges
+## #
+## # A rooted tree
+## #
+## # Node Data: 1 × 5 (active)
+##   name  City          Position   lat   lon
+##   &lt;chr&gt; &lt;chr&gt;         &lt;chr&gt;    &lt;dbl&gt; &lt;dbl&gt;
+## 1 KTN   Ketchikan, AK MIAMI     55.4 -132.
+## #
+## # Edge Data: 0 × 8
+## # … with 8 variables: from &lt;int&gt;, to &lt;int&gt;, Carrier &lt;chr&gt;, Departures &lt;dbl&gt;,
+## #   Seats &lt;dbl&gt;, Passengers &lt;dbl&gt;, Aircraft &lt;int&gt;, Distance &lt;dbl&gt;</code></pre>
+</div>
+<div id="obtaining-airline-airport-networks-networks" class="section level2">
+<h2>Obtaining airline airport networks networks</h2>
+<p>Now I am interested in obtaining the airport networks of selected carriers. The <code>carrier_network</code> function picks the nodes and edges of a carrier to build an airline airport network in the following way:</p>
+<ul>
+<li>Selects the edges associated to a carrier filtering by the value of <code>Carrier</code> in the edge table.</li>
+<li>To obtain airport nodes, it calculates node degree with <code>centrality_degree</code>. Node degree is the sum of edges arriving or departing from the node. So the function retains only nodes with degree different from zero. Finally, the function removes node degree.</li>
+</ul>
+<pre class="r"><code>carrier_network &lt;- function(carrier){
+  g &lt;- US_airports %&gt;%
+          activate(edges) %&gt;%
+          filter(Carrier == carrier) %&gt;%
+          activate(nodes) %&gt;%
+          mutate(deg = centrality_degree()) %&gt;%
+          filter(deg != 0)
+  
+  g &lt;- g %&gt;%
+    activate(nodes) %&gt;%
+    select(-deg)
+  
+  return(g)
+}</code></pre>
+<p>Let’s obtain the airport networks of Southwest Airlines, Delta Air Lines and Hageland Aviation Service:</p>
+<pre class="r"><code>WN_airports &lt;- carrier_network(&quot;Southwest Airlines Co.&quot;)
+DL_airports &lt;- carrier_network(&quot;Delta Air Lines Inc.&quot;)
+H6_airports &lt;- carrier_network(&quot;Hageland Aviation Service&quot;)</code></pre>
+</div>
+<div id="plotting-airline-airport-networks" class="section level2">
+<h2>Plotting airline airport networks</h2>
+<p>The function <code>carrier_graph</code> plots the graph of an airport network obtained from <code>US_airports</code>. It uses <code>ggraph</code> to plot the network, using as layout (position of nodes) the latitude and longitude of each airport. Airline airport networks can be considered spatial networks, so I have overlaid a map with <code>geom_sf</code>. The fill of the map needs a value of <code>alpha</code> transparency smaller than one to see the network over the map. Node size is proportional to betweenness, so hub airports are presented with dots of larger size. The <code>alaska</code> logical variable allows focusing the map on Alaska, and <code>us</code> on mainland of the United States.</p>
+<pre class="r"><code>carrier_graph &lt;- function(carrier_network, us = TRUE, alaska = TRUE){
+  
+  carrier_network &lt;- carrier_network %&gt;%
+    activate(nodes) %&gt;%
+    mutate(btw = centrality_betweenness())
+  
+  #finding map
+  us_map &lt;- WorldMap1_10
+  
+  #position of airports
+  layout &lt;- as.matrix(carrier_network %&gt;%
+                        activate(nodes) %&gt;%
+                        as_tibble() %&gt;%
+                        select(lon, lat), byrow = TRUE)
+  
+  #finding hubs
+  
+  plot &lt;- ggraph(carrier_network, layout = layout) +
+    geom_edge_link(width = 0.1) +
+    geom_node_point(color = &quot;#CC0000&quot;, aes(size = btw)) +
+    geom_sf(data = us_map, alpha = 0.25, fill = &quot;#994C00&quot;) +
+    # theme_void() +
+    theme(panel.background = element_rect(fill = &quot;#CCE5FF&quot;), 
+          legend.position = &quot;none&quot;)
+  
+  if(alaska == TRUE &amp; us == FALSE){
+    plot &lt;- plot +
+      coord_sf(xlim = c(-180, -125), ylim = c(50, 71))
+  }
+  
+  if(alaska == TRUE &amp; us == TRUE){
+    plot &lt;- plot +
+      coord_sf(xlim = c(-180, -62), ylim = c(17 , 71))
+  }
+  
+  if(alaska == FALSE &amp; us == TRUE){
+    plot &lt;- plot +
+      coord_sf(xlim = c(-130, -62), ylim = c(25, 50))
+  }
+  
+  return(plot)
+}</code></pre>
+<p>Let’s apply the carrier_graph function to each of the airlines.</p>
+<pre class="r"><code>carrier_graph(WN_airports, alaska = FALSE)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-12-1.png" width="100%" /></p>
+<p>Southwest Airlines network is dense, with many airports with a similar value of betweenness. This is typical of a <strong>point-to-point</strong> route network. This route network is typical of <strong>low cost carriers</strong>.</p>
+<pre class="r"><code>carrier_graph(DL_airports)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-13-1.png" width="100%" /></p>
+<p>The graph of Delta Air Lines is very dense, covering a large range of airports. The difference of size between nodes is large, meaning that the operations of the airline are centered in their hubs, which are the Atlanta <code>ATL</code> and Minneapolis <code>MSP</code> airports. Delta Airlines is adopting a <strong>hub-and-spoke</strong> route network, with several hubs for domestic US flights. This network is typical of <strong>full service carriers</strong>.</p>
+<pre class="r"><code>carrier_graph(H6_airports, us = FALSE)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-14-1.png" width="100%" /></p>
+<p>Hageland Aviation Services was a regional Alaskan airline, covering mainly Alaskan routes, which ceased operations in 2019. The Alaskan airport network is quite dense, as many towns have no roads leading to them, and are only accessible by airplane or by ship, as they have no roads connecting them to the rest of America. This <strong>regional airline</strong> had no large hub, so it has a <strong>point to point</strong> route network.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Lordan, O., Sallan, J. M., Escorihuela, N., &amp; Gonzalez-Prieto, D. (2016). Robustness of airline route networks. <em>Physica A: Statistical Mechanics and its Applications</em>, 445, 18-26. <a href="https://doi.org/10.1016/j.physa.2015.10.053" class="uri">https://doi.org/10.1016/j.physa.2015.10.053</a></li>
+<li>Pedersen, T. L. (2017). <em>Introducing tidygraph.</em> <a href="https://www.data-imaginist.com/2017/introducing-tidygraph/" class="uri">https://www.data-imaginist.com/2017/introducing-tidygraph/</a></li>
+<li>Wikipedia. <em>Ketchikan International Airport</em> <a href="https://en.wikipedia.org/wiki/Ketchikan_International_Airport" class="uri">https://en.wikipedia.org/wiki/Ketchikan_International_Airport</a>. Accessed 2021-11-28.</li>
+<li>Wikipedia. <em>List of airports in Alaska.</em> <a href="https://en.wikipedia.org/wiki/List_of_airports_in_Alaska" class="uri">https://en.wikipedia.org/wiki/List_of_airports_in_Alaska</a>. Accessed 2021-11-28.</li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre><code>## R version 4.1.2 (2021-11-01)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Debian GNU/Linux 10 (buster)
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.8.0
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.8.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] tidygraph_1.2.0         ggraph_2.0.5            ggplot2_3.3.5          
+## [4] BAdatasetsSpatial_0.1.0 sf_1.0-2                igraphdata_1.0.1       
+## [7] stringr_1.4.0           dplyr_1.0.7            
+## 
+## loaded via a namespace (and not attached):
+##  [1] tidyselect_1.1.1   xfun_0.23          bslib_0.2.5.1      graphlayouts_0.7.2
+##  [5] purrr_0.3.4        colorspace_2.0-1   vctrs_0.3.8        generics_0.1.0    
+##  [9] viridisLite_0.4.0  htmltools_0.5.1.1  s2_1.0.6           yaml_2.2.1        
+## [13] utf8_1.2.1         rlang_0.4.12       e1071_1.7-8        jquerylib_0.1.4   
+## [17] pillar_1.6.4       glue_1.4.2         withr_2.4.2        DBI_1.1.1         
+## [21] tweenr_1.0.2       wk_0.5.0           lifecycle_1.0.0    munsell_0.5.0     
+## [25] blogdown_1.5       gtable_0.3.0       evaluate_0.14      knitr_1.33        
+## [29] class_7.3-19       fansi_0.5.0        highr_0.9          Rcpp_1.0.6        
+## [33] KernSmooth_2.23-20 scales_1.1.1       classInt_0.4-3     jsonlite_1.7.2    
+## [37] farver_2.1.0       gridExtra_2.3      ggforce_0.3.3      digest_0.6.27     
+## [41] stringi_1.7.3      ggrepel_0.9.1      bookdown_0.24      polyclip_1.10-0   
+## [45] grid_4.1.2         cli_3.0.1          tools_4.1.2        magrittr_2.0.1    
+## [49] sass_0.4.0         proxy_0.4-26       tibble_3.1.5       crayon_1.4.1      
+## [53] tidyr_1.1.4        pkgconfig_2.0.3    ellipsis_0.3.2     MASS_7.3-54       
+## [57] rstudioapi_0.13    viridis_0.6.1      assertthat_0.2.1   rmarkdown_2.9     
+## [61] R6_2.5.0           units_0.7-2        igraph_1.2.6       compiler_4.1.2</code></pre>
+</div>

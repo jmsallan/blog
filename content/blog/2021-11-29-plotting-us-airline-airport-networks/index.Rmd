@@ -1,0 +1,248 @@
+---
+title: Plotting US airline airport networks
+author: Jose M Sallan
+date: '2021-11-29'
+slug: plotting-us-airline-airport-networks
+categories:
+  - R
+tags:
+  - maps
+  - tidygraph
+  - air transport
+  - complex networks
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post, I intend to examine some airport networks operating in the United States using the information of the `USairports` graph delivered in the `igraphdata` package. It is an opportunity to introduce how to work with graphs using `tidygraph`, and to use `ggraph` to plot graphs with `ggplot2`. I will pick maps with `BAdatasetsSpatial`, that loads the `sf` package. For additional data manipulation, I need the `dplyr` and `stringr` packages.
+
+```{r}
+library(dplyr)
+library(stringr)
+library(igraphdata)
+library(BAdatasetsSpatial)
+library(ggraph)
+library(tidygraph)
+```
+
+`USairports` is the network of passenger flights between airports in the United States, based on flights in 2010 December. To visualize node and edge attributes in a tidy way, we create a `tidygraph` object with `as_tbl_graph`
+
+```{r}
+data("USairports") 
+US_airports <- as_tbl_graph(USairports)
+US_airports
+```
+
+`US_airports` contains two tables containing node and edge attributes. The dataset contains number of passengers for each airline or carrier, so we could obtain a graph for each `Carrier`, being an **airline airport network**. The nodes of an airline airport network are the airports served by the airline, which are connected by a node if there is at least one flight connecting them. Defined in this way, airline airport networks are directed and unweighted, although it is a reasonable simplification to consider them undirected if the time window considered is large enough.
+
+Let's order carriers by number of flights We can do that because `tidygraph` allows us to access to node and edge attributes in a tidy way. We access the table of edges with `activate(edges)`. To do grouping and summarizing we need to access the table of edges directly using `as_tibble`.
+
+```{r}
+US_airports %>%
+  activate(edges) %>%
+  as_tibble() %>% #we need this to summarise
+  group_by(Carrier) %>%
+  summarise(flights = n(), .groups = "drop") %>%
+  arrange(-flights)
+```
+
+We find Delta and Southwest in the first place, followed by the unexpected SkyWest and Hageland Aviation Service. These are regional airlines, the later covering routes between Alaskan airports.
+
+Let's rank airlines by number of passengers.
+
+```{r}
+US_airports %>%
+  activate(edges) %>%
+  as_tibble() %>% #we need this to summarise
+  group_by(Carrier) %>%
+  summarise(passengers = sum(Passengers), .groups = "drop") %>%
+  arrange(-passengers)
+```
+
+Now we find the largest US airlines in the first positions. US Airways was acquired by American Airlines in October 2015.
+
+## Geographical coordinates
+
+To plot airport networks, we need the latitude and longitude of airports. This information is stored in the `Position` node attribute. Dataset help tells us that this position is presented as "WGS coordinates". After some research, we can learn that the position is in the latitude/longitude in the form `PDDMMSS PDDDMMSS` or `PDDMMSS PDDMMSS`, where P is the position of coordinates (`N` and `S` for latitude, `E` and `W` for longitude) and `DD`, `MM` and `SS` are the degrees, minutes and seconds, respectively.
+
+The `WGS_latlon` function picks this format, and returns latitude and longitude values. Let's apply it to airport coordenates.
+
+```{r}
+WGS_latlon <- function(wgs){
+  
+  m <- str_split_fixed(wgs, " ", n = 2)
+  pos <- str_sub(m, start = 1, end = 1)
+  sign <- ifelse(pos %in% c("N", "E"), 1, -1)
+  value <- matrix(str_sub(m, start = 2), ncol = 2)
+  value <- ifelse(nchar(value) == 6, paste0("0", value), value)
+  
+  degree <- as.numeric(str_sub(value, start = 1, end = 3))
+  minute <- as.numeric(str_sub(value, start = 4, end = 5))
+  second <- as.numeric(str_sub(value, start = 6, end = 7))
+  
+  dms <- degree + minute/60 + second/3600
+  dms <- dms * sign
+  dms <- matrix(dms, ncol = 2)
+  
+  return(dms)
+}
+
+
+coords <- WGS_latlon (US_airports %>%
+                        activate(nodes) %>%
+                        pull(Position))
+```
+
+I have obtained a `NAs introduced by coercion` warning, meaning that probably there are some missing data. Let's load the function outcome as node attributes first:
+
+```{r}
+US_airports <- US_airports %>%
+  activate(nodes) %>%
+  mutate(lat = coords[ , 1],
+         lon = coords[, 2])
+```
+
+Now we can examine the missing data:
+
+```{r}
+US_airports %>%
+  activate(nodes) %>%
+  filter(is.na(lat), is.na(lon))
+```
+
+`KTN` happens to be the Ketchikan International Airport. I have retrieved its coordinates from Wikipedia and added them to the dataset:
+
+```{r}
+lat_KTN <- 55 + 21/60 + 15/3600
+lon_KTN <- - (131 + 42/60 + 40/3600)
+
+US_airports <- US_airports %>%
+  activate(nodes) %>%
+  mutate(lat = replace(lat, is.na(lat), lat_KTN),
+         lon = replace(lon, is.na(lon), lon_KTN))
+
+US_airports %>%
+  activate(nodes) %>%
+  filter(name == "KTN")
+```
+
+## Obtaining airline airport networks networks
+
+Now I am interested in obtaining the airport networks of selected carriers. The `carrier_network` function picks the nodes and edges of a carrier to build an airline airport network in the following way:
+
+* Selects the edges associated to a carrier filtering by the value of `Carrier` in the edge table.
+* To obtain airport nodes, it calculates node degree with `centrality_degree`. Node degree is the sum of edges arriving or departing from the node. So the function retains only nodes with degree different from zero. Finally, the function removes node degree.
+
+```{r}
+carrier_network <- function(carrier){
+  g <- US_airports %>%
+          activate(edges) %>%
+          filter(Carrier == carrier) %>%
+          activate(nodes) %>%
+          mutate(deg = centrality_degree()) %>%
+          filter(deg != 0)
+  
+  g <- g %>%
+    activate(nodes) %>%
+    select(-deg)
+  
+  return(g)
+}
+```
+
+Let's obtain the airport networks of Southwest Airlines, Delta Air Lines and Hageland Aviation Service:
+
+```{r}
+WN_airports <- carrier_network("Southwest Airlines Co.")
+DL_airports <- carrier_network("Delta Air Lines Inc.")
+H6_airports <- carrier_network("Hageland Aviation Service")
+```
+
+## Plotting airline airport networks
+
+The function `carrier_graph` plots the graph of an airport network obtained from `US_airports`. It uses `ggraph` to plot the network, using as layout (position of nodes) the latitude and longitude of each airport. Airline airport networks can be considered spatial networks, so I have overlaid a map with `geom_sf`. The fill of the map needs a value of `alpha` transparency smaller than one to see the network over the map. Node size is proportional to betweenness, so hub airports are presented with dots of larger size. The `alaska` logical variable allows focusing the map on Alaska, and `us` on mainland of the United States.
+
+```{r}
+carrier_graph <- function(carrier_network, us = TRUE, alaska = TRUE){
+  
+  carrier_network <- carrier_network %>%
+    activate(nodes) %>%
+    mutate(btw = centrality_betweenness())
+  
+  #finding map
+  us_map <- WorldMap1_10
+  
+  #position of airports
+  layout <- as.matrix(carrier_network %>%
+                        activate(nodes) %>%
+                        as_tibble() %>%
+                        select(lon, lat), byrow = TRUE)
+  
+  #finding hubs
+  
+  plot <- ggraph(carrier_network, layout = layout) +
+    geom_edge_link(width = 0.1) +
+    geom_node_point(color = "#CC0000", aes(size = btw)) +
+    geom_sf(data = us_map, alpha = 0.25, fill = "#994C00") +
+    # theme_void() +
+    theme(panel.background = element_rect(fill = "#CCE5FF"), 
+          legend.position = "none")
+  
+  if(alaska == TRUE & us == FALSE){
+    plot <- plot +
+      coord_sf(xlim = c(-180, -125), ylim = c(50, 71))
+  }
+  
+  if(alaska == TRUE & us == TRUE){
+    plot <- plot +
+      coord_sf(xlim = c(-180, -62), ylim = c(17 , 71))
+  }
+  
+  if(alaska == FALSE & us == TRUE){
+    plot <- plot +
+      coord_sf(xlim = c(-130, -62), ylim = c(25, 50))
+  }
+  
+  return(plot)
+}
+```
+
+Let's apply the carrier_graph function to each of the airlines.
+
+```{r, out.width='100%'}
+carrier_graph(WN_airports, alaska = FALSE)
+```
+
+Southwest Airlines network is dense, with many airports with a similar value of betweenness. This is typical of a **point-to-point** route network. This route network is typical of **low cost carriers**.
+
+```{r, out.width='100%'}
+carrier_graph(DL_airports)
+```
+
+The graph of Delta Air Lines is very dense, covering a large range of airports. The difference of size between nodes is large, meaning that the operations of the airline are centered in their hubs, which are the Atlanta `ATL` and Minneapolis `MSP` airports. Delta Airlines is adopting a **hub-and-spoke** route network, with several hubs for domestic US flights. This network is typical of **full service carriers**.
+
+
+```{r, out.width='100%'}
+carrier_graph(H6_airports, us = FALSE)
+```
+
+Hageland Aviation Services was a regional Alaskan airline, covering mainly Alaskan routes, which ceased operations in 2019. The Alaskan airport network is quite dense, as many towns have no roads leading to them, and are only accessible by airplane or by ship, as they have no roads connecting them to the rest of America. This **regional airline** had no large hub, so it has a **point to point** route network.
+
+## References 
+
+* Lordan, O., Sallan, J. M., Escorihuela, N., & Gonzalez-Prieto, D. (2016). Robustness of airline route networks. *Physica A: Statistical Mechanics and its Applications*, 445, 18-26. <https://doi.org/10.1016/j.physa.2015.10.053>
+* Pedersen, T. L. (2017). *Introducing tidygraph.* https://www.data-imaginist.com/2017/introducing-tidygraph/
+*  Wikipedia. *Ketchikan International Airport* <https://en.wikipedia.org/wiki/Ketchikan_International_Airport>. Accessed 2021-11-28.
+* Wikipedia. *List of airports in Alaska.* <https://en.wikipedia.org/wiki/List_of_airports_in_Alaska>. Accessed 2021-11-28.
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
