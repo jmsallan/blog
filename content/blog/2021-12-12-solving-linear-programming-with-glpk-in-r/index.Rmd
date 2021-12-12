@@ -1,0 +1,267 @@
+---
+title: Solving linear programming with GLPK in R
+author: Jose M Sallan
+date: '2021-12-12'
+slug: solving-linear-programming-with-glpk-in-r
+categories:
+  - R
+tags:
+  - optimization
+  - linear programming
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(Rglpk)
+```
+
+Linear programming consist of optimizing a linear function subject to a set of linear constraints. If all or some of the decision variables are integer, it is called integer and mixed integer linear programming, respectively. Linear programming is a powerful optimization technique, and the first to consider when tackling combinatorial problems.
+
+In this post, I will show how to solve linear programming in R using the `Rglpk` package. This is a R API for **GLPK**, the **G**NU **L**inear **P**rogramming **K**it. It is an open-source  set of routines written in ANSI C and organized in the form of a callable library.
+
+Let's see how can we solve a linear programming formulation written in CPLEX or MathProg formats. We need two steps for doing this:
+
+* Reading the model from a text file with `Rglpk_read_file`.
+* Solving the model with `Rglpk_solve_LP`. The inputs of `Rglpk_solve_LP` are the outputs of `Rglpk_read_file`.
+
+To make the task easier, I have written a `solve_lp` function that does the following:
+
+* Reads the text file with path `filename`,
+* Reads the text file of `type` `MathProg` or `CPLEX_LP`, and saves the result in the object `lp_model`.
+* Obtains the solution `lp_solution` from the elements of `lp_model`.
+* If the solution is feasible, returns the solution and `success = TRUE`. If not, returns `success = FALSE`. The solution is a list including a named vector `sol`, the value of the objective function `obj` and the `success` variable.
+
+```{r}
+solve_lp <- function(filename, type = "MathProg"){
+  
+  lp_model <- Rglpk_read_file(filename, type = type)
+
+  lp_solution <- Rglpk_solve_LP(obj = lp_model$objective, 
+                              mat = lp_model$constraints[[1]],
+                              dir = lp_model$constraints[[2]],
+                              rhs = lp_model$constraints[[3]],
+                              types = lp_model$types,
+                              bounds = lp_model$bounds,
+                              max = lp_model$maximum)
+  
+  if(lp_solution$status == 0){
+    sol <- lp_solution$solution
+    names(sol) <- attr(lp_model, "objective_vars_names")
+    obj = lp_solution$optimum
+    return(list(sol = sol, obj = obj, success = TRUE))
+  }else
+    return(success = FALSE)
+  
+}
+```
+
+## A model in CPLEX format
+
+Let's define a linear programming `model01` in CPLEX format. The bounds are not really necessary here, but are set to illustrate how to enter them in the model.
+
+```{r}
+model01 <- 
+'Maximize
+  cost: 3x1 + 1x2 + 3x3
+Subject To
+  r1: - x1 + 2x2 + x3 <= 4
+  r2: 4x2 - 3x3 <= 2
+  r3: x1 - 3x2 + 2x3 <= 3
+Bounds
+  0 <= x1 <= 99999
+  0 <= x2 <= 99999
+Integer
+  x1 
+Binaries
+  x3
+End'
+```
+
+Let's obtain the solution using `solve_lp`. Here I am creating the `model.mod` file with `writeLines` and deleting it after use with `unlink`.
+
+```{r}
+writeLines(model01, "model.mod")
+solve_lp("model.mod", type = "CPLEX_LP")
+unlink("model.mod")
+```
+
+## A model in MathProg format
+
+Let's write the same model in `MathProg` format in `model01b`. Variable types and bounds are specified when defining variables.
+
+```{r}
+model01b <- 
+'var x1, >=0, <=99999, integer;
+var x2, >=0, <=99999;
+var x3, binary;
+maximize obj: 3 * x1 + x2 + 3 * x3;
+s.t. r1: - x1 + 2 * x2 + x3 <= 4;
+s.t. r2: 4 * x2 - 3 * x3 <= 2;
+s.t. r3: x1 - 3 * x2 + 2 * x3 <= 3;
+end;'
+```
+
+The solution of this model is:
+
+```{r}
+writeLines(model01b, "model.mod")
+solve_lp("model.mod", type = "MathProg")
+unlink("model.mod")
+```
+
+## A formulation in MathProg
+
+Mathprog allows writing not only linear programs in a similar way as CPLEX, but also formulations of a generic problem that can be applied to different instances. Let's see the (abridged) formulation of the transportation problem:
+
+
+```{r}
+transport <- 'set I;
+/* canning plants */
+
+set J;
+/* markets */
+
+param a{i in I};
+/* capacity of plant i in cases */
+
+param b{j in J};
+/* demand at market j in cases */
+
+param d{i in I, j in J};
+/* distance in thousands of miles */
+
+param f;
+/* freight in dollars per case per thousand miles */
+
+param c{i in I, j in J} := f * d[i,j] / 1000;
+/* transport cost in thousands of dollars per case */
+
+var x{i in I, j in J} >= 0;
+/* shipment quantities in cases */
+
+minimize cost: sum{i in I, j in J} c[i,j] * x[i,j];
+/* total transportation costs in thousands of dollars */
+
+s.t. supply{i in I}: sum{j in J} x[i,j] <= a[i];
+/* observe supply limit at plant i */
+
+s.t. demand{j in J}: sum{i in I} x[i,j] >= b[j];
+/* satisfy demand at market j */
+
+data;
+
+set I := Seattle San-Diego;
+
+set J := New-York Chicago Topeka;
+
+param a := Seattle     350
+           San-Diego   600;
+
+param b := New-York    325
+           Chicago     300
+           Topeka      275;
+
+param d :              New-York   Chicago   Topeka :=
+           Seattle     2.5        1.7       1.8
+           San-Diego   2.5        1.8       1.4  ;
+
+param f := 90;
+
+end;'
+```
+
+The solution for this model is:
+
+```{r}
+writeLines(transport, "model.mod")
+solve_lp("model.mod", type = "MathProg")
+unlink("model.mod")
+```
+
+## Entering model parameters from the R environment
+
+`Rglpk` can be seen as application programming interface (PI) to use GLPK through R. This means that the linear programming is solved using the C libraries of GLPK, returning the solution to the R environment. Instead of a CPLEX or Mathprog input, we can define the inputs for the API as R objects directly. 
+
+Let's do that with the transportation problem of the previous section. I will define a `tp_lp` function for solving the transportation problem entering data from a named list with elements:
+
+* `supply` or maximum capacity at each origin.
+* `demand` from each destination.
+* a `costs` matrix with cost coefficients.
+
+Let's store the parameters of the model built in MathProg format in a named list with this structure:
+
+```{r}
+tp_sample <- list(supply = c(350, 600),
+                  demand = c(325, 300, 275),
+                  costs = matrix(c(2.5, 1.7, 1.8, 2.5, 1.8, 1.4)*90/1000, nrow = 2, ncol = 3, byrow = TRUE))
+```
+
+The function for solving the transportation problem with this input is:
+
+```{r}
+lp_tp <- function(tp){
+  
+  m <- length(tp$supply)
+  n <- length(tp$demand)
+  
+  var_names <- character(n*m)
+  
+  for(i in 1:m)
+    for(j in 1:n)
+      var_names[(i-1)*n + j] <- paste0("x_", i, "_", j)
+  
+  obj <- c(t(tp$costs))
+  rhs <- c(tp$supply, tp$demand)
+  dir <- c(rep("<=", m), rep(">=", n))
+  const <- matrix(0, n+m, n*m)
+  
+  for(i in 1:m){
+    for(j in 1:n){
+      const[i, n*(i-1) + j] <- 1
+      const[m+j, n*(i-1) + j] <- 1
+    }
+  }
+  
+  lp_solution <- Rglpk_solve_LP(obj = obj, 
+                                mat = const,
+                                dir = dir,
+                                rhs = rhs,
+                                max = FALSE)
+  
+  if(lp_solution$status == 0){
+    sol <- lp_solution$solution
+    names(sol) <- var_names
+    obj = lp_solution$optimum
+    return(list(sol = sol, obj = obj, success = TRUE))
+  }else
+    return(success = FALSE)
+  
+}
+```
+
+Let's apply the function to our data, to check if the results is the same as in the previous section:
+
+```{r}
+lp_tp(tp_sample)
+```
+
+The obtained solution is the same as the previous section, but now with generic variable names generated by `tp_lp`.
+
+## Acknowledgements
+
+Thanks to Oriol Lordan for the model.mod trick, and to Vicenc Fernandez for the first example.
+
+## References
+
+* GLPK Wikibook <https://en.wikibooks.org/wiki/GLPK>
+* GLPK (GNU Linear Programming Kit) <https://www.gnu.org/software/glpk/>
+
+
+## Session info
+
+```{r}
+sessionInfo()
+```
+

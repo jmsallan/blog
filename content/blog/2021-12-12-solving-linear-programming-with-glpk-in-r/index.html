@@ -1,0 +1,290 @@
+---
+title: Solving linear programming with GLPK in R
+author: Jose M Sallan
+date: '2021-12-12'
+slug: solving-linear-programming-with-glpk-in-r
+categories:
+  - R
+tags:
+  - optimization
+  - linear programming
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>Linear programming consist of optimizing a linear function subject to a set of linear constraints. If all or some of the decision variables are integer, it is called integer and mixed integer linear programming, respectively. Linear programming is a powerful optimization technique, and the first to consider when tackling combinatorial problems.</p>
+<p>In this post, I will show how to solve linear programming in R using the <code>Rglpk</code> package. This is a R API for <strong>GLPK</strong>, the <strong>G</strong>NU <strong>L</strong>inear <strong>P</strong>rogramming <strong>K</strong>it. It is an open-source set of routines written in ANSI C and organized in the form of a callable library.</p>
+<p>Let’s see how can we solve a linear programming formulation written in CPLEX or MathProg formats. We need two steps for doing this:</p>
+<ul>
+<li>Reading the model from a text file with <code>Rglpk_read_file</code>.</li>
+<li>Solving the model with <code>Rglpk_solve_LP</code>. The inputs of <code>Rglpk_solve_LP</code> are the outputs of <code>Rglpk_read_file</code>.</li>
+</ul>
+<p>To make the task easier, I have written a <code>solve_lp</code> function that does the following:</p>
+<ul>
+<li>Reads the text file with path <code>filename</code>,</li>
+<li>Reads the text file of <code>type</code> <code>MathProg</code> or <code>CPLEX_LP</code>, and saves the result in the object <code>lp_model</code>.</li>
+<li>Obtains the solution <code>lp_solution</code> from the elements of <code>lp_model</code>.</li>
+<li>If the solution is feasible, returns the solution and <code>success = TRUE</code>. If not, returns <code>success = FALSE</code>. The solution is a list including a named vector <code>sol</code>, the value of the objective function <code>obj</code> and the <code>success</code> variable.</li>
+</ul>
+<pre class="r"><code>solve_lp &lt;- function(filename, type = &quot;MathProg&quot;){
+  
+  lp_model &lt;- Rglpk_read_file(filename, type = type)
+
+  lp_solution &lt;- Rglpk_solve_LP(obj = lp_model$objective, 
+                              mat = lp_model$constraints[[1]],
+                              dir = lp_model$constraints[[2]],
+                              rhs = lp_model$constraints[[3]],
+                              types = lp_model$types,
+                              bounds = lp_model$bounds,
+                              max = lp_model$maximum)
+  
+  if(lp_solution$status == 0){
+    sol &lt;- lp_solution$solution
+    names(sol) &lt;- attr(lp_model, &quot;objective_vars_names&quot;)
+    obj = lp_solution$optimum
+    return(list(sol = sol, obj = obj, success = TRUE))
+  }else
+    return(success = FALSE)
+  
+}</code></pre>
+<div id="a-model-in-cplex-format" class="section level2">
+<h2>A model in CPLEX format</h2>
+<p>Let’s define a linear programming <code>model01</code> in CPLEX format. The bounds are not really necessary here, but are set to illustrate how to enter them in the model.</p>
+<pre class="r"><code>model01 &lt;- 
+&#39;Maximize
+  cost: 3x1 + 1x2 + 3x3
+Subject To
+  r1: - x1 + 2x2 + x3 &lt;= 4
+  r2: 4x2 - 3x3 &lt;= 2
+  r3: x1 - 3x2 + 2x3 &lt;= 3
+Bounds
+  0 &lt;= x1 &lt;= 99999
+  0 &lt;= x2 &lt;= 99999
+Integer
+  x1 
+Binaries
+  x3
+End&#39;</code></pre>
+<p>Let’s obtain the solution using <code>solve_lp</code>. Here I am creating the <code>model.mod</code> file with <code>writeLines</code> and deleting it after use with <code>unlink</code>.</p>
+<pre class="r"><code>writeLines(model01, &quot;model.mod&quot;)
+solve_lp(&quot;model.mod&quot;, type = &quot;CPLEX_LP&quot;)</code></pre>
+<pre><code>## $sol
+##   x1   x2   x3 
+## 4.00 1.25 1.00 
+## 
+## $obj
+## [1] 16.25
+## 
+## $success
+## [1] TRUE</code></pre>
+<pre class="r"><code>unlink(&quot;model.mod&quot;)</code></pre>
+</div>
+<div id="a-model-in-mathprog-format" class="section level2">
+<h2>A model in MathProg format</h2>
+<p>Let’s write the same model in <code>MathProg</code> format in <code>model01b</code>. Variable types and bounds are specified when defining variables.</p>
+<pre class="r"><code>model01b &lt;- 
+&#39;var x1, &gt;=0, &lt;=99999, integer;
+var x2, &gt;=0, &lt;=99999;
+var x3, binary;
+maximize obj: 3 * x1 + x2 + 3 * x3;
+s.t. r1: - x1 + 2 * x2 + x3 &lt;= 4;
+s.t. r2: 4 * x2 - 3 * x3 &lt;= 2;
+s.t. r3: x1 - 3 * x2 + 2 * x3 &lt;= 3;
+end;&#39;</code></pre>
+<p>The solution of this model is:</p>
+<pre class="r"><code>writeLines(model01b, &quot;model.mod&quot;)
+solve_lp(&quot;model.mod&quot;, type = &quot;MathProg&quot;)</code></pre>
+<pre><code>## $sol
+##   x1   x2   x3 
+## 4.00 1.25 1.00 
+## 
+## $obj
+## [1] 16.25
+## 
+## $success
+## [1] TRUE</code></pre>
+<pre class="r"><code>unlink(&quot;model.mod&quot;)</code></pre>
+</div>
+<div id="a-formulation-in-mathprog" class="section level2">
+<h2>A formulation in MathProg</h2>
+<p>Mathprog allows writing not only linear programs in a similar way as CPLEX, but also formulations of a generic problem that can be applied to different instances. Let’s see the (abridged) formulation of the transportation problem:</p>
+<pre class="r"><code>transport &lt;- &#39;set I;
+/* canning plants */
+
+set J;
+/* markets */
+
+param a{i in I};
+/* capacity of plant i in cases */
+
+param b{j in J};
+/* demand at market j in cases */
+
+param d{i in I, j in J};
+/* distance in thousands of miles */
+
+param f;
+/* freight in dollars per case per thousand miles */
+
+param c{i in I, j in J} := f * d[i,j] / 1000;
+/* transport cost in thousands of dollars per case */
+
+var x{i in I, j in J} &gt;= 0;
+/* shipment quantities in cases */
+
+minimize cost: sum{i in I, j in J} c[i,j] * x[i,j];
+/* total transportation costs in thousands of dollars */
+
+s.t. supply{i in I}: sum{j in J} x[i,j] &lt;= a[i];
+/* observe supply limit at plant i */
+
+s.t. demand{j in J}: sum{i in I} x[i,j] &gt;= b[j];
+/* satisfy demand at market j */
+
+data;
+
+set I := Seattle San-Diego;
+
+set J := New-York Chicago Topeka;
+
+param a := Seattle     350
+           San-Diego   600;
+
+param b := New-York    325
+           Chicago     300
+           Topeka      275;
+
+param d :              New-York   Chicago   Topeka :=
+           Seattle     2.5        1.7       1.8
+           San-Diego   2.5        1.8       1.4  ;
+
+param f := 90;
+
+end;&#39;</code></pre>
+<p>The solution for this model is:</p>
+<pre class="r"><code>writeLines(transport, &quot;model.mod&quot;)
+solve_lp(&quot;model.mod&quot;, type = &quot;MathProg&quot;)</code></pre>
+<pre><code>## $sol
+##   x[Seattle,New-York]    x[Seattle,Chicago]     x[Seattle,Topeka] 
+##                    50                   300                     0 
+## x[San-Diego,New-York]  x[San-Diego,Chicago]   x[San-Diego,Topeka] 
+##                   275                     0                   275 
+## 
+## $obj
+## [1] 153.675
+## 
+## $success
+## [1] TRUE</code></pre>
+<pre class="r"><code>unlink(&quot;model.mod&quot;)</code></pre>
+</div>
+<div id="entering-model-parameters-from-the-r-environment" class="section level2">
+<h2>Entering model parameters from the R environment</h2>
+<p><code>Rglpk</code> can be seen as application programming interface (PI) to use GLPK through R. This means that the linear programming is solved using the C libraries of GLPK, returning the solution to the R environment. Instead of a CPLEX or Mathprog input, we can define the inputs for the API as R objects directly.</p>
+<p>Let’s do that with the transportation problem of the previous section. I will define a <code>tp_lp</code> function for solving the transportation problem entering data from a named list with elements:</p>
+<ul>
+<li><code>supply</code> or maximum capacity at each origin.</li>
+<li><code>demand</code> from each destination.</li>
+<li>a <code>costs</code> matrix with cost coefficients.</li>
+</ul>
+<p>Let’s store the parameters of the model built in MathProg format in a named list with this structure:</p>
+<pre class="r"><code>tp_sample &lt;- list(supply = c(350, 600),
+                  demand = c(325, 300, 275),
+                  costs = matrix(c(2.5, 1.7, 1.8, 2.5, 1.8, 1.4)*90/1000, nrow = 2, ncol = 3, byrow = TRUE))</code></pre>
+<p>The function for solving the transportation problem with this input is:</p>
+<pre class="r"><code>lp_tp &lt;- function(tp){
+  
+  m &lt;- length(tp$supply)
+  n &lt;- length(tp$demand)
+  
+  var_names &lt;- character(n*m)
+  
+  for(i in 1:m)
+    for(j in 1:n)
+      var_names[(i-1)*n + j] &lt;- paste0(&quot;x_&quot;, i, &quot;_&quot;, j)
+  
+  obj &lt;- c(t(tp$costs))
+  rhs &lt;- c(tp$supply, tp$demand)
+  dir &lt;- c(rep(&quot;&lt;=&quot;, m), rep(&quot;&gt;=&quot;, n))
+  const &lt;- matrix(0, n+m, n*m)
+  
+  for(i in 1:m){
+    for(j in 1:n){
+      const[i, n*(i-1) + j] &lt;- 1
+      const[m+j, n*(i-1) + j] &lt;- 1
+    }
+  }
+  
+  lp_solution &lt;- Rglpk_solve_LP(obj = obj, 
+                                mat = const,
+                                dir = dir,
+                                rhs = rhs,
+                                max = FALSE)
+  
+  if(lp_solution$status == 0){
+    sol &lt;- lp_solution$solution
+    names(sol) &lt;- var_names
+    obj = lp_solution$optimum
+    return(list(sol = sol, obj = obj, success = TRUE))
+  }else
+    return(success = FALSE)
+  
+}</code></pre>
+<p>Let’s apply the function to our data, to check if the results is the same as in the previous section:</p>
+<pre class="r"><code>lp_tp(tp_sample)</code></pre>
+<pre><code>## $sol
+## x_1_1 x_1_2 x_1_3 x_2_1 x_2_2 x_2_3 
+##    50   300     0   275     0   275 
+## 
+## $obj
+## [1] 153.675
+## 
+## $success
+## [1] TRUE</code></pre>
+<p>The obtained solution is the same as the previous section, but now with generic variable names generated by <code>tp_lp</code>.</p>
+</div>
+<div id="acknowledgements" class="section level2">
+<h2>Acknowledgements</h2>
+<p>Thanks to Oriol Lordan for the model.mod trick, and to Vicenc Fernandez for the first example.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>GLPK Wikibook <a href="https://en.wikibooks.org/wiki/GLPK" class="uri">https://en.wikibooks.org/wiki/GLPK</a></li>
+<li>GLPK (GNU Linear Programming Kit) <a href="https://www.gnu.org/software/glpk/" class="uri">https://www.gnu.org/software/glpk/</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre class="r"><code>sessionInfo()</code></pre>
+<pre><code>## R version 4.1.2 (2021-11-01)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Debian GNU/Linux 10 (buster)
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.8.0
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.8.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] Rglpk_0.6-4 slam_0.1-49
+## 
+## loaded via a namespace (and not attached):
+##  [1] bookdown_0.24     digest_0.6.27     R6_2.5.0          jsonlite_1.7.2   
+##  [5] magrittr_2.0.1    evaluate_0.14     blogdown_1.5      stringi_1.7.3    
+##  [9] rlang_0.4.12      jquerylib_0.1.4   bslib_0.2.5.1     rmarkdown_2.9    
+## [13] tools_4.1.2       stringr_1.4.0     xfun_0.23         yaml_2.2.1       
+## [17] compiler_4.1.2    htmltools_0.5.1.1 knitr_1.33        sass_0.4.0</code></pre>
+</div>
