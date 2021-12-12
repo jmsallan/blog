@@ -236,7 +236,7 @@ Hageland Aviation Services was a regional Alaskan airline, covering mainly Alask
 ## References 
 
 * Lordan, O., Sallan, J. M., Escorihuela, N., & Gonzalez-Prieto, D. (2016). Robustness of airline route networks. *Physica A: Statistical Mechanics and its Applications*, 445, 18-26. <https://doi.org/10.1016/j.physa.2015.10.053>
-* Pedersen, T. L. (2017). *Introducing tidygraph.* https://www.data-imaginist.com/2017/introducing-tidygraph/
+* Pedersen, T. L. (2017). *Introducing tidygraph.* <https://www.data-imaginist.com/2017/introducing-tidygraph/>
 *  Wikipedia. *Ketchikan International Airport* <https://en.wikipedia.org/wiki/Ketchikan_International_Airport>. Accessed 2021-11-28.
 * Wikipedia. *List of airports in Alaska.* <https://en.wikipedia.org/wiki/List_of_airports_in_Alaska>. Accessed 2021-11-28.
 
