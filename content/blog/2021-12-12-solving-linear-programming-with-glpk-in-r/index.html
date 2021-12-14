@@ -15,8 +15,8 @@ description: Description for the page
 <script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
 
 
-<p>Linear programming consist of optimizing a linear function subject to a set of linear constraints. If all or some of the decision variables are integer, it is called integer and mixed integer linear programming, respectively. Linear programming is a powerful optimization technique, and the first to consider when tackling combinatorial problems.</p>
-<p>In this post, I will show how to solve linear programming in R using the <code>Rglpk</code> package. This is a R API for <strong>GLPK</strong>, the <strong>G</strong>NU <strong>L</strong>inear <strong>P</strong>rogramming <strong>K</strong>it. It is an open-source set of routines written in ANSI C and organized in the form of a callable library.</p>
+<p>Linear programming consists of optimizing a linear function subject to a set of linear constraints. If all or some of the decision variables are integer, it is called integer and mixed integer linear programming, respectively. Linear programming is a powerful optimization technique, and the first to consider when tackling combinatorial problems.</p>
+<p>In this post, I will show how to solve linear programming models in R using the <code>Rglpk</code> package. This is a R API for <strong>GLPK</strong>, the <strong>G</strong>NU <strong>L</strong>inear <strong>P</strong>rogramming <strong>K</strong>it. It is an open-source set of linear programming routines written in ANSI C and organized in the form of a callable library.</p>
 <p>Let’s see how can we solve a linear programming formulation written in CPLEX or MathProg formats. We need two steps for doing this:</p>
 <ul>
 <li>Reading the model from a text file with <code>Rglpk_read_file</code>.</li>
@@ -68,7 +68,7 @@ Integer
 Binaries
   x3
 End&#39;</code></pre>
-<p>Let’s obtain the solution using <code>solve_lp</code>. Here I am creating the <code>model.mod</code> file with <code>writeLines</code> and deleting it after use with <code>unlink</code>.</p>
+<p>Let’s obtain the solution using <code>solve_lp</code>. Here I am creating a <code>model.mod</code> file with <code>writeLines</code> and deleting it after use with <code>unlink</code>.</p>
 <pre class="r"><code>writeLines(model01, &quot;model.mod&quot;)
 solve_lp(&quot;model.mod&quot;, type = &quot;CPLEX_LP&quot;)</code></pre>
 <pre><code>## $sol
@@ -82,9 +82,9 @@ solve_lp(&quot;model.mod&quot;, type = &quot;CPLEX_LP&quot;)</code></pre>
 ## [1] TRUE</code></pre>
 <pre class="r"><code>unlink(&quot;model.mod&quot;)</code></pre>
 </div>
-<div id="a-model-in-mathprog-format" class="section level2">
-<h2>A model in MathProg format</h2>
-<p>Let’s write the same model in <code>MathProg</code> format in <code>model01b</code>. Variable types and bounds are specified when defining variables.</p>
+<div id="the-model-in-mathprog-format" class="section level2">
+<h2>The model in MathProg format</h2>
+<p>Let’s write the same model in MathProg format. The syntax is similar to CPLEX, although variable types and bounds are specified when defining variables.</p>
 <pre class="r"><code>model01b &lt;- 
 &#39;var x1, &gt;=0, &lt;=99999, integer;
 var x2, &gt;=0, &lt;=99999;
@@ -110,7 +110,7 @@ solve_lp(&quot;model.mod&quot;, type = &quot;MathProg&quot;)</code></pre>
 </div>
 <div id="a-formulation-in-mathprog" class="section level2">
 <h2>A formulation in MathProg</h2>
-<p>Mathprog allows writing not only linear programs in a similar way as CPLEX, but also formulations of a generic problem that can be applied to different instances. Let’s see the (abridged) formulation of the transportation problem:</p>
+<p>Mathprog also allows writing not only linear programs as formulations of a generic problem that can be applied to different instances. Let’s see the (abridged) formulation of the transportation problem:</p>
 <pre class="r"><code>transport &lt;- &#39;set I;
 /* canning plants */
 
@@ -164,7 +164,8 @@ param d :              New-York   Chicago   Topeka :=
 param f := 90;
 
 end;&#39;</code></pre>
-<p>The solution for this model is:</p>
+<p>Note how do we enter the generic formulation in the first section, and the specific values of the instance in the <code>data</code> section.</p>
+<p>The solution for this instance is:</p>
 <pre class="r"><code>writeLines(transport, &quot;model.mod&quot;)
 solve_lp(&quot;model.mod&quot;, type = &quot;MathProg&quot;)</code></pre>
 <pre><code>## $sol
@@ -175,6 +176,64 @@ solve_lp(&quot;model.mod&quot;, type = &quot;MathProg&quot;)</code></pre>
 ## 
 ## $obj
 ## [1] 153.675
+## 
+## $success
+## [1] TRUE</code></pre>
+<pre class="r"><code>unlink(&quot;model.mod&quot;)</code></pre>
+<p>The formulation of the transportation problem above uses sets to define the parameters and variables of the model. We can also use formulations with subindices, like in this formulation of a production planning with acquisition and storage costs:</p>
+<pre class="r"><code>prod_plan &lt;- &#39;param n;
+
+param sini;
+
+param prodcosts{1..n};
+param demand{1..n};
+param storagecosts{1..n};
+param prodmax{1..n};
+
+var q{i in 1..n}, &gt;=0, &lt;=prodmax[i];
+var s{i in 0..n}, &gt;=0;
+
+minimize cost: sum{i in 1..n} prodcosts[i] * q[i] + sum{i in 1..n} storagecosts[i] * s[i];
+
+subject to ist: s[0] = sini;
+subject to dem{i in 1..n}: s[i-1] + q[i] - s[i] = demand[i];
+
+data;
+
+param n:= 4;
+
+param sini := 10;
+
+param prodcosts := 1 100
+                   2 150
+                   3 200
+                   4 250;
+
+param demand :=  1 300
+                2 350
+                3 400
+                4 150;
+
+param storagecosts := 1 50
+                      2 50
+                      3 50
+                      4 50;
+
+param prodmax := 1 350
+                 2 350 
+                 3 350
+                 4 350;
+
+end;
+&#39;</code></pre>
+<pre class="r"><code>writeLines(prod_plan, &quot;model.mod&quot;)
+solve_lp(&quot;model.mod&quot;, type = &quot;MathProg&quot;)</code></pre>
+<pre><code>## $sol
+## q[1] q[2] q[3] q[4] s[1] s[2] s[3] s[4] s[0] 
+##  340  350  350  150   50   50    0    0   10 
+## 
+## $obj
+## [1] 199000
 ## 
 ## $success
 ## [1] TRUE</code></pre>
@@ -243,17 +302,23 @@ solve_lp(&quot;model.mod&quot;, type = &quot;MathProg&quot;)</code></pre>
 ## 
 ## $success
 ## [1] TRUE</code></pre>
-<p>The obtained solution is the same as the previous section, but now with generic variable names generated by <code>lp_tp</code>.</p>
+<p>The obtained solution is the same as the previous section, but now with generic variable names generated inside <code>lp_tp</code>.</p>
+</div>
+<div id="specifying-linear-programming-models-in-r" class="section level2">
+<h2>Specifying linear programming models in R</h2>
+<p>The <code>Rglpk</code> package allows specifying linear programming models in a variety of formats using the <code>Rglpk_read_file</code> function. The output of this function is a list of R objects that can be used as input to the <code>Rglpk_solve_LP</code> function of the same package, or to other solvers.</p>
+<p>The MathProg language for defining linear programming models seems the best choice for <code>Rglpk</code>. It allows the straight modeling of the CPLEX format, and separating the generic formulation from the specific values of an instance of the problem. Another alternative is defining the elements of the model as vectors and matrices, and use them as input of <code>Rglpk_solve_LP</code>.</p>
 </div>
 <div id="acknowledgements" class="section level2">
 <h2>Acknowledgements</h2>
-<p>Thanks to Oriol Lordan for the model.mod trick, and to Vicenc Fernandez for the first example.</p>
+<p>Thanks to Oriol Lordan for the <code>model.mod</code> trick, and to Vicenc Fernandez for the first example.</p>
 </div>
 <div id="references" class="section level2">
 <h2>References</h2>
 <ul>
 <li>GLPK Wikibook <a href="https://en.wikibooks.org/wiki/GLPK" class="uri">https://en.wikibooks.org/wiki/GLPK</a></li>
 <li>GLPK (GNU Linear Programming Kit) <a href="https://www.gnu.org/software/glpk/" class="uri">https://www.gnu.org/software/glpk/</a></li>
+<li>Sallan, J. M.; Lordan, O. &amp; Fernandez, V. (2016). <em>Modeling and solving linear programming with R.</em> Omnia Books. <a href="https://www.omniascience.com/books/index.php/scholar/catalog/book/34" class="uri">https://www.omniascience.com/books/index.php/scholar/catalog/book/34</a></li>
 </ul>
 </div>
 <div id="session-info" class="section level2">
