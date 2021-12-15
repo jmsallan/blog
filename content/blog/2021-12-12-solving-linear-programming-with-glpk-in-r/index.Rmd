@@ -28,15 +28,18 @@ Let's see how can we solve a linear programming formulation written in CPLEX or 
 
 To make the task easier, I have written a `solve_lp` function that does the following:
 
-* Reads the text file with path `filename`,
-* Reads the text file of `type` `MathProg` or `CPLEX_LP`, and saves the result in the object `lp_model`.
-* Obtains the solution `lp_solution` from the elements of `lp_model`.
+* Creates a text file with the content of `model` using `writeLines`.
+* Reads the text file of `type` MathProg or CPLEX_LP with `Rglpk_read_file`, and saves the result in the object `lp_model`.
+* Obtains the solution `lp_solution` from the elements of `lp_model` with `Rglpk_solve_LP`.
+* Removes the text file with `unlink`.
 * If the solution is feasible, returns the solution and `success = TRUE`. If not, returns `success = FALSE`. The solution is a list including a named vector `sol`, the value of the objective function `obj` and the `success` variable.
 
 ```{r}
-solve_lp <- function(filename, type = "MathProg"){
+solve_lp <- function(model, type = "MathProg"){
   
-  lp_model <- Rglpk_read_file(filename, type = type)
+  writeLines(model, "model.mod")
+  
+  lp_model <- Rglpk_read_file("model.mod", type = type)
 
   lp_solution <- Rglpk_solve_LP(obj = lp_model$objective, 
                               mat = lp_model$constraints[[1]],
@@ -45,6 +48,7 @@ solve_lp <- function(filename, type = "MathProg"){
                               types = lp_model$types,
                               bounds = lp_model$bounds,
                               max = lp_model$maximum)
+  unlink("model.mod")
   
   if(lp_solution$status == 0){
     sol <- lp_solution$solution
@@ -79,15 +83,13 @@ Binaries
 End'
 ```
 
-Let's obtain the solution using `solve_lp`. Here I am creating a `model.mod` file with `writeLines` and deleting it after use with `unlink`.
+Let's obtain the solution for this model using `solve_lp`: 
 
 ```{r}
-writeLines(model01, "model.mod")
-solve_lp("model.mod", type = "CPLEX_LP")
-unlink("model.mod")
+solve_lp(model01, type = "CPLEX_LP")
 ```
 
-## The model in MathProg format
+## Coding the model in MathProg
 
 Let's write the same model in MathProg format. The syntax is similar to CPLEX, although variable types and bounds are specified when defining variables.
 
@@ -106,14 +108,12 @@ end;'
 The solution of this model is:
 
 ```{r}
-writeLines(model01b, "model.mod")
-solve_lp("model.mod", type = "MathProg")
-unlink("model.mod")
+solve_lp(model01b, type = "MathProg")
 ```
 
 ## A formulation in MathProg
 
-Mathprog also allows writing not only linear programs as formulations of a generic problem that can be applied to different instances. Let's see the (abridged) formulation of the transportation problem:
+Mathprog also allows writing not only linear programs as formulations of a generic problem that can be applied to different instances. Let's see the formulation of the transportation problem, implemented in a small instance:
 
 ```{r}
 transport <- 'set I;
@@ -176,12 +176,10 @@ Note how do we enter the generic formulation in the first section, and the speci
 The solution for this instance is:
 
 ```{r}
-writeLines(transport, "model.mod")
-solve_lp("model.mod", type = "MathProg")
-unlink("model.mod")
+solve_lp(transport, type = "MathProg")
 ```
 
-The formulation of the transportation problem above uses sets to define the parameters and variables of the model. We can also use formulations with subindices, like in this formulation of a production planning with acquisition and storage costs:
+The formulation of the transportation problem above uses sets to define the parameters and variables of the model. We can also use formulations with subscripts, like in this formulation of a production planning with acquisition and storage costs:
 
 ```{r}
 prod_plan <- 'param n;
@@ -232,9 +230,7 @@ end;
 ```
 
 ```{r}
-writeLines(prod_plan, "model.mod")
-solve_lp("model.mod", type = "MathProg")
-unlink("model.mod")
+solve_lp(prod_plan, type = "MathProg")
 ```
 
 ## Entering model parameters from the R environment

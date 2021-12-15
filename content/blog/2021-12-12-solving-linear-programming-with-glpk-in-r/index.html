@@ -24,14 +24,17 @@ description: Description for the page
 </ul>
 <p>To make the task easier, I have written a <code>solve_lp</code> function that does the following:</p>
 <ul>
-<li>Reads the text file with path <code>filename</code>,</li>
-<li>Reads the text file of <code>type</code> <code>MathProg</code> or <code>CPLEX_LP</code>, and saves the result in the object <code>lp_model</code>.</li>
-<li>Obtains the solution <code>lp_solution</code> from the elements of <code>lp_model</code>.</li>
+<li>Creates a text file with the content of <code>model</code> using <code>writeLines</code>.</li>
+<li>Reads the text file of <code>type</code> MathProg or CPLEX_LP with <code>Rglpk_read_file</code>, and saves the result in the object <code>lp_model</code>.</li>
+<li>Obtains the solution <code>lp_solution</code> from the elements of <code>lp_model</code> with <code>Rglpk_solve_LP</code>.</li>
+<li>Removes the text file with <code>unlink</code>.</li>
 <li>If the solution is feasible, returns the solution and <code>success = TRUE</code>. If not, returns <code>success = FALSE</code>. The solution is a list including a named vector <code>sol</code>, the value of the objective function <code>obj</code> and the <code>success</code> variable.</li>
 </ul>
-<pre class="r"><code>solve_lp &lt;- function(filename, type = &quot;MathProg&quot;){
+<pre class="r"><code>solve_lp &lt;- function(model, type = &quot;MathProg&quot;){
   
-  lp_model &lt;- Rglpk_read_file(filename, type = type)
+  writeLines(model, &quot;model.mod&quot;)
+  
+  lp_model &lt;- Rglpk_read_file(&quot;model.mod&quot;, type = type)
 
   lp_solution &lt;- Rglpk_solve_LP(obj = lp_model$objective, 
                               mat = lp_model$constraints[[1]],
@@ -40,6 +43,7 @@ description: Description for the page
                               types = lp_model$types,
                               bounds = lp_model$bounds,
                               max = lp_model$maximum)
+  unlink(&quot;model.mod&quot;)
   
   if(lp_solution$status == 0){
     sol &lt;- lp_solution$solution
@@ -68,9 +72,8 @@ Integer
 Binaries
   x3
 End&#39;</code></pre>
-<p>Let’s obtain the solution using <code>solve_lp</code>. Here I am creating a <code>model.mod</code> file with <code>writeLines</code> and deleting it after use with <code>unlink</code>.</p>
-<pre class="r"><code>writeLines(model01, &quot;model.mod&quot;)
-solve_lp(&quot;model.mod&quot;, type = &quot;CPLEX_LP&quot;)</code></pre>
+<p>Let’s obtain the solution for this model using <code>solve_lp</code>:</p>
+<pre class="r"><code>solve_lp(model01, type = &quot;CPLEX_LP&quot;)</code></pre>
 <pre><code>## $sol
 ##   x1   x2   x3 
 ## 4.00 1.25 1.00 
@@ -80,10 +83,9 @@ solve_lp(&quot;model.mod&quot;, type = &quot;CPLEX_LP&quot;)</code></pre>
 ## 
 ## $success
 ## [1] TRUE</code></pre>
-<pre class="r"><code>unlink(&quot;model.mod&quot;)</code></pre>
 </div>
-<div id="the-model-in-mathprog-format" class="section level2">
-<h2>The model in MathProg format</h2>
+<div id="coding-the-model-in-mathprog" class="section level2">
+<h2>Coding the model in MathProg</h2>
 <p>Let’s write the same model in MathProg format. The syntax is similar to CPLEX, although variable types and bounds are specified when defining variables.</p>
 <pre class="r"><code>model01b &lt;- 
 &#39;var x1, &gt;=0, &lt;=99999, integer;
@@ -95,8 +97,7 @@ s.t. r2: 4 * x2 - 3 * x3 &lt;= 2;
 s.t. r3: x1 - 3 * x2 + 2 * x3 &lt;= 3;
 end;&#39;</code></pre>
 <p>The solution of this model is:</p>
-<pre class="r"><code>writeLines(model01b, &quot;model.mod&quot;)
-solve_lp(&quot;model.mod&quot;, type = &quot;MathProg&quot;)</code></pre>
+<pre class="r"><code>solve_lp(model01b, type = &quot;MathProg&quot;)</code></pre>
 <pre><code>## $sol
 ##   x1   x2   x3 
 ## 4.00 1.25 1.00 
@@ -106,11 +107,10 @@ solve_lp(&quot;model.mod&quot;, type = &quot;MathProg&quot;)</code></pre>
 ## 
 ## $success
 ## [1] TRUE</code></pre>
-<pre class="r"><code>unlink(&quot;model.mod&quot;)</code></pre>
 </div>
 <div id="a-formulation-in-mathprog" class="section level2">
 <h2>A formulation in MathProg</h2>
-<p>Mathprog also allows writing not only linear programs as formulations of a generic problem that can be applied to different instances. Let’s see the (abridged) formulation of the transportation problem:</p>
+<p>Mathprog also allows writing not only linear programs as formulations of a generic problem that can be applied to different instances. Let’s see the formulation of the transportation problem, implemented in a small instance:</p>
 <pre class="r"><code>transport &lt;- &#39;set I;
 /* canning plants */
 
@@ -166,8 +166,7 @@ param f := 90;
 end;&#39;</code></pre>
 <p>Note how do we enter the generic formulation in the first section, and the specific values of the instance in the <code>data</code> section.</p>
 <p>The solution for this instance is:</p>
-<pre class="r"><code>writeLines(transport, &quot;model.mod&quot;)
-solve_lp(&quot;model.mod&quot;, type = &quot;MathProg&quot;)</code></pre>
+<pre class="r"><code>solve_lp(transport, type = &quot;MathProg&quot;)</code></pre>
 <pre><code>## $sol
 ##   x[Seattle,New-York]    x[Seattle,Chicago]     x[Seattle,Topeka] 
 ##                    50                   300                     0 
@@ -179,8 +178,7 @@ solve_lp(&quot;model.mod&quot;, type = &quot;MathProg&quot;)</code></pre>
 ## 
 ## $success
 ## [1] TRUE</code></pre>
-<pre class="r"><code>unlink(&quot;model.mod&quot;)</code></pre>
-<p>The formulation of the transportation problem above uses sets to define the parameters and variables of the model. We can also use formulations with subindices, like in this formulation of a production planning with acquisition and storage costs:</p>
+<p>The formulation of the transportation problem above uses sets to define the parameters and variables of the model. We can also use formulations with subscripts, like in this formulation of a production planning with acquisition and storage costs:</p>
 <pre class="r"><code>prod_plan &lt;- &#39;param n;
 
 param sini;
@@ -226,8 +224,7 @@ param prodmax := 1 350
 
 end;
 &#39;</code></pre>
-<pre class="r"><code>writeLines(prod_plan, &quot;model.mod&quot;)
-solve_lp(&quot;model.mod&quot;, type = &quot;MathProg&quot;)</code></pre>
+<pre class="r"><code>solve_lp(prod_plan, type = &quot;MathProg&quot;)</code></pre>
 <pre><code>## $sol
 ## q[1] q[2] q[3] q[4] s[1] s[2] s[3] s[4] s[0] 
 ##  340  350  350  150   50   50    0    0   10 
@@ -237,7 +234,6 @@ solve_lp(&quot;model.mod&quot;, type = &quot;MathProg&quot;)</code></pre>
 ## 
 ## $success
 ## [1] TRUE</code></pre>
-<pre class="r"><code>unlink(&quot;model.mod&quot;)</code></pre>
 </div>
 <div id="entering-model-parameters-from-the-r-environment" class="section level2">
 <h2>Entering model parameters from the R environment</h2>
