@@ -1,0 +1,147 @@
+---
+title: Examining correlation matrices in R
+author: Jose M Sallan
+date: '2021-12-27'
+slug: examining-correlation-matrices-in-r
+categories:
+  - R
+  - statistics
+tags:
+  - correlation
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post, I will introduce how to examine relationships between variables in a multivariate dataset using covariance and correlation matrices. Those matrices are the input of techniques like exploratory and confirmatory factor analysis and structural equation modelling. I this post, I will be using the `mtcars` dataset, that allows showing positive and negative relationships between variables.
+
+In base R, we use `cov` and `cor` to obtain the covariances and correlation matrices of a multivariate distribution. These functions take a data frame with the observations as input.
+
+```{r}
+c_mat <- cov(mtcars)
+r_mat <- cor(mtcars)
+```
+
+The **covariance matrix** $\mathbf{S}$ includes covariances $s_{ij}$ between all pairs of variables $\left(i, j\right)$ of the distribution. As $s_{ij} = s_{ji}$, it is a symmetric matrix. Diagonal elements $s_{ii}$ are the variance of each variable $i$.
+
+```{r}
+c_mat
+```
+
+Covariance values depend on the scale of each pair of variables and thus they are difficult to interpret. That's why we usually to examine the **correlation matrix** $\mathbf{R}$. Correlations $r_{ij}$ are scaled between -1 and +1, and diagonal elements are equal to one.
+
+```{r}
+r_mat
+```
+
+There are many R packages dealing with correlation matrices, to allow a better visualization and interpretation. Here I will present some functionalities of `corrr` and `corrplot` packages.
+
+```{r}
+library(corrr)
+library(corrplot)
+```
+
+## The corrr package
+
+The corrr package is a part of the tidymodels ecosystem, and allows manipulating and presenting correlation matrices as data frames. We use `correlate` to obtain correlations with `corrr`.
+
+```{r}
+r_df <- correlate(mtcars)
+```
+
+The outcome of `correlate` is a tibble, instead of a matrix. Variable names of rows are stored in an additional `term` column. By default values of diagonal are set to `NA`.
+
+```{r}
+r_df
+```
+
+With `stretch` we can get correlations as a long table:
+
+```{r}
+stretch(r_df)
+```
+
+With `focus` we can examine a part of the correlation matrix. Columns are the second argument of the function, and rows the rest of variables:
+
+```{r}
+focus(r_df, c(mpg, cyl))
+```
+
+`fashion` allows a pretty presentation of the correlation matrix. We can specify the number of `decimals`, and select if we want to print the `leading_zeros`. Here I am presenting the default input.
+
+```{r}
+fashion(r_df)
+```
+
+To interpret a correlation matrix, it can be useful to change the default order of variables, putting together highly correlated variables. We accomplish this with the `rearrange` function. The methods available to rearrange variables are principal components analysis `"PCA"` (the default) or hierarchical clustering `"HC"`.
+
+```{r}
+rearrange(r_df, method = "HC")
+```
+
+Correlation matrices are symmetric and with ones in the diagonal, so it is frequent to present its lower triangular part without diagonal elements. We get this with `shave`:
+
+```{r}
+shave(r_df)
+```
+
+We can achieve a more satisfying presentation combining `shave` and `fashion`:
+
+```{r}
+fashion(shave(r_df))
+```
+
+We can also plot the correlation matrix with `rplot`. It is customary to `rearrange` and `shave` the matrix before plotting:
+
+```{r, fig.align='center', out.width='100%'}
+r_pretty <- shave(rearrange(r_df))
+rplot(r_pretty)
+```
+
+## The corrplot package
+
+`corrplot` provides a visual exploratory tool of correlation matrices that supports automatic variable reordering to help detect hidden patterns among variables. It can be seen as a visual alternative to exploratory factor analysis.
+
+The functionalities of corrplot are nicely explained in the [package vignette](https://cran.r-project.org/web/packages/corrplot/vignettes/corrplot-intro.html). Here I will be posting some illustrative examples.
+
+We specify how to present correlations with the `method` argument of the `corrplot` function:
+
+```{r, fig.align='center', out.width='100%'}
+corrplot(r_mat, method = 'number') 
+```
+
+We can specify how to `order` variables in the correlation matrix. Methods available are angular order of eigenvectors `"AOE"`, principal components `"FPC"` and hierarchical clustering `"HC"`.
+
+```{r, fig.align='center', out.width='100%'}
+corrplot(r_mat, method = "circle", order = "hclust", diag = FALSE)
+```
+
+The `corrplot.mixed` function allows presenting two different visualizations of the same correlation matrix in the upper and lower triangular parts of the matrix.
+
+```{r, fig.align='center', out.width='100%'}
+corrplot.mixed(r_mat, upper = 'ellipse', lower = "shade", order = "hclust")
+```
+
+## Examining covariance and correlation matrices in R
+
+Covariance and correlation matrices express relationships between variables of a multivariate sample. As correlations are scaled between -1 nd +1, it is more convenient for humans to examine correlation matrices. With `corrr` and `corrplot` packages we can examine correlation matrices, group highly correlated subsets of variables and present visualizations of the results.
+
+After examining correlation matrices, we can engage in advanced techniques to examine correlational structures, like exploratory and confirmatory factor analysis or structural equation modelling.
+
+## References
+
+* Covariance and Pearson correlation in R <https://jmsallan.netlify.app/blog/covariance-and-pearson-correlation-in-r/>
+* `corrr` vignette: <https://corrr.tidymodels.org/>
+* `corrplot` vignette: <https://cran.r-project.org/web/packages/corrplot/vignettes/corrplot-intro.html>
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
