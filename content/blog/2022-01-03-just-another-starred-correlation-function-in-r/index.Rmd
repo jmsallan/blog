@@ -1,0 +1,128 @@
+---
+title: Just another starred correlation function in R
+author: Jose M Sallan
+date: '2022-01-03'
+slug: just-another-starred-correlation-function-in-r
+categories:
+  - R
+  - statistics
+tags:
+  - correlation
+  - dplyr
+  - purrr
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+When reporting correlation matrices, it is sometimes required to specify the significance level, that is, an upper bound of the *p*-value, the probability of rejecting the null hypothesis that the population correlation is zero when the null hypothesis is true. As I discussed [here](https://jmsallan.netlify.app/blog/covariance-and-pearson-correlation-in-r/), *p*-values for correlations depend on sample size.
+
+The most common convention for indicating significance levels is:
+
+* `*` *p* < 0.05
+* `**` *p* < 0.01
+* `***` *p* < 0.001
+
+*p*-values above 0.05 are considered usually as non-significant. These values are a convention, and other thresholds of significance can be adopted.
+
+Although R base has a `cor.test` function that performs hypothesis testing for a single correlation, there is no standard way of obtaining a correlation matrix with significance levels similar to the delivered by SPSS and other software. Some functions performing this task can be found at the end of this post. As an alternative, here I present a `cor_stars` function that relies on `tidyverse` packages:
+
+```{r}
+library(dplyr)
+library(purrr)
+library(tidyr)
+```
+
+The function takes as input a data frame `dt` of multivariate data and the number of `digits` of the correlation matrix. Then, it proceeds as follows:
+
+* Builds a data frame `df` with columns `x` and `y` containing the names of columns of `df` corresponding to a lower triangular correlation matrix in long format.
+* uses `purrr:map2_dbl()` to calculate correlations `r` and *p*-value `p` with `cor` and `cor.test`, respectively.
+* `dplyr::case_when()` assigns asterisks or `stars` to each correlation depending on the *p*-value. It is important to assign the same number of characters to each level of significance.
+* using `format` with `digits` and `nsmall` the function builds a formatted correlation variable `fr` with the same length in all cases, irrespective of the number of decimals of the actual correlation.
+* formatted correlation and stars are bound with `paste0` in the `cs` variable.
+* the correlation matrix `r_tab` are the starred correlations presented in wide format. It is built with `tidyr::pivot_wider` and `tidyr::replace_na`.
+
+```{r}
+cor_stars <- function(dt, digits = 3){
+  
+  names <- names(dt)
+  n <- length(names)
+  
+  x <- character(0)
+  for(i in 1:n) x <- c(x, rep(names[i], n-i))
+  
+  y <- character(0)
+  for(i in 1:(n-1)) y <- c(y, names[(i+1):n])
+  
+  df <- tibble(x=x, y=y)
+  
+  df <- df %>%
+    mutate(r = map2_dbl(.x = x, .y = y, ~ cor(dt %>% pull(.x), dt %>% pull(.y))),
+           p =  map2_dbl(.x = x, .y = y, ~ cor.test(dt %>% pull(.x), dt %>% pull(.y))$p.value))
+   
+  df <- df %>%
+    mutate(stars = case_when(p < 0.05 & p >= 0.01 ~ "*  ",
+                             p < 0.01 & p >= 0.001 ~ "** ",
+                             p < 0.001 ~ "***",
+                             is.na(r) ~ "   ",
+                             TRUE ~ "   "),
+           fr = format(r, digits = digits-1, nsmall = digits-1))
+  
+  df <- df %>%
+    mutate(cs = paste0(fr, stars))
+  
+  r_tab <- df %>%
+    select(x, y, cs) %>%
+    pivot_wider(id_cols = y, names_from = x, values_from = cs)
+  
+  r_tab <- r_tab %>%
+    mutate(across(everything(), ~ replace_na(.x, ""))) %>%
+    rename("term" = "y")
+  
+  
+  r_tab <- data.frame(r_tab)
+  
+  return(r_tab)
+  
+}
+```
+
+Here is the default correlation table for the `mtcars` dataset:
+
+```{r}
+cor_stars(mtcars)
+```
+
+And the correlation table with two digits for the same dataset:
+
+```{r}
+cor_stars(mtcars, digits = 2)
+```
+
+If we are presenting an html document we can use the `kableExtra` package:
+
+```{r}
+library(kableExtra)
+cor_stars(mtcars) %>%
+  kbl() %>%
+  kable_classic_2(full_width = F)
+```
+
+This is just another way of building a starred correlation matrix in R. The output is a data frame (a tibble does not yield a good output for this type of data) that can be displayed in plain text or in am html table. We can recycle most of that code to build a LaTeX table using the `xtable` package.
+
+## References
+
+* Covariance and Pearson correlation in R <https://jmsallan.netlify.app/blog/covariance-and-pearson-correlation-in-r/>
+* Elegant correlation table using xtable R package <http://www.sthda.com/english/wiki/elegant-correlation-table-using-xtable-r-package>
+* Correlation table with significance indicators <https://gist.github.com/aL3xa/887249>
+* Create Awesome HTML Tables with `knitr::kable` and `kableExtra` <https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html>
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```

@@ -1,0 +1,531 @@
+---
+title: Just another starred correlation function in R
+author: Jose M Sallan
+date: '2022-01-03'
+slug: just-another-starred-correlation-function-in-r
+categories:
+  - R
+  - statistics
+tags:
+  - correlation
+  - dplyr
+  - purrr
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>When reporting correlation matrices, it is sometimes required to specify the significance level, that is, an upper bound of the <em>p</em>-value, the probability of rejecting the null hypothesis that the population correlation is zero when the null hypothesis is true. As I discussed <a href="https://jmsallan.netlify.app/blog/covariance-and-pearson-correlation-in-r/">here</a>, <em>p</em>-values for correlations depend on sample size.</p>
+<p>The most common convention for indicating significance levels is:</p>
+<ul>
+<li><code>*</code> <em>p</em> &lt; 0.05</li>
+<li><code>**</code> <em>p</em> &lt; 0.01</li>
+<li><code>***</code> <em>p</em> &lt; 0.001</li>
+</ul>
+<p><em>p</em>-values above 0.05 are considered usually as non-significant. These values are a convention, and other thresholds of significance can be adopted.</p>
+<p>Although R base has a <code>cor.test</code> function that performs hypothesis testing for a single correlation, there is no standard way of obtaining a correlation matrix with significance levels similar to the delivered by SPSS and other software. Some functions performing this task can be found at the end of this post. As an alternative, here I present a <code>cor_stars</code> function that relies on <code>tidyverse</code> packages:</p>
+<pre class="r"><code>library(dplyr)
+library(purrr)
+library(tidyr)</code></pre>
+<p>The function takes as input a data frame <code>dt</code> of multivariate data and the number of <code>digits</code> of the correlation matrix. Then, it proceeds as follows:</p>
+<ul>
+<li>Builds a data frame <code>df</code> with columns <code>x</code> and <code>y</code> containing the names of columns of <code>df</code> corresponding to a lower triangular correlation matrix in long format.</li>
+<li>uses <code>purrr:map2_dbl()</code> to calculate correlations <code>r</code> and <em>p</em>-value <code>p</code> with <code>cor</code> and <code>cor.test</code>, respectively.</li>
+<li><code>dplyr::case_when()</code> assigns asterisks or <code>stars</code> to each correlation depending on the <em>p</em>-value. It is important to assign the same number of characters to each level of significance.</li>
+<li>using <code>format</code> with <code>digits</code> and <code>nsmall</code> the function builds a formatted correlation variable <code>fr</code> with the same length in all cases, irrespective of the number of decimals of the actual correlation.</li>
+<li>formatted correlation and stars are bound with <code>paste0</code> in the <code>cs</code> variable.</li>
+<li>the correlation matrix <code>r_tab</code> are the starred correlations presented in wide format. It is built with <code>tidyr::pivot_wider</code> and <code>tidyr::replace_na</code>.</li>
+</ul>
+<pre class="r"><code>cor_stars &lt;- function(dt, digits = 3){
+  
+  names &lt;- names(dt)
+  n &lt;- length(names)
+  
+  x &lt;- character(0)
+  for(i in 1:n) x &lt;- c(x, rep(names[i], n-i))
+  
+  y &lt;- character(0)
+  for(i in 1:(n-1)) y &lt;- c(y, names[(i+1):n])
+  
+  df &lt;- tibble(x=x, y=y)
+  
+  df &lt;- df %&gt;%
+    mutate(r = map2_dbl(.x = x, .y = y, ~ cor(dt %&gt;% pull(.x), dt %&gt;% pull(.y))),
+           p =  map2_dbl(.x = x, .y = y, ~ cor.test(dt %&gt;% pull(.x), dt %&gt;% pull(.y))$p.value))
+   
+  df &lt;- df %&gt;%
+    mutate(stars = case_when(p &lt; 0.05 &amp; p &gt;= 0.01 ~ &quot;*  &quot;,
+                             p &lt; 0.01 &amp; p &gt;= 0.001 ~ &quot;** &quot;,
+                             p &lt; 0.001 ~ &quot;***&quot;,
+                             is.na(r) ~ &quot;   &quot;,
+                             TRUE ~ &quot;   &quot;),
+           fr = format(r, digits = digits-1, nsmall = digits-1))
+  
+  df &lt;- df %&gt;%
+    mutate(cs = paste0(fr, stars))
+  
+  r_tab &lt;- df %&gt;%
+    select(x, y, cs) %&gt;%
+    pivot_wider(id_cols = y, names_from = x, values_from = cs)
+  
+  r_tab &lt;- r_tab %&gt;%
+    mutate(across(everything(), ~ replace_na(.x, &quot;&quot;))) %&gt;%
+    rename(&quot;term&quot; = &quot;y&quot;)
+  
+  
+  r_tab &lt;- data.frame(r_tab)
+  
+  return(r_tab)
+  
+}</code></pre>
+<p>Here is the default correlation table for the <code>mtcars</code> dataset:</p>
+<pre class="r"><code>cor_stars(mtcars)</code></pre>
+<pre><code>##    term       mpg       cyl      disp        hp      drat        wt      qsec
+## 1   cyl -0.852***                                                            
+## 2  disp -0.848***  0.902***                                                  
+## 3    hp -0.776***  0.832***  0.791***                                        
+## 4  drat  0.681*** -0.700*** -0.710*** -0.449**                               
+## 5    wt -0.868***  0.782***  0.888***  0.659*** -0.712***                    
+## 6  qsec  0.419*   -0.591*** -0.434*   -0.708***  0.091    -0.175             
+## 7    vs  0.664*** -0.811*** -0.710*** -0.723***  0.440*   -0.555***  0.745***
+## 8    am  0.600*** -0.523**  -0.591*** -0.243     0.713*** -0.692*** -0.230   
+## 9  gear  0.480**  -0.493**  -0.556*** -0.126     0.700*** -0.583*** -0.213   
+## 10 carb -0.551**   0.527**   0.395*    0.750*** -0.091     0.428*   -0.656***
+##           vs        am      gear
+## 1                               
+## 2                               
+## 3                               
+## 4                               
+## 5                               
+## 6                               
+## 7                               
+## 8   0.168                       
+## 9   0.206     0.794***          
+## 10 -0.570***  0.058     0.274</code></pre>
+<p>And the correlation table with two digits for the same dataset:</p>
+<pre class="r"><code>cor_stars(mtcars, digits = 2)</code></pre>
+<pre><code>##    term      mpg      cyl     disp       hp     drat       wt     qsec       vs
+## 1   cyl -0.85***                                                               
+## 2  disp -0.85***  0.90***                                                      
+## 3    hp -0.78***  0.83***  0.79***                                             
+## 4  drat  0.68*** -0.70*** -0.71*** -0.45**                                     
+## 5    wt -0.87***  0.78***  0.89***  0.66*** -0.71***                           
+## 6  qsec  0.42*   -0.59*** -0.43*   -0.71***  0.09    -0.17                     
+## 7    vs  0.66*** -0.81*** -0.71*** -0.72***  0.44*   -0.55***  0.74***         
+## 8    am  0.60*** -0.52**  -0.59*** -0.24     0.71*** -0.69*** -0.23     0.17   
+## 9  gear  0.48**  -0.49**  -0.56*** -0.13     0.70*** -0.58*** -0.21     0.21   
+## 10 carb -0.55**   0.53**   0.39*    0.75*** -0.09     0.43*   -0.66*** -0.57***
+##          am     gear
+## 1                   
+## 2                   
+## 3                   
+## 4                   
+## 5                   
+## 6                   
+## 7                   
+## 8                   
+## 9   0.79***         
+## 10  0.06     0.27</code></pre>
+<p>If we are presenting an html document we can use the <code>kableExtra</code> package:</p>
+<pre class="r"><code>library(kableExtra)
+cor_stars(mtcars) %&gt;%
+  kbl() %&gt;%
+  kable_classic_2(full_width = F)</code></pre>
+<table class=" lightable-classic-2" style="font-family: &quot;Arial Narrow&quot;, &quot;Source Sans Pro&quot;, sans-serif; width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+term
+</th>
+<th style="text-align:left;">
+mpg
+</th>
+<th style="text-align:left;">
+cyl
+</th>
+<th style="text-align:left;">
+disp
+</th>
+<th style="text-align:left;">
+hp
+</th>
+<th style="text-align:left;">
+drat
+</th>
+<th style="text-align:left;">
+wt
+</th>
+<th style="text-align:left;">
+qsec
+</th>
+<th style="text-align:left;">
+vs
+</th>
+<th style="text-align:left;">
+am
+</th>
+<th style="text-align:left;">
+gear
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+cyl
+</td>
+<td style="text-align:left;">
+-0.852***
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+disp
+</td>
+<td style="text-align:left;">
+-0.848***
+</td>
+<td style="text-align:left;">
+0.902***
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+hp
+</td>
+<td style="text-align:left;">
+-0.776***
+</td>
+<td style="text-align:left;">
+0.832***
+</td>
+<td style="text-align:left;">
+0.791***
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+drat
+</td>
+<td style="text-align:left;">
+0.681***
+</td>
+<td style="text-align:left;">
+-0.700***
+</td>
+<td style="text-align:left;">
+-0.710***
+</td>
+<td style="text-align:left;">
+-0.449**
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+wt
+</td>
+<td style="text-align:left;">
+-0.868***
+</td>
+<td style="text-align:left;">
+0.782***
+</td>
+<td style="text-align:left;">
+0.888***
+</td>
+<td style="text-align:left;">
+0.659***
+</td>
+<td style="text-align:left;">
+-0.712***
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+qsec
+</td>
+<td style="text-align:left;">
+0.419*
+</td>
+<td style="text-align:left;">
+-0.591***
+</td>
+<td style="text-align:left;">
+-0.434*
+</td>
+<td style="text-align:left;">
+-0.708***
+</td>
+<td style="text-align:left;">
+0.091
+</td>
+<td style="text-align:left;">
+-0.175
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+vs
+</td>
+<td style="text-align:left;">
+0.664***
+</td>
+<td style="text-align:left;">
+-0.811***
+</td>
+<td style="text-align:left;">
+-0.710***
+</td>
+<td style="text-align:left;">
+-0.723***
+</td>
+<td style="text-align:left;">
+0.440*
+</td>
+<td style="text-align:left;">
+-0.555***
+</td>
+<td style="text-align:left;">
+0.745***
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+am
+</td>
+<td style="text-align:left;">
+0.600***
+</td>
+<td style="text-align:left;">
+-0.523**
+</td>
+<td style="text-align:left;">
+-0.591***
+</td>
+<td style="text-align:left;">
+-0.243
+</td>
+<td style="text-align:left;">
+0.713***
+</td>
+<td style="text-align:left;">
+-0.692***
+</td>
+<td style="text-align:left;">
+-0.230
+</td>
+<td style="text-align:left;">
+0.168
+</td>
+<td style="text-align:left;">
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+gear
+</td>
+<td style="text-align:left;">
+0.480**
+</td>
+<td style="text-align:left;">
+-0.493**
+</td>
+<td style="text-align:left;">
+-0.556***
+</td>
+<td style="text-align:left;">
+-0.126
+</td>
+<td style="text-align:left;">
+0.700***
+</td>
+<td style="text-align:left;">
+-0.583***
+</td>
+<td style="text-align:left;">
+-0.213
+</td>
+<td style="text-align:left;">
+0.206
+</td>
+<td style="text-align:left;">
+0.794***
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+carb
+</td>
+<td style="text-align:left;">
+-0.551**
+</td>
+<td style="text-align:left;">
+0.527**
+</td>
+<td style="text-align:left;">
+0.395*
+</td>
+<td style="text-align:left;">
+0.750***
+</td>
+<td style="text-align:left;">
+-0.091
+</td>
+<td style="text-align:left;">
+0.428*
+</td>
+<td style="text-align:left;">
+-0.656***
+</td>
+<td style="text-align:left;">
+-0.570***
+</td>
+<td style="text-align:left;">
+0.058
+</td>
+<td style="text-align:left;">
+0.274
+</td>
+</tr>
+</tbody>
+</table>
+<p>This is just another way of building a starred correlation matrix in R. The output is a data frame (a tibble does not yield a good output for this type of data) that can be displayed in plain text or in am html table. We can recycle most of that code to build a LaTeX table using the <code>xtable</code> package.</p>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Covariance and Pearson correlation in R <a href="https://jmsallan.netlify.app/blog/covariance-and-pearson-correlation-in-r/" class="uri">https://jmsallan.netlify.app/blog/covariance-and-pearson-correlation-in-r/</a></li>
+<li>Elegant correlation table using xtable R package <a href="http://www.sthda.com/english/wiki/elegant-correlation-table-using-xtable-r-package" class="uri">http://www.sthda.com/english/wiki/elegant-correlation-table-using-xtable-r-package</a></li>
+<li>Correlation table with significance indicators <a href="https://gist.github.com/aL3xa/887249" class="uri">https://gist.github.com/aL3xa/887249</a></li>
+<li>Create Awesome HTML Tables with <code>knitr::kable</code> and <code>kableExtra</code> <a href="https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html" class="uri">https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre><code>## R version 4.1.2 (2021-11-01)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Debian GNU/Linux 10 (buster)
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.8.0
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.8.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] kableExtra_1.3.4 tidyr_1.1.4      purrr_0.3.4      dplyr_1.0.7     
+## 
+## loaded via a namespace (and not attached):
+##  [1] highr_0.9         pillar_1.6.4      bslib_0.2.5.1     compiler_4.1.2   
+##  [5] jquerylib_0.1.4   tools_4.1.2       digest_0.6.27     viridisLite_0.4.0
+##  [9] jsonlite_1.7.2    evaluate_0.14     lifecycle_1.0.0   tibble_3.1.5     
+## [13] pkgconfig_2.0.3   rlang_0.4.12      DBI_1.1.1         rstudioapi_0.13  
+## [17] yaml_2.2.1        blogdown_1.5      xfun_0.23         stringr_1.4.0    
+## [21] httr_1.4.2        knitr_1.33        xml2_1.3.2        systemfonts_1.0.2
+## [25] generics_0.1.0    vctrs_0.3.8       sass_0.4.0        webshot_0.5.2    
+## [29] tidyselect_1.1.1  svglite_2.0.0     glue_1.4.2        R6_2.5.0         
+## [33] fansi_0.5.0       rmarkdown_2.9     bookdown_0.24     magrittr_2.0.1   
+## [37] scales_1.1.1      ellipsis_0.3.2    htmltools_0.5.1.1 assertthat_0.2.1 
+## [41] rvest_1.0.2       colorspace_2.0-1  utf8_1.2.1        stringi_1.7.3    
+## [45] munsell_0.5.0     crayon_1.4.1</code></pre>
+</div>
