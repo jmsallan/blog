@@ -1,0 +1,424 @@
+---
+title: Breaking symmetry in linear programming formulation
+author: Jose M Sallan
+date: '2022-01-12'
+slug: breaking-symmetry-in-linear-programming-formulation
+categories:
+  - R
+tags:
+  - linear programming
+  - optimization
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>An integer linear program (ILP) is <strong>symmetric</strong> if its variables can be permuted without changing the structure of the problem. Even for relatively modestly sized problems, ILPs with large symmetry groups are difficult to solve using traditional branch-and- bound or branch-and-cut algorithms (Margot, 2010). This is because once the algorithm finds an optimal solution, it needs to explore all its permutations until it knows for sure that has found the optimum. Finding an optimal solution for symmetrical problems can be easy, bot proving that it is optimal is not. We can tackle symmetry with slight perturbations of cost coefficients to break symmetry or fixing variables.</p>
+<p>Here I will present a formulation of the bin packing problem with symmetry, to examine how can we eliminate symmetry with an alternative formulation. I will be using <code>Rglpk</code> to solve linear programming and use <code>rbenchmark</code> to compare times of execution.</p>
+<pre class="r"><code>library(Rglpk)
+library(rbenchmark)</code></pre>
+<div id="a-formulation-of-the-bin-packing-problem" class="section level2">
+<h2>A formulation of the bin packing problem</h2>
+<p>In the <strong>bin packing problem (BPP)</strong>, items of different volumes must be packed into equal bins of a fixed given volume in a way that minimizes the number of bins used. An instance of the bin packing problem is defined by the volume <span class="math inline">\(v_i\)</span> of each of the <span class="math inline">\(n\)</span> elements to pack, and by the volume <span class="math inline">\(V\)</span> of each of the bins used.</p>
+<p>To examine the performance of different BPP formulations, I will use the following instance:</p>
+<pre class="r"><code>vol &lt;- c(0.61, 0.96, 0.95, 0.91, 0.13, 0.53, 0.53, 0.05, 0.65, 0.66)
+V &lt;- 1</code></pre>
+<p>A straigthforward formulation of the BPP can be obtained defining variables:</p>
+<ul>
+<li>binaries <span class="math inline">\(x_{ij}\)</span> equal to one if element <span class="math inline">\(i\)</span> goes into bin <span class="math inline">\(j\)</span> and zero otherwise.</li>
+<li>binaries <span class="math inline">\(y_j\)</span> equal to one if we use bin <span class="math inline">\(j\)</span> and zero otherwise.</li>
+</ul>
+<p>As we don’t know how many bins we will use, we set <span class="math inline">\(i = 1, \dots, n\)</span> and <span class="math inline">\(j = 1, \dots, n\)</span>.</p>
+<p>The objective function is the number of bins to use:</p>
+<p><span class="math display">\[ \text{MIN } \sum_{j=1}^n y_j \]</span></p>
+<p>As constraints, we first establish that each element must be in one bin:</p>
+<p><span class="math display">\[ \sum_{i=1}^n x_{ij} = 1, \ \ \ i = 1, \dots, n \]</span></p>
+<p>The second set of constraints makes that we can use each bin only when its binary variable is equal to one, taking into account that bins have capacity <span class="math inline">\(V\)</span></p>
+<p><span class="math display">\[ \sum_{i=1}^n v_i x_{ij} \leq Vy_j, \ \ \ j = 1, \dots, n \]</span></p>
+<p>To break this symmetry somewhat (although not completely) we can force that bin <span class="math inline">\(j\)</span> cannot be activated if bin <span class="math inline">\(j-1\)</span> has not been activated.</p>
+<p><span class="math display">\[ y_{j} \leq y_{j-1} \ \ \ j = 2, \dots, n  \]</span></p>
+<p>The implementation of this formulation in MathProg for the instance is:</p>
+<pre class="r"><code>bpp1 &lt;- 
+&quot;/* number of elements in bin */
+param n; 
+
+/* volume of bin */
+param V; 
+
+/* volume of each element */
+param volume{1..n};
+
+/* equals one if element i is in bin j */
+var x{i in 1..n, j in 1..n}, binary;
+
+/* equals one if we are using bin j */
+var y{j in 1..n}, binary;
+
+minimize bins: sum{j in 1..n} y[j];
+
+/* each element is only in one bin */
+s.t. element{i in 1..n}: sum{j in 1..n} x[i, j] = 1;
+
+/* bin j is active if y[j] = 1 */
+s.t. binscap{j in 1..n}: sum{i in 1..n} volume[i] * x[i, j] - V * y[j] &lt;= 0;
+
+/* to break symmetry, y[i] can be active only if y[i-1] is */
+s.t. order{j in 2..n}: y[j] - y[j-1] &lt;= 0;
+
+data;
+
+param n := 10;
+
+param V := 1;
+
+param volume := 1 0.61
+                2 0.96
+                3 0.95
+                4 0.91
+                5 0.13
+                6 0.53
+                7 0.53
+                8 0.05
+                9 0.65
+                10 0.66;
+
+end;&quot;</code></pre>
+<p>The solution for this formulation is:</p>
+<pre><code>##  x[1,4]  x[2,7]  x[3,8]  x[4,2]  x[5,1]  x[6,5]  x[7,1]  x[8,2]  x[9,6] x[10,3] 
+##       1       1       1       1       1       1       1       1       1       1 
+##    y[1]    y[2]    y[3]    y[4]    y[5]    y[6]    y[7]    y[8] 
+##       1       1       1       1       1       1       1       1</code></pre>
+<p>The same solution presented as data frame:</p>
+<table class=" lightable-paper lightable-hover" style="font-family: &quot;Arial Narrow&quot;, arial, helvetica, sans-serif; width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+element
+</th>
+<th style="text-align:right;">
+bin
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+4
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+7
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+8
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+5
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+7
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+9
+</td>
+<td style="text-align:right;">
+6
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+10
+</td>
+<td style="text-align:right;">
+3
+</td>
+</tr>
+</tbody>
+</table>
+<p>Thanks to the <code>order</code> constraints we are using only bins 1 to 8, but some symmetry persists, because bins can be relabelled. This second table corresponds with the same solution:</p>
+<table class=" lightable-paper lightable-hover" style="font-family: &quot;Arial Narrow&quot;, arial, helvetica, sans-serif; width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+element
+</th>
+<th style="text-align:right;">
+bin
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+5
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+8
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+3
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+6
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+7
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:right;">
+3
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+9
+</td>
+<td style="text-align:right;">
+7
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+10
+</td>
+<td style="text-align:right;">
+4
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="an-alternative-formulation-avoiding-symmetry" class="section level2">
+<h2>An alternative formulation avoiding symmetry</h2>
+<p>A way of supressing the symmetry of the formulation above is to identify each with the lowest-index item it contains. For instance, bin 1 can contain elements 1 or higher, bin 3 elements 3 or higher, and so on. To achieve this, we define variables <span class="math inline">\(u_{ij}\)</span> that equal one if element <span class="math inline">\(j \geq i\)</span> is in the bin with lowest-index element <span class="math inline">\(i\)</span> and zero otherwise. For this formulation to work, we need that variables <span class="math inline">\(u_{ij}\)</span> for <span class="math inline">\(j &gt; i\)</span> can be 1 only if <span class="math inline">\(u_{ii} = 1\)</span>.</p>
+<p>For a bin packing problem of <span class="math inline">\(n=5\)</span>, we would have the following scheme of variables:</p>
+<ul>
+<li>elements in bin 1: <span class="math inline">\(u_{11}\)</span>, <span class="math inline">\(u_{12}\)</span>, <span class="math inline">\(u_{13}\)</span>, <span class="math inline">\(u_{14}\)</span>, <span class="math inline">\(u_{15}\)</span></li>
+<li>elements in bin 2: <span class="math inline">\(u_{22}\)</span>, <span class="math inline">\(u_{23}\)</span>, <span class="math inline">\(u_{24}\)</span>, <span class="math inline">\(u_{25}\)</span></li>
+<li>elements in bin 3: <span class="math inline">\(u_{33}\)</span>, <span class="math inline">\(u_{34}\)</span>, <span class="math inline">\(u_{35}\)</span></li>
+<li>elements in bin 4: <span class="math inline">\(u_{44}\)</span>, <span class="math inline">\(u_{45}\)</span></li>
+<li>elements in bin 5: <span class="math inline">\(u_{55}\)</span></li>
+</ul>
+<p>Note that these variables are defined for <span class="math inline">\(j \geq i\)</span>, so we have <span class="math inline">\(n \left( n+1\right)/2\)</span> variables.</p>
+<p>Let’s formulate the bin packing problem with these variables. As bin <span class="math inline">\(i\)</span> is open when <span class="math inline">\(u_{ii} = 1\)</span>, the objective function is:</p>
+<p><span class="math display">\[ \text{MIN } \sum_{i=1}^n u_{ii} \]</span></p>
+<p>Each element <span class="math inline">\(j\)</span> must be in one bin:</p>
+<p><span class="math display">\[ \sum_{i=1}^j u_{ij} = 1, \ \ \ j = 1, \dots, n \]</span></p>
+<p>And no elements can be placed in a bin that is not open:</p>
+<p><span class="math display">\[ \sum_{j=i}^n v_j u_{ij} \leq  Vu_{ii}, \ \ \ i = 1, \dots, n \]</span></p>
+<p>The implementation of this formulation in MathProg for this instance is:</p>
+<pre class="r"><code>bpp2 &lt;- 
+&quot;/* number of elements in bin */
+param n;
+
+/* volume of bin */
+param V;
+
+/* volume of each element */
+param volume{1..n}; 
+
+/* equals one if element j &gt;=i is in the same bin as i */
+var u{i in 1..n, j in i..n}, binary; 
+
+minimize bins: sum{i in 1..n} u[i, i];
+
+/* each element in one bin */
+s.t. element{j in 1..n}: sum{i in 1..j} u[i, j] = 1; 
+
+/* bin of element i is active if u[i, i] = 1 */
+/* variables u[i, j] can be 1 only if u[i, i] = 1 */
+s.t. bincap{i in 1..n}: sum{j in i..n} volume[j] * u[i, j] - V * u[i, i] &lt;= 0; 
+
+data;
+
+param n := 10;
+
+param V := 1;
+
+param volume := 1 0.61
+                2 0.96
+                3 0.95
+                4 0.91
+                5 0.13
+                6 0.53
+                7 0.53
+                8 0.05
+                9 0.65
+                10 0.66;
+
+end;&quot;</code></pre>
+<p>And the non-zero elements of the solution are:</p>
+<pre><code>##  u[1,1]  u[2,2]  u[3,3]  u[4,4]  u[5,5]  u[6,6]  u[7,7]  u[8,8]  u[5,9] u[8,10] 
+##       1       1       1       1       1       1       1       1       1       1</code></pre>
+<p>Note that now are fixing the index of the label with the element of lower index. Each element is in its own bin, except elements 9 and 10, that are contained in the bins of elements 5 and 8, respectively.</p>
+</div>
+<div id="time-of-execution" class="section level2">
+<h2>Time of execution</h2>
+<p>This second formulation can be advantageous in terms of time of execution. To examine that, I will read each of the two formulations into <code>model_bpp1</code> and <code>model_bpp2</code>, respectively:</p>
+<pre class="r"><code>writeLines(bpp1, &quot;bpp.mod&quot;)
+model_bpp1 &lt;- Rglpk_read_file(&quot;bpp.mod&quot;, type = &quot;MathProg&quot;, verbose = FALSE)
+unlink(&quot;bpp.mod&quot;)
+
+writeLines(bpp2, &quot;bpp.mod&quot;)
+model_bpp2 &lt;- Rglpk_read_file(&quot;bpp.mod&quot;, type = &quot;MathProg&quot;, verbose = FALSE)
+unlink(&quot;bpp.mod&quot;)</code></pre>
+<p>Then, I am creating a function to solve each model, without elaborating on the function output:</p>
+<pre class="r"><code>solve_lpmod &lt;- function(model){
+  solve &lt;- Rglpk_solve_LP(obj = model$objective,
+                        mat = model$constraints[[1]],
+                        dir = model$constraints[[2]],
+                        rhs = model$constraints[[3]],
+                        types = model$types,
+                        bounds = model$bounds,
+                        max = model$maximum)
+  return(solve)
+}</code></pre>
+<p>Finally, I am using <code>rbenchmark</code> to compare the performance of both models:</p>
+<pre class="r"><code>speed_test &lt;- 
+benchmark(solve_lpmod(model_bpp1), solve_lpmod(model_bpp2), columns=c(&#39;test&#39;, &#39;replications&#39;, &#39;elapsed&#39;, &#39;relative&#39;, &#39;user.self&#39;, &#39;sys.self&#39;), replications = 10, order=&#39;elapsed&#39;)
+speed_test</code></pre>
+<pre><code>##                      test replications elapsed relative user.self sys.self
+## 2 solve_lpmod(model_bpp2)           10   0.016    1.000     0.016        0
+## 1 solve_lpmod(model_bpp1)           10   7.937  496.062     7.932        0</code></pre>
+<p>We observe that the second formulation is considerably faster: the second formulation is 496.062 times faster than the second.</p>
+</div>
+<div id="ackownledgements" class="section level2">
+<h2>Ackownledgements</h2>
+<p>Thanks to Mari Albareda for proofreading this post, suggesting a satisfactory definition of <span class="math inline">\(u_{ij}\)</span> variables and further work on this formulation.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Margot F. (2010). Symmetry in Integer Linear Programming. In: Jünger M. et al. (eds) <em>50 Years of Integer Programming 1958-2008.</em> Springer, Berlin, Heidelberg. <a href="https://doi.org/10.1007/978-3-540-68279-0_17" class="uri">https://doi.org/10.1007/978-3-540-68279-0_17</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre><code>## R version 4.1.2 (2021-11-01)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Debian GNU/Linux 10 (buster)
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.8.0
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.8.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] rbenchmark_1.0.0 Rglpk_0.6-4      slam_0.1-49      kableExtra_1.3.4
+## 
+## loaded via a namespace (and not attached):
+##  [1] rstudioapi_0.13   knitr_1.33        xml2_1.3.2        magrittr_2.0.1   
+##  [5] munsell_0.5.0     rvest_1.0.2       viridisLite_0.4.0 colorspace_2.0-1 
+##  [9] R6_2.5.0          rlang_0.4.12      highr_0.9         stringr_1.4.0    
+## [13] httr_1.4.2        tools_4.1.2       webshot_0.5.2     xfun_0.23        
+## [17] jquerylib_0.1.4   systemfonts_1.0.2 htmltools_0.5.1.1 yaml_2.2.1       
+## [21] digest_0.6.27     lifecycle_1.0.0   bookdown_0.24     sass_0.4.0       
+## [25] glue_1.4.2        evaluate_0.14     rmarkdown_2.9     blogdown_1.5     
+## [29] stringi_1.7.3     compiler_4.1.2    bslib_0.2.5.1     scales_1.1.1     
+## [33] svglite_2.0.0     jsonlite_1.7.2</code></pre>
+</div>

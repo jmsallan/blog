@@ -1,0 +1,302 @@
+---
+title: Breaking symmetry in linear programming formulation
+author: Jose M Sallan
+date: '2022-01-12'
+slug: breaking-symmetry-in-linear-programming-formulation
+categories:
+  - R
+tags:
+  - linear programming
+  - optimization
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+library(kableExtra)
+```
+
+An integer linear program (ILP) is **symmetric** if its variables can be permuted without changing the structure of the problem. Even for relatively modestly sized problems, ILPs with large symmetry groups are difficult to solve using traditional branch-and- bound or branch-and-cut algorithms (Margot, 2010). This is because once the algorithm finds an optimal solution, it needs to explore all its permutations until it knows for sure that has found the optimum. Finding an optimal solution for symmetrical problems can be easy, bot proving that it is optimal is not. We can tackle symmetry with slight perturbations of cost coefficients to break symmetry or fixing variables.
+
+Here I will present a formulation of the bin packing problem with symmetry, to examine how can we eliminate symmetry with an alternative formulation. I will be using `Rglpk` to solve linear programming and use `rbenchmark` to compare times of execution.
+
+```{r}
+library(Rglpk)
+library(rbenchmark)
+```
+
+## A formulation of the bin packing problem
+
+In the **bin packing problem (BPP)**, items of different volumes must be packed into equal bins of a fixed given volume in a way that minimizes the number of bins used. An instance of the bin packing problem is defined by the volume $v_i$ of each of the $n$ elements to pack, and by the volume $V$ of each of the bins used.
+
+To examine the performance of different BPP formulations, I will use the following instance:
+
+```{r}
+vol <- c(0.61, 0.96, 0.95, 0.91, 0.13, 0.53, 0.53, 0.05, 0.65, 0.66)
+V <- 1
+```
+
+A straigthforward formulation of the BPP can be obtained defining variables:
+
+* binaries $x_{ij}$ equal to one if element $i$ goes into bin $j$ and zero otherwise.
+* binaries $y_j$ equal to one if we use bin $j$ and zero otherwise.
+
+As we don't know how many bins we will use, we set $i = 1, \dots, n$ and $j = 1, \dots, n$.
+
+The objective function is the number of bins to use:
+
+\[ \text{MIN } \sum_{j=1}^n y_j \]
+
+As constraints, we first establish that each element must be in one bin:
+
+\[ \sum_{i=1}^n x_{ij} = 1, \ \ \ i = 1, \dots, n \]
+
+The second set of constraints makes that we can use each bin only when its binary variable is equal to one, taking into account that bins have capacity $V$
+
+\[ \sum_{i=1}^n v_i x_{ij} \leq Vy_j, \ \ \ j = 1, \dots, n \]
+
+To break this symmetry somewhat (although not completely) we can force that bin $j$ cannot be activated if bin $j-1$ has not been activated.
+
+\[ y_{j} \leq y_{j-1} \ \ \ j = 2, \dots, n  \]
+
+The implementation of this formulation in MathProg for the instance is:
+
+```{r}
+bpp1 <- 
+"/* number of elements in bin */
+param n; 
+
+/* volume of bin */
+param V; 
+
+/* volume of each element */
+param volume{1..n};
+
+/* equals one if element i is in bin j */
+var x{i in 1..n, j in 1..n}, binary;
+
+/* equals one if we are using bin j */
+var y{j in 1..n}, binary;
+
+minimize bins: sum{j in 1..n} y[j];
+
+/* each element is only in one bin */
+s.t. element{i in 1..n}: sum{j in 1..n} x[i, j] = 1;
+
+/* bin j is active if y[j] = 1 */
+s.t. binscap{j in 1..n}: sum{i in 1..n} volume[i] * x[i, j] - V * y[j] <= 0;
+
+/* to break symmetry, y[i] can be active only if y[i-1] is */
+s.t. order{j in 2..n}: y[j] - y[j-1] <= 0;
+
+data;
+
+param n := 10;
+
+param V := 1;
+
+param volume := 1 0.61
+                2 0.96
+                3 0.95
+                4 0.91
+                5 0.13
+                6 0.53
+                7 0.53
+                8 0.05
+                9 0.65
+                10 0.66;
+
+end;"
+```
+
+```{r, echo=FALSE}
+solve_lp <- function(model, type = "MathProg"){
+  
+  writeLines(model, "model.mod")
+  
+  lp_model <- Rglpk_read_file("model.mod", type = type)
+
+  lp_solution <- Rglpk_solve_LP(obj = lp_model$objective, 
+                              mat = lp_model$constraints[[1]],
+                              dir = lp_model$constraints[[2]],
+                              rhs = lp_model$constraints[[3]],
+                              types = lp_model$types,
+                              bounds = lp_model$bounds,
+                              max = lp_model$maximum)
+  unlink("model.mod")
+  
+  if(lp_solution$status == 0){
+    sol <- lp_solution$solution
+    names(sol) <- attr(lp_model, "objective_vars_names")
+    obj = lp_solution$optimum
+    return(list(sol = sol, obj = obj, success = TRUE))
+  }else
+    return(success = FALSE)
+  
+}
+```
+
+The solution for this formulation is:
+
+```{r, echo=FALSE}
+sol_bpp1 <- solve_lp(bpp1)
+sol_bpp1$sol[which(sol_bpp1$sol == 1)]
+```
+
+The same solution presented as data frame:
+
+```{r, echo=FALSE}
+df_1 <- data.frame(element = 1:10, bin = c(4, 7, 8, 2, 1, 5, 1, 2, 6, 3))
+
+df_1 %>%
+  kbl() %>%
+  kable_paper("hover", full_width = F)
+```
+
+Thanks to the `order` constraints we are using only bins 1 to 8, but some symmetry persists, because bins can be relabelled. This second table corresponds with the same solution:
+
+```{r, echo=FALSE}
+df_2 <- data.frame(element = 1:10, bin = c(5, 8, 1, 3, 2, 6, 2, 3, 7, 4))
+
+df_2 %>%
+  kbl() %>%
+  kable_paper("hover", full_width = F)
+```
+
+## An alternative formulation avoiding symmetry
+
+A way of supressing the symmetry of the formulation above is to identify each with the lowest-index item it contains. For instance, bin 1 can contain elements 1 or higher, bin 3 elements 3 or higher, and so on. To achieve this, we define variables $u_{ij}$ that equal one if element $j \geq i$ is in the bin with lowest-index element $i$ and zero otherwise. For this formulation to work, we need that variables $u_{ij}$ for $j > i$ can be 1 only if $u_{ii} = 1$.
+
+For a bin packing problem of $n=5$, we would have the following scheme of variables:
+
+* elements in bin 1: $u_{11}$, $u_{12}$, $u_{13}$, $u_{14}$, $u_{15}$
+* elements in bin 2: $u_{22}$, $u_{23}$, $u_{24}$, $u_{25}$
+* elements in bin 3: $u_{33}$, $u_{34}$, $u_{35}$
+* elements in bin 4: $u_{44}$, $u_{45}$
+* elements in bin 5: $u_{55}$
+
+Note that these variables are defined for $j \geq i$, so we have $n \left( n+1\right)/2$ variables. 
+
+Let's formulate the bin packing problem with these variables. As bin $i$ is open when $u_{ii} = 1$, the objective function is:
+
+\[ \text{MIN } \sum_{i=1}^n u_{ii} \]
+
+Each element $j$ must be in one bin:
+
+\[ \sum_{i=1}^j u_{ij} = 1, \ \ \ j = 1, \dots, n \]
+
+And no elements can be placed in a bin that is not open:
+
+\[ \sum_{j=i}^n v_j u_{ij} \leq  Vu_{ii}, \ \ \ i = 1, \dots, n \]
+
+The implementation of this formulation in MathProg for this instance is:
+
+```{r}
+bpp2 <- 
+"/* number of elements in bin */
+param n;
+
+/* volume of bin */
+param V;
+
+/* volume of each element */
+param volume{1..n}; 
+
+/* equals one if element j >=i is in the same bin as i */
+var u{i in 1..n, j in i..n}, binary; 
+
+minimize bins: sum{i in 1..n} u[i, i];
+
+/* each element in one bin */
+s.t. element{j in 1..n}: sum{i in 1..j} u[i, j] = 1; 
+
+/* bin of element i is active if u[i, i] = 1 */
+/* variables u[i, j] can be 1 only if u[i, i] = 1 */
+s.t. bincap{i in 1..n}: sum{j in i..n} volume[j] * u[i, j] - V * u[i, i] <= 0; 
+
+data;
+
+param n := 10;
+
+param V := 1;
+
+param volume := 1 0.61
+                2 0.96
+                3 0.95
+                4 0.91
+                5 0.13
+                6 0.53
+                7 0.53
+                8 0.05
+                9 0.65
+                10 0.66;
+
+end;"
+```
+
+And the non-zero elements of the solution are:
+
+```{r, echo=FALSE}
+sol_bpp2 <- solve_lp(bpp2)
+sol_bpp2$sol[which(sol_bpp2$sol == 1)]
+```
+
+Note that now are fixing the index of the label with the element of lower index. Each element is in its own bin, except elements 9 and 10, that are contained in the bins of elements 5 and 8, respectively.
+
+## Time of execution
+
+This second formulation can be advantageous in terms of time of execution. To examine that, I will read each of the two formulations into `model_bpp1` and `model_bpp2`, respectively:
+
+```{r}
+writeLines(bpp1, "bpp.mod")
+model_bpp1 <- Rglpk_read_file("bpp.mod", type = "MathProg", verbose = FALSE)
+unlink("bpp.mod")
+
+writeLines(bpp2, "bpp.mod")
+model_bpp2 <- Rglpk_read_file("bpp.mod", type = "MathProg", verbose = FALSE)
+unlink("bpp.mod")
+```
+
+Then, I am creating a function to solve each model, without elaborating on the function output:
+
+```{r}
+solve_lpmod <- function(model){
+  solve <- Rglpk_solve_LP(obj = model$objective,
+                        mat = model$constraints[[1]],
+                        dir = model$constraints[[2]],
+                        rhs = model$constraints[[3]],
+                        types = model$types,
+                        bounds = model$bounds,
+                        max = model$maximum)
+  return(solve)
+}
+```
+
+Finally, I am using `rbenchmark` to compare the performance of both models:
+
+```{r, eval=TRUE}
+speed_test <- 
+benchmark(solve_lpmod(model_bpp1), solve_lpmod(model_bpp2), columns=c('test', 'replications', 'elapsed', 'relative', 'user.self', 'sys.self'), replications = 10, order='elapsed')
+speed_test
+```
+
+We observe that the second formulation is considerably faster: the second formulation is `r format(speed_test$relative[2], digits = 6)` times faster than the second.
+
+## Ackownledgements
+
+Thanks to Mari Albareda for proofreading this post, suggesting a satisfactory definition of $u_{ij}$ variables and further work on this formulation.
+
+## References
+
+* Margot F. (2010). Symmetry in Integer Linear Programming. In: Jünger M. et al. (eds) *50 Years of Integer Programming 1958-2008.* Springer, Berlin, Heidelberg. <https://doi.org/10.1007/978-3-540-68279-0_17>
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
+
