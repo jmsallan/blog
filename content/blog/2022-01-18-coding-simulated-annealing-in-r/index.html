@@ -1,0 +1,206 @@
+---
+title: Coding simulated annealing in R
+author: Jose M Sallan
+date: '2022-01-18'
+slug: coding-simulated-annealing-in-r
+categories:
+  - R
+tags:
+  - optimization
+  - simulated annealing
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>A strategy to solve optimization problems is <strong>local search</strong>. It starts with a solution, that can be built at random or obtained with another heuristic, and tries to improve it iteratively, trying to find solutions with a better fit than the one we are examining belonging to its neighbourhood. Effective local search procedures may explore solutions worse than the one they have found so far, hoping to escape from local optima.</p>
+<p>A well-known local search metaheuristic is <strong>simulated annealing</strong>. Its name comes from annealing in metallurgy, a technique involving heating and controlled cooling of a material to alter its physical properties. The cooling metaphor suggests that the probability of exploring a worse solution decreases with the number of iterations.</p>
+<p>To illustrate this technique I will use a problem suggested by professor Éric Taillard. The problem consists of ordering <span class="math inline">\(n\)</span> masses of weights <span class="math inline">\(1, 2, \dots, n\)</span> evenly on a circumference so that the distance of the center of mass to the center of the circle is minimized. The plot below presents a possible solution for a problem of <span class="math inline">\(n=37\)</span>. The red point of is the center of the circle, and the black point is the center of mass of the solution.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-1-1.png" width="60%" style="display: block; margin: auto;" /></p>
+<p>A solution of this problem can be encoded as a <strong>cyclic permutation</strong>, where the first element is fixed and the remaining <span class="math inline">\(n-1\)</span> elements can take any order. The <code>mass_center</code> function returns the distance to the origin of the center of mass of a possible solution:</p>
+<pre class="r"><code>mass_center &lt;- function(v){
+  n &lt;- length(v)
+  
+  angles &lt;- 0:(n-1) * 2 * pi / n
+  x &lt;- v*cos(angles)
+  y &lt;- v*sin(angles)
+  dcm &lt;- c(sum(x), sum(y))/sum(v)
+  dcm &lt;- sqrt(sum(dcm^2))
+  
+  return(dcm)
+}</code></pre>
+<p>The distance of the mass center to the center for the solution of the plot above is:</p>
+<pre class="r"><code>mass_center(1:37)</code></pre>
+<pre><code>## [1] 0.310306</code></pre>
+<div id="a-simulated-annealing-heuristic" class="section level2">
+<h2>A simulated annealing heuristic</h2>
+<p>Let’s use the simmulated annealing metaheuristic to construct a heuristic for this problem. If the fitness function of the problem is <span class="math inline">\(F\left(x\right)\)</span> we have:</p>
+<ul>
+<li>the solution we are exploring at the moment <span class="math inline">\(x\)</span> and its fitness function <span class="math inline">\(f=F\left(x\right)\)</span>. These are labelled <code>sol</code> and <code>fit</code> in the <code>sa_circle</code> function code.</li>
+<li>the best solution we have found so far <span class="math inline">\(x^{*}\)</span> and its fitness function <span class="math inline">\(f^{*}=F\left(x^{*}\right)\)</span>. They are labeled <code>bestsol</code> and <code>bestfit</code> in the <code>sa_circle</code> function code.</li>
+<li>the solution <span class="math inline">\(x&#39;\)</span> we are exploring in each iteration and its fitness function <span class="math inline">\(f&#39;=F\left(x&#39;\right)\)</span>. The are labeled <code>testsol</code> and <code>testfit</code> in the <code>sa_circle</code> function code.</li>
+</ul>
+<p>We obtain <span class="math inline">\(x&#39;\)</span> from <span class="math inline">\(x\)</span> choosing randomly and element of the neighborhood of <span class="math inline">\(x\)</span>. I will use a swap operator to define the neighborhood, so their elements are the solutions than can be obtained swapping two elements <span class="math inline">\(i\)</span> and <span class="math inline">\(j\)</span> of the solution. As the solution is encoded as a cyclic permutation indexes <span class="math inline">\(i \neq j\)</span> are picked from <span class="math inline">\(2, \dots, n\)</span>.</p>
+<p>I have implemented the swap of two elements with the <code>swap</code> function:</p>
+<pre class="r"><code>swap &lt;- function(v, i , j){
+  
+  aux &lt;- v[i]
+  v[i] &lt;- v[j]
+  v[j] &lt;- aux
+  return(v)
+}</code></pre>
+<p>The core of simulated annealing consists of replacing <span class="math inline">\(x\)</span> by <span class="math inline">\(x&#39;\)</span> always if <span class="math inline">\(f&#39; \leq f\)</span> and with a probability:</p>
+<p><span class="math display">\[ p = exp \left\{ - \frac{f&#39; - f}{T} \right\}\]</span></p>
+<p>if <span class="math inline">\(f` &gt; f\)</span>. The probability of accepting a worse solution depends on:</p>
+<ul>
+<li>the gap fit <span class="math inline">\(f&#39; - f\)</span>: the bigger the gap, the lower the probability of acceptance.</li>
+<li>the temperature <span class="math inline">\(T\)</span>: the lower the temperature, the lower the probability of acceptance. This makes the algorithm focus on exploration in the first iterations, and on exploitation in the last iterations.</li>
+</ul>
+<p>The temperature <span class="math inline">\(T\)</span> decreases in each iteration by doing:</p>
+<p><span class="math display">\[ T_n \leftarrow \alpha T_{n-1}\]</span></p>
+<p>where <span class="math inline">\(\alpha\)</span> is a parameter smaller than one.</p>
+<p>An issue that goes often unnoticed is that starting temperature <span class="math inline">\(T\)</span> must have a similar scale of the differences of two values of <span class="math inline">\(F\)</span>. We can achieve this estimating <span class="math inline">\(\Delta f_0\)</span>, the gap fit between any pair of solutions picked at random, and fixing a probability <span class="math inline">\(p_0\)</span> of acceptance of a solution with a fit gap <span class="math inline">\(\Delta f_0\)</span>:</p>
+<p><span class="math display">\[ T_{max} \sim - \frac{\Delta f_0}{ln\left(p_0\right)} \]</span></p>
+</div>
+<div id="implementing-the-simulated-annealing-heuristic" class="section level2">
+<h2>Implementing the simulated annealing heuristic</h2>
+<p>Here is the code of the function <code>sa_circle</code> implementing the simulated annealing heuristic for this problem. The function picks the following arguments:</p>
+<ul>
+<li>a starting solution <code>inisol</code>.</li>
+<li>the maximum number of iterations to run without improvement of <span class="math inline">\(f^{*}\)</span>.</li>
+<li>the cooling <code>alpha</code> parameter.</li>
+<li>the parameter <code>p0</code> to estimate <span class="math inline">\(T_{max}\)</span>.</li>
+<li>an <code>eval</code> flag to check if we want to keep track of the evolution of the algorithm.</li>
+</ul>
+<pre class="r"><code>sa_circle &lt;- function(inisol, iter=1000, alpha = 0.9, p0 = 0.9, eval=FALSE){
+  
+  #setting up tracking of evolution if eval=TRUE
+  if(eval){
+    evalfit &lt;- numeric()
+    evalbest &lt;- numeric()
+    temp &lt;- numeric()
+  }
+  
+  n &lt;- length(inisol)
+  count &lt;- 1
+  
+  #initialization of explored solution sol and best solution bestsol
+  #and objective funciton values fit  and bestfit
+  sol &lt;- inisol
+  bestsol &lt;- inisol
+  fit &lt;- mass_center(sol)
+  bestfit &lt;- fit
+  
+  #estimation of initial temperature
+  sol_a &lt;- sapply(1:100, function(x) mass_center(c(1, sample(2:n, n-1))))
+  sol_b &lt;- sapply(1:100, function(x) mass_center(c(1, sample(2:n, n-1))))
+  
+  delta_f0 &lt;- mean(abs(sol_a - sol_b))
+  Tmax &lt;- -delta_f0/log(p0)
+  T &lt;- Tmax
+  
+  ## the simulated annealing loop
+  while(count &lt; iter){
+    
+    #obtaining the testing solution x&#39;
+    move &lt;- sample(2:n, 2)
+    testsol &lt;- swap(sol, move[1], move[2])
+    testfit &lt;- mass_center(testsol)
+    
+    #checking if we replace x by x&#39;
+    if(exp(-(testfit-fit)/T) &gt; runif(1)){
+      sol &lt;- testsol
+      fit &lt;- testfit
+    }
+    
+    #updating the best solution
+    if(testfit &lt;= bestfit){
+      bestsol &lt;- testsol
+      bestfit &lt;- testfit
+      count &lt;- 1
+    }else{
+      count &lt;- count + 1
+    }
+    
+    #keeping record of evolution of fit, bestfit and temperature if eval=TRUE
+    if(eval){
+      evalfit &lt;- c(evalfit, fit)
+      evalbest &lt;- c(evalbest, bestfit)
+      temp &lt;- c(temp, T)
+    }
+    
+    T &lt;- alpha*T
+    
+  }
+  
+  #returning the solution
+  if(eval)
+    return(list(sol=bestsol, fit=bestfit, evalfit=evalfit, evalbest=evalbest, temp=temp))
+  else
+    return(list(sol=bestsol, obj=bestfit))
+}</code></pre>
+<p>Let’s run the function with an instance of size 37. I am setting a seed of the random numbers with <code>set.seed</code> for reproducibility. As candidate solutions <span class="math inline">\(x&#39;\)</span> are defined with a random move, we will get a different solution for each run of the algorithm.</p>
+<pre class="r"><code>set.seed(1313)
+test &lt;- sa_circle(1:37, 
+                  iter = 1000, 
+                  alpha = 0.99, 
+                  p0 = 0.5, 
+                  eval = TRUE)</code></pre>
+<p>The value of the objective function of the solution is:</p>
+<pre class="r"><code>test$obj</code></pre>
+<pre><code>## NULL</code></pre>
+<p>As we can see, the result is fair better than the first solution obtained.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="60%" style="display: block; margin: auto;" /></p>
+</div>
+<div id="tracking-the-algorithm" class="section level2">
+<h2>Tracking the algorithm</h2>
+<p>I have set <code>eval=TRUE</code> in the run of the algorithm to examine the evolution of the obtention of the solution. Let’s plot the evolution of <span class="math inline">\(f\)</span> and <span class="math inline">\(f^{*}\)</span> as a function of the number of iterations.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="80%" style="display: block; margin: auto;" /></p>
+<p>The plot shows that the algorithm is accepting values of <span class="math inline">\(f&#39;\)</span> with a smaller gap from <span class="math inline">\(f\)</span> as the number of iterations increases. If we zoom the first iterations, we can see how the algorithm is accepting values of <span class="math inline">\(f&#39;\)</span> worse than <span class="math inline">\(f\)</span> to increase the exploration of the solution space.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="80%" style="display: block; margin: auto;" /></p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Professor Éric Taillard’s website: <a href="http://mistic.heig-vd.ch/taillard/" class="uri">http://mistic.heig-vd.ch/taillard/</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre><code>## R version 4.1.2 (2021-11-01)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Debian GNU/Linux 10 (buster)
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.8.0
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.8.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] ggplot2_3.3.5 tidyr_1.1.4   dplyr_1.0.7  
+## 
+## loaded via a namespace (and not attached):
+##  [1] highr_0.9         pillar_1.6.4      bslib_0.2.5.1     compiler_4.1.2   
+##  [5] jquerylib_0.1.4   tools_4.1.2       digest_0.6.27     jsonlite_1.7.2   
+##  [9] evaluate_0.14     lifecycle_1.0.0   tibble_3.1.5      gtable_0.3.0     
+## [13] pkgconfig_2.0.3   rlang_0.4.12      DBI_1.1.1         yaml_2.2.1       
+## [17] blogdown_1.5      xfun_0.23         withr_2.4.2       stringr_1.4.0    
+## [21] knitr_1.33        generics_0.1.0    vctrs_0.3.8       sass_0.4.0       
+## [25] grid_4.1.2        tidyselect_1.1.1  glue_1.4.2        R6_2.5.0         
+## [29] fansi_0.5.0       rmarkdown_2.9     bookdown_0.24     farver_2.1.0     
+## [33] purrr_0.3.4       magrittr_2.0.1    scales_1.1.1      ellipsis_0.3.2   
+## [37] htmltools_0.5.1.1 assertthat_0.2.1  colorspace_2.0-1  labeling_0.4.2   
+## [41] utf8_1.2.1        stringi_1.7.3     munsell_0.5.0     crayon_1.4.1</code></pre>
+</div>
