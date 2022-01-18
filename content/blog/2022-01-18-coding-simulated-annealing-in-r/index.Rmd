@@ -207,7 +207,7 @@ test <- sa_circle(1:37,
 The value of the objective function of the solution is:
 
 ```{r}
-test$obj
+test$fit
 ```
 
 As we can see, the result is fair better than the first solution obtained.
