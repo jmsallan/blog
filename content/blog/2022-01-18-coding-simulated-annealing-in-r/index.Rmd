@@ -26,7 +26,7 @@ A well-known local search metaheuristic is **simulated annealing**. Its name com
 
 To illustrate this technique I will use a problem suggested by professor Éric Taillard. The problem consists of ordering $n$ masses of weights $1, 2, \dots, n$ evenly on a circumference so that the distance of the center of mass to the center of the circle is minimized. The plot below presents a possible solution for a problem of $n=37$. The red point of is the center of the circle, and the black point is the center of mass of the solution.
 
-```{r, echo=FALSE, fig.align='center', out.width='60%', fig.height=6}
+```{r, echo=FALSE, fig.align='center', out.width='100%', fig.height=6}
 plot_circle <- function(v){
   
   n <- length(v)
@@ -212,7 +212,7 @@ test$obj
 
 As we can see, the result is fair better than the first solution obtained.
 
-```{r, echo=FALSE, fig.align='center', out.width='60%', fig.height=6}
+```{r, echo=FALSE, fig.align='center', out.width='100%', fig.height=6}
 plot_circle(test$sol)
 ```
 
@@ -220,7 +220,7 @@ plot_circle(test$sol)
 
 I have set `eval=TRUE` in the run of the algorithm to examine the evolution of the obtention of the solution. Let's plot the evolution of $f$ and $f^{*}$ as a function of the number of iterations.
 
-```{r, echo=FALSE, fig.align='center', out.width='80%'}
+```{r, echo=FALSE, fig.align='center', out.width='100%'}
 eval_sa <- tibble(step = 1:length(test$evalfit), fit = test$evalfit, best = test$evalbest)
 
 eval_sa %>%
@@ -234,7 +234,7 @@ eval_sa %>%
 
 The plot shows that the algorithm is accepting values of $f'$ with a smaller gap from $f$ as the number of iterations increases. If we zoom the first iterations, we can see how the algorithm is accepting values of $f'$ worse than $f$ to increase the exploration of the solution space.
 
-```{r, echo=FALSE, fig.align='center', out.width='80%'}
+```{r, echo=FALSE, fig.align='center', out.width='100%'}
 eval_sa %>%
   slice(1:200) %>%
   pivot_longer(-step) %>%

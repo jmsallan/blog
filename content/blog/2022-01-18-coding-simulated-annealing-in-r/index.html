@@ -18,7 +18,7 @@ description: Description for the page
 <p>A strategy to solve optimization problems is <strong>local search</strong>. It starts with a solution, that can be built at random or obtained with another heuristic, and tries to improve it iteratively, trying to find solutions with a better fit than the one we are examining belonging to its neighbourhood. Effective local search procedures may explore solutions worse than the one they have found so far, hoping to escape from local optima.</p>
 <p>A well-known local search metaheuristic is <strong>simulated annealing</strong>. Its name comes from annealing in metallurgy, a technique involving heating and controlled cooling of a material to alter its physical properties. The cooling metaphor suggests that the probability of exploring a worse solution decreases with the number of iterations.</p>
 <p>To illustrate this technique I will use a problem suggested by professor Éric Taillard. The problem consists of ordering <span class="math inline">\(n\)</span> masses of weights <span class="math inline">\(1, 2, \dots, n\)</span> evenly on a circumference so that the distance of the center of mass to the center of the circle is minimized. The plot below presents a possible solution for a problem of <span class="math inline">\(n=37\)</span>. The red point of is the center of the circle, and the black point is the center of mass of the solution.</p>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-1-1.png" width="60%" style="display: block; margin: auto;" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-1-1.png" width="100%" style="display: block; margin: auto;" /></p>
 <p>A solution of this problem can be encoded as a <strong>cyclic permutation</strong>, where the first element is fixed and the remaining <span class="math inline">\(n-1\)</span> elements can take any order. The <code>mass_center</code> function returns the distance to the origin of the center of mass of a possible solution:</p>
 <pre class="r"><code>mass_center &lt;- function(v){
   n &lt;- length(v)
@@ -152,14 +152,14 @@ test &lt;- sa_circle(1:37,
 <pre class="r"><code>test$obj</code></pre>
 <pre><code>## NULL</code></pre>
 <p>As we can see, the result is fair better than the first solution obtained.</p>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="60%" style="display: block; margin: auto;" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="100%" style="display: block; margin: auto;" /></p>
 </div>
 <div id="tracking-the-algorithm" class="section level2">
 <h2>Tracking the algorithm</h2>
 <p>I have set <code>eval=TRUE</code> in the run of the algorithm to examine the evolution of the obtention of the solution. Let’s plot the evolution of <span class="math inline">\(f\)</span> and <span class="math inline">\(f^{*}\)</span> as a function of the number of iterations.</p>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="80%" style="display: block; margin: auto;" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="100%" style="display: block; margin: auto;" /></p>
 <p>The plot shows that the algorithm is accepting values of <span class="math inline">\(f&#39;\)</span> with a smaller gap from <span class="math inline">\(f\)</span> as the number of iterations increases. If we zoom the first iterations, we can see how the algorithm is accepting values of <span class="math inline">\(f&#39;\)</span> worse than <span class="math inline">\(f\)</span> to increase the exploration of the solution space.</p>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="80%" style="display: block; margin: auto;" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="100%" style="display: block; margin: auto;" /></p>
 </div>
 <div id="references" class="section level2">
 <h2>References</h2>
