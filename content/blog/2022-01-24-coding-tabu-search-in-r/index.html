@@ -1,0 +1,285 @@
+---
+title: Coding tabu search in R
+author: Jose M Sallan
+date: '2022-01-24'
+slug: coding-tabu-search-in-r
+categories:
+  - R
+tags:
+  - optimization
+  - tabu search
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>To illustrate this technique I will use a problem suggested by professor Éric Taillard. The problem consists of ordering <span class="math inline">\(n\)</span> masses of weights <span class="math inline">\(1, 2, \dots, n\)</span> evenly on a circumference so that the distance of the center of mass to the center of the circle is minimized. The plot below presents a possible solution for a problem of <span class="math inline">\(n=37\)</span>. The red point of is the center of the circle, and the black point is the center of mass of the solution.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-1-1.png" width="100%" style="display: block; margin: auto;" /></p>
+<p>A solution of this problem can be encoded as a <strong>cyclic permutation</strong>, where the first element is fixed and the remaining <span class="math inline">\(n-1\)</span> elements can take any order. The <code>mass_center</code> function returns the distance to the origin of the center of mass of a possible solution:</p>
+<pre class="r"><code>mass_center &lt;- function(v){
+  n &lt;- length(v)
+  
+  angles &lt;- 0:(n-1) * 2 * pi / n
+  x &lt;- v*cos(angles)
+  y &lt;- v*sin(angles)
+  dcm &lt;- c(sum(x), sum(y))/sum(v)
+  dcm &lt;- sqrt(sum(dcm^2))
+  
+  return(dcm)
+}</code></pre>
+<p>The distance of the mass center to the center for the solution of the plot above is:</p>
+<pre class="r"><code>mass_center(1:37)</code></pre>
+<pre><code>## [1] 0.310306</code></pre>
+<div id="a-steepest-descent-algorithm" class="section level2">
+<h2>A steepest descent algorithm</h2>
+<p>The implementation of a local search algorithm requires defining the neighborhood of a solution, the set of solutions that can be explored from a specific solution. We can define a neighborhood with the swap operator:</p>
+<pre class="r"><code>swap &lt;- function(v, i , j){
+  
+  aux &lt;- v[i]
+  v[i] &lt;- v[j]
+  v[j] &lt;- aux
+  return(v)
+}</code></pre>
+<p>As the swap operator is permutative and <span class="math inline">\(i \neq j\)</span>, from one solution we can explore <span class="math inline">\(\left(n-1 \right)\left(n-2 \right)/2\)</span> different solutions.</p>
+<p>A <strong>steepest descent</strong> algorithm explores all the solutions of a neighborhood of the current solution <span class="math inline">\(x\)</span> and picks as next solution to explore the best solution of the neighbourhood <span class="math inline">\(x&#39;\)</span>.</p>
+<p>The function <code>sd_circle</code> implements the steepest descent algorithm for the center of mass problem. The solution to explore at each step is <code>sol</code>, the best solution of the neighborhood is <code>testsol</code> and the best solution found is <code>bestsol</code>. The algorithm stops when the solution does not improve after <code>iter</code> steps.</p>
+<pre class="r"><code>sd_circle &lt;- function(inisol, iter = 100, eval = TRUE){
+  
+  #tracking evaluation
+  if(eval){
+    evalfit &lt;- numeric()
+    evalbest &lt;- numeric()
+  }
+  
+  #initialization
+  n &lt;- length(inisol)
+  sol &lt;- inisol
+  bestsol &lt;- inisol
+  bestfit &lt;- mass_center(sol)
+  T &lt;- 1
+  
+  while(T &lt;= iter){
+    
+    #find the best move
+    fit &lt;- Inf
+    bestmove &lt;- c(0,0)
+    
+    #examining all swap moves on a cyclic permutation
+    for(i in 2:(n-1))
+        for(j in (i+1):n){
+          
+          testsol &lt;- swap(sol, i, j)
+          testfit &lt;- mass_center(testsol)
+          
+          if(testfit &lt;= fit){
+            fit &lt;- testfit
+            bestmove &lt;- c(i, j)
+          }
+        }
+    
+    #the new solution to explore is the best found
+    sol &lt;- swap(sol, bestmove[1], bestmove[2])
+    
+    #update best solution
+    if(fit &lt; bestfit){
+      bestsol &lt;- sol
+      bestfit &lt;- fit
+    }
+    
+    T &lt;- T + 1
+    
+    #track evaluation
+    
+    if(eval){
+      evalfit &lt;- c(evalfit, fit)
+      evalbest  &lt;- c(evalbest, bestfit)
+    }
+  }
+  
+  #return solution
+  if(eval)
+    return(list(sol=bestsol, fit=bestfit, evalfit=evalfit, evalbest=evalbest))
+  else
+    return(list(sol=bestsol, fit=bestfit))
+  
+}</code></pre>
+<p>Let’s apply the algorithm to an instance of size 37.</p>
+<pre class="r"><code>sd_test &lt;- sd_circle(inisol = 1:37)</code></pre>
+<p>The solution obtained is quite good:</p>
+<pre class="r"><code>sd_test$fit</code></pre>
+<pre><code>## [1] 3.654601e-05</code></pre>
+<p>If we examine the evolution of this algorithm we see that it converges to a <strong>local optimum</strong>, a solution whose fit is better than any solution of its neighborhood. In fact, the steepest descent algorithm can stop when the fit of all the elements of the neighborhood do not improve the one of <span class="math inline">\(x\)</span>. As the scale of the solution obtained changes in the first iterations, I am presenting the logarithm of the objective function.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="100%" /></p>
+<p>In the first iterations, the algorithm reaches a <strong>local optimum</strong>. It is a solution that cannot be improved with elements of its neighbourhood. From then on, the algorithm is cycling between the local optimum and the previous solution.</p>
+</div>
+<div id="making-moves-tabu" class="section level2">
+<h2>Making moves tabu</h2>
+<p>The strategy followed by tabu search is to avoid cycling by <strong>prohibiting (making tabu)</strong> the moves that undo the moves made previous iterations. These moves are stored in a <strong>tabu list</strong>. Tabu search, unlike simulated annealing or steepest descent, is an algorithm with memory of its evolution.</p>
+<p>The way we store tabu moves depends on the way we define the neighbourhood. In a swap move, we observe that a swap <span class="math inline">\(\left(i,j\right)\)</span> is undone by the same swap <span class="math inline">\(\left(i,j\right)\)</span>. Let’s see what happens when we swap a vector <code>a</code> into <code>b</code>, and perform the same swap into <code>b</code> to get <code>c</code>:</p>
+<pre class="r"><code>a &lt;- 1:10
+b &lt;- swap(a, 4, 8)
+c &lt;- swap(b, 4, 8)
+cat(&quot;a = &quot;, a, &quot;\n&quot;)</code></pre>
+<pre><code>## a =  1 2 3 4 5 6 7 8 9 10</code></pre>
+<pre class="r"><code>cat(&quot;b = &quot;, b, &quot;\n&quot;)</code></pre>
+<pre><code>## b =  1 2 3 8 5 6 7 4 9 10</code></pre>
+<pre class="r"><code>cat(&quot;c = &quot;, c, &quot;\n&quot;)</code></pre>
+<pre><code>## c =  1 2 3 4 5 6 7 8 9 10</code></pre>
+<p>We need to store the moves <span class="math inline">\(\left(i,j\right)\)</span> in a tabu list, and exclude from searching these moves to escape local optima.</p>
+<p>A refinement of the tabu search is to accept some tabu moves if they meet an <strong>aspiration condition</strong>. A possible aspiration condition is that the tabu move leads to improve the best solution found so far.</p>
+</div>
+<div id="implementing-a-tabu-search-algorithm" class="section level2">
+<h2>Implementing a tabu search algorithm</h2>
+<p>The <code>ts_circle</code> function implements a tabu search algorithm for the center of mass problem. The function takes the following arguments:</p>
+<ul>
+<li>a starting <code>solution inisol</code>.</li>
+<li><code>iter</code>, the number of examinations of the entire neighbbourhood of a solution without improvement of the best solution found.</li>
+<li>the size of the tabu list <code>tabu_size</code>.</li>
+<li>a flag <code>asp</code> indicating whether we adopt the aspiration condition. If true, we cansider moves that are tabu improving the best solution found so far.</li>
+<li>an <code>eval</code> flag to select if we want to tract the evolution of the algorithm.</li>
+</ul>
+<p>The tabu list consists of a <code>tabu_list</code> matrix of two columns and <code>tabu_size</code> rows. It is initialized with non-existing moves, and is updated if the aspiration condition is not met. We examine if a move is tabu with the <code>check_tabu</code> funciton.</p>
+<pre class="r"><code>ts_circle &lt;- function(inisol, iter=50, tabu_size=5, asp=TRUE, eval=TRUE){
+  
+  #tracking evaluation
+  if(eval){
+    evalfit &lt;- numeric()
+    evalbest &lt;- numeric()
+  }
+  
+  #initialization
+  sol &lt;- inisol
+  bestsol &lt;- inisol
+  bestfit &lt;- mass_center(sol)
+  
+  T &lt;- 1
+  Ttabu &lt;- 1
+  flag_tabu &lt;- FALSE
+  tabu_list &lt;- matrix(numeric(2*tabu_size), tabu_size, 2)
+  
+  #function that checks if move v is included in a tabu list M
+  check_tabu &lt;- function(M, v) any(colSums(apply(M, 1, function(x) v == x))==2)
+  
+  n &lt;- length(sol)
+  
+  
+  while (T&lt;=iter){
+    
+    found_best &lt;- FALSE
+    
+    #find the best move
+    fit &lt;- Inf
+    bestmove &lt;- c(0,0)
+      
+    #examining all swap moves
+    for(i in 2:(n-1))
+      for(j in (i+1):n){
+        testsol &lt;- swap(sol, i, j)
+        testfit &lt;- mass_center(testsol)
+          
+        #improvement with non-tabu move
+        if(testfit &lt;= fit &amp; check_tabu(tabu_list, c(i,j))==FALSE){
+          fit &lt;- testfit
+          bestmove &lt;- c(i, j)
+          flag_tabu &lt;- TRUE
+          }
+          
+        #improvement with tabu move, and aspiration condition
+        if(testfit &lt; bestfit &amp; check_tabu(tabu_list, c(i,j))==TRUE &amp; asp==TRUE){
+          fit &lt;- testfit
+          bestmove &lt;- c(i, j)
+          flag_tabu &lt;- FALSE
+        }
+      }
+      
+      #obtain sol
+      sol &lt;- swap(sol, bestmove[1], bestmove[2])
+        
+    #update bestsol
+    if(fit &lt; bestfit){
+      bestfit &lt;- fit
+      bestsol &lt;- sol
+      found_best &lt;- TRUE
+      T &lt;- 1
+    }else{
+      T &lt;- T + 1
+    }
+    
+    #update tabu list
+    if(flag_tabu){
+      tabu_list[Ttabu%%tabu_size+1, ] &lt;- bestmove
+      Ttabu &lt;- Ttabu + 1
+    }
+    
+    #track evaluation
+    if(eval){
+      evalfit &lt;- c(evalfit, fit)
+      evalbest &lt;- c(evalbest, bestfit)
+    }
+  }
+    
+  if(eval)
+    return(list(sol=bestsol, fit=bestfit, evalfit=evalfit, evalbest=evalbest))
+  else
+    return(list(sol=bestsol, fit=bestfit))
+}</code></pre>
+<p>Let’s apply ts_circle to a problem of size 37. Unlike other metaheuristics like simulated annealing, tabu search is deterministic so we don’t need to set the seed of random numbers.</p>
+<pre class="r"><code>ts_test &lt;- ts_circle(inisol = 1:37)</code></pre>
+<p>The value of the objective function is better than the obtained with steepest descent:</p>
+<pre class="r"><code>ts_test$fit</code></pre>
+<pre><code>## [1] 1.470133e-05</code></pre>
+<p>This improvement is achieved by breaking the cyclicity of the evolution of the steepest descent algorithm. Here wee see that the algorithm ends up cycling in the end, but with a larger period.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-13-1.png" width="100%" /></p>
+<p>Let’s try to find a better solution with a larger tabu size, and more iterations before stopping. This later condition will make the algorithm take more time to run.</p>
+<pre class="r"><code>ts_test2 &lt;- ts_circle(inisol = 1:37, iter = 100, tabu_size = 10)</code></pre>
+<p>We observe an improvement of the obtained solution:</p>
+<pre class="r"><code>ts_test2$fit</code></pre>
+<pre><code>## [1] 1.282861e-05</code></pre>
+<p>The evolution of the algorithm demonstrates that in this case increasing the tabu size leads to a better search of the solution space and therefore a better solution.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-16-1.png" width="100%" /></p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Professor Éric Taillard’s website: <a href="http://mistic.heig-vd.ch/taillard/" class="uri">http://mistic.heig-vd.ch/taillard/</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre><code>## R version 4.1.2 (2021-11-01)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Debian GNU/Linux 10 (buster)
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.8.0
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.8.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] ggplot2_3.3.5 tidyr_1.1.4   dplyr_1.0.7  
+## 
+## loaded via a namespace (and not attached):
+##  [1] highr_0.9         pillar_1.6.4      bslib_0.2.5.1     compiler_4.1.2   
+##  [5] jquerylib_0.1.4   tools_4.1.2       digest_0.6.27     jsonlite_1.7.2   
+##  [9] evaluate_0.14     lifecycle_1.0.0   tibble_3.1.5      gtable_0.3.0     
+## [13] pkgconfig_2.0.3   rlang_0.4.12      DBI_1.1.1         yaml_2.2.1       
+## [17] blogdown_1.5      xfun_0.23         withr_2.4.2       stringr_1.4.0    
+## [21] knitr_1.33        generics_0.1.0    vctrs_0.3.8       sass_0.4.0       
+## [25] grid_4.1.2        tidyselect_1.1.1  glue_1.4.2        R6_2.5.0         
+## [29] fansi_0.5.0       rmarkdown_2.9     bookdown_0.24     farver_2.1.0     
+## [33] purrr_0.3.4       magrittr_2.0.1    scales_1.1.1      ellipsis_0.3.2   
+## [37] htmltools_0.5.1.1 assertthat_0.2.1  colorspace_2.0-1  labeling_0.4.2   
+## [41] utf8_1.2.1        stringi_1.7.3     munsell_0.5.0     crayon_1.4.1</code></pre>
+</div>
