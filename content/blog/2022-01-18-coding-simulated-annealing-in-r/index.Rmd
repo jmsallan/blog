@@ -146,7 +146,6 @@ sa_circle <- function(inisol, iter=1000, alpha = 0.9, p0 = 0.9, eval=FALSE){
   #estimation of initial temperature
   sol_a <- sapply(1:100, function(x) mass_center(c(1, sample(2:n, n-1))))
   sol_b <- sapply(1:100, function(x) mass_center(c(1, sample(2:n, n-1))))
-  
   delta_f0 <- mean(abs(sol_a - sol_b))
   Tmax <- -delta_f0/log(p0)
   T <- Tmax
@@ -189,7 +188,7 @@ sa_circle <- function(inisol, iter=1000, alpha = 0.9, p0 = 0.9, eval=FALSE){
   if(eval)
     return(list(sol=bestsol, fit=bestfit, evalfit=evalfit, evalbest=evalbest, temp=temp))
   else
-    return(list(sol=bestsol, obj=bestfit))
+    return(list(sol=bestsol, fit=bestfit))
 }
 ```
 
@@ -218,7 +217,7 @@ plot_circle(test$sol)
 
 ## Tracking the algorithm
 
-I have set `eval=TRUE` in the run of the algorithm to examine the evolution of the obtention of the solution. Let's plot the evolution of $f$ and $f^{*}$ as a function of the number of iterations.
+I have set `eval=TRUE` in the run of the algorithm to examine the evolution of the obtention of the solution. Let's plot the evolution of $f$ and $f^{*}$ as a function of the number of iterations. I have set a logarithmic scale in the horizontal axis, as changes in scale of the fitness function occur after the first iterations.
 
 ```{r, echo=FALSE, fig.align='center', out.width='100%'}
 eval_sa <- tibble(step = 1:length(test$evalfit), fit = test$evalfit, best = test$evalbest)
@@ -228,23 +227,13 @@ eval_sa %>%
   ggplot(aes(x= step, y = value, color = name)) +
   geom_line() +
   theme_minimal() +
-  scale_color_manual(name = "value", labels = c("best", "explored"), values = c("#FF3333", "#3333FF")) +
-  labs(x = "step", y = "dist. mass center")
+  scale_y_log10() +
+  scale_color_manual(name = "value:", labels = c("best", "explored"), values = c("#FF3333", "#3333FF")) +
+  labs(x = "step", y = "dist. mass center (log.)", title = "Evolution of the simulated annealing algorithm") +
+  theme(legend.position = "bottom")
 ```
 
-The plot shows that the algorithm is accepting values of $f'$ with a smaller gap from $f$ as the number of iterations increases. If we zoom the first iterations, we can see how the algorithm is accepting values of $f'$ worse than $f$ to increase the exploration of the solution space.
-
-```{r, echo=FALSE, fig.align='center', out.width='100%'}
-eval_sa %>%
-  slice(1:200) %>%
-  pivot_longer(-step) %>%
-  ggplot(aes(x= step, y = value, color = name)) +
-  geom_line() +
-  theme_minimal() +
-  scale_color_manual(name = "value", labels = c("best", "explored"), values = c("#FF3333", "#3333FF")) +
-  labs(x = "step", y = "dist. mass center")
-```
-
+The plot shows that the algorithm is accepting values of $f'$ with a smaller gap from $f$ as the number of iterations increases. The simulated annealing emphasizes exploration in the first iterations, and exploitation or refinement of the solution in the last iterations.
 
 ## References
 

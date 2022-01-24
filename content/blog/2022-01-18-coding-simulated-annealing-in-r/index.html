@@ -96,7 +96,6 @@ description: Description for the page
   #estimation of initial temperature
   sol_a &lt;- sapply(1:100, function(x) mass_center(c(1, sample(2:n, n-1))))
   sol_b &lt;- sapply(1:100, function(x) mass_center(c(1, sample(2:n, n-1))))
-  
   delta_f0 &lt;- mean(abs(sol_a - sol_b))
   Tmax &lt;- -delta_f0/log(p0)
   T &lt;- Tmax
@@ -139,7 +138,7 @@ description: Description for the page
   if(eval)
     return(list(sol=bestsol, fit=bestfit, evalfit=evalfit, evalbest=evalbest, temp=temp))
   else
-    return(list(sol=bestsol, obj=bestfit))
+    return(list(sol=bestsol, fit=bestfit))
 }</code></pre>
 <p>Let’s run the function with an instance of size 37. I am setting a seed of the random numbers with <code>set.seed</code> for reproducibility. As candidate solutions <span class="math inline">\(x&#39;\)</span> are defined with a random move, we will get a different solution for each run of the algorithm.</p>
 <pre class="r"><code>set.seed(1313)
@@ -156,10 +155,9 @@ test &lt;- sa_circle(1:37,
 </div>
 <div id="tracking-the-algorithm" class="section level2">
 <h2>Tracking the algorithm</h2>
-<p>I have set <code>eval=TRUE</code> in the run of the algorithm to examine the evolution of the obtention of the solution. Let’s plot the evolution of <span class="math inline">\(f\)</span> and <span class="math inline">\(f^{*}\)</span> as a function of the number of iterations.</p>
+<p>I have set <code>eval=TRUE</code> in the run of the algorithm to examine the evolution of the obtention of the solution. Let’s plot the evolution of <span class="math inline">\(f\)</span> and <span class="math inline">\(f^{*}\)</span> as a function of the number of iterations. I have set a logarithmic scale in the horizontal axis, as changes in scale of the fitness function occur after the first iterations.</p>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="100%" style="display: block; margin: auto;" /></p>
-<p>The plot shows that the algorithm is accepting values of <span class="math inline">\(f&#39;\)</span> with a smaller gap from <span class="math inline">\(f\)</span> as the number of iterations increases. If we zoom the first iterations, we can see how the algorithm is accepting values of <span class="math inline">\(f&#39;\)</span> worse than <span class="math inline">\(f\)</span> to increase the exploration of the solution space.</p>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="100%" style="display: block; margin: auto;" /></p>
+<p>The plot shows that the algorithm is accepting values of <span class="math inline">\(f&#39;\)</span> with a smaller gap from <span class="math inline">\(f\)</span> as the number of iterations increases. The simulated annealing emphasizes exploration in the first iterations, and exploitation or refinement of the solution in the last iterations.</p>
 </div>
 <div id="references" class="section level2">
 <h2>References</h2>
