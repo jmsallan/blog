@@ -8,6 +8,7 @@ categories:
 tags:
   - maps
   - tidygraph
+  - ggraph
   - air transport
   - complex networks
 meta_img: images/image.png
@@ -70,7 +71,7 @@ Now we find the largest US airlines in the first positions. US Airways was acqui
 
 To plot airport networks, we need the latitude and longitude of airports. This information is stored in the `Position` node attribute. Dataset help tells us that this position is presented as "WGS coordinates". After some research, we can learn that the position is in the latitude/longitude in the form `PDDMMSS PDDDMMSS` or `PDDMMSS PDDMMSS`, where P is the position of coordinates (`N` and `S` for latitude, `E` and `W` for longitude) and `DD`, `MM` and `SS` are the degrees, minutes and seconds, respectively.
 
-The `WGS_latlon` function picks this format, and returns latitude and longitude values. Let's apply it to airport coordenates.
+The `WGS_latlon` function picks this format, and returns latitude and longitude values. Let's apply it to airport coordinates.
 
 ```{r}
 WGS_latlon <- function(wgs){
@@ -131,7 +132,7 @@ US_airports %>%
   filter(name == "KTN")
 ```
 
-## Obtaining airline airport networks networks
+## Obtaining airline airport networks
 
 Now I am interested in obtaining the airport networks of selected carriers. The `carrier_network` function picks the nodes and edges of a carrier to build an airline airport network in the following way:
 

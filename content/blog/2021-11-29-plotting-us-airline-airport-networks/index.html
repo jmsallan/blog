@@ -8,6 +8,7 @@ categories:
 tags:
   - maps
   - tidygraph
+  - ggraph
   - air transport
   - complex networks
 meta_img: images/image.png
@@ -98,7 +99,7 @@ US_airports</code></pre>
 <div id="geographical-coordinates" class="section level2">
 <h2>Geographical coordinates</h2>
 <p>To plot airport networks, we need the latitude and longitude of airports. This information is stored in the <code>Position</code> node attribute. Dataset help tells us that this position is presented as “WGS coordinates”. After some research, we can learn that the position is in the latitude/longitude in the form <code>PDDMMSS PDDDMMSS</code> or <code>PDDMMSS PDDMMSS</code>, where P is the position of coordinates (<code>N</code> and <code>S</code> for latitude, <code>E</code> and <code>W</code> for longitude) and <code>DD</code>, <code>MM</code> and <code>SS</code> are the degrees, minutes and seconds, respectively.</p>
-<p>The <code>WGS_latlon</code> function picks this format, and returns latitude and longitude values. Let’s apply it to airport coordenates.</p>
+<p>The <code>WGS_latlon</code> function picks this format, and returns latitude and longitude values. Let’s apply it to airport coordinates.</p>
 <pre class="r"><code>WGS_latlon &lt;- function(wgs){
   
   m &lt;- str_split_fixed(wgs, &quot; &quot;, n = 2)
@@ -173,8 +174,8 @@ US_airports %&gt;%
 ## # … with 8 variables: from &lt;int&gt;, to &lt;int&gt;, Carrier &lt;chr&gt;, Departures &lt;dbl&gt;,
 ## #   Seats &lt;dbl&gt;, Passengers &lt;dbl&gt;, Aircraft &lt;int&gt;, Distance &lt;dbl&gt;</code></pre>
 </div>
-<div id="obtaining-airline-airport-networks-networks" class="section level2">
-<h2>Obtaining airline airport networks networks</h2>
+<div id="obtaining-airline-airport-networks" class="section level2">
+<h2>Obtaining airline airport networks</h2>
 <p>Now I am interested in obtaining the airport networks of selected carriers. The <code>carrier_network</code> function picks the nodes and edges of a carrier to build an airline airport network in the following way:</p>
 <ul>
 <li>Selects the edges associated to a carrier filtering by the value of <code>Carrier</code> in the edge table.</li>
