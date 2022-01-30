@@ -1,0 +1,247 @@
+---
+title: Two airline airport networks
+author: Jose M Sallan
+date: '2022-01-30'
+slug: two-airline-airport-networks/
+categories:
+  - R
+tags:
+  - tidygraph
+  - ggraph
+  - complex networks
+  - air transport
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post, I will present how to use the `ggraph` and `tidygraph` packages to represent large networks. I will take air transport data from the OpenFlights dataset stored in the `BAdatasetsSpatial` package to present the airport networks of two airlines following different business models: Ryanair and KLM.
+
+```{r}
+library(BAdatasetsSpatial)
+library(dplyr)
+library(ggplot2)
+library(tidygraph)
+library(ggraph)
+```
+
+## The Ryanair network
+
+The `of_routes` data frame contains routes stored in the OpenFlights database. Those data are of historic interest, as they were collected around June 2014. 
+
+```{r}
+head(of_routes)
+```
+
+Let's start with **Ryanair**, an airline following the **low-cost carrier** business model. Airlines following this business model do not offer connecting flights and scheduled their routes on a **point-to-point** network. We start selecting the Ryanair flights:
+
+```{r}
+ryanair_table <- of_routes %>%
+  filter(airline == "FR") %>%
+  select(org, dst)
+```
+
+And then using the `tbl_graph` function of tidygraph to construct a `tbl_graph` - `igraph` object. Data on nodes and edges is stored in two different tables:
+
+```{r}
+ryanair <- tbl_graph(edge = ryanair_table, directed = TRUE)
+ryanair
+```
+
+We reach the node data table using activate to compute two measures of node centrality: degree and betweenness. Nodes with high values of these measures are considered central nodes in the network. To allow comparison between network, I am normalizing these measures using the `graph_order` function, that returns the number of nodes of the graph. As the graph is directed, I am considering degree the sum of in- and out-degree.
+
+```{r}
+ryanair <- ryanair %>%
+  activate(nodes) %>%
+  mutate(deg = (centrality_degree(mode = "in") + centrality_degree(mode = "out"))/(2*(graph_order() - 1)),
+         btw = centrality_betweenness()/((graph_order() - 1)*(graph_order() - 2)))
+```
+
+Here I am using the `as_tibble()` function to get the node table and present the airports of highest degree:
+
+```{r}
+ryanair %>%
+  activate(nodes) %>%
+  as_tibble() %>%
+  arrange(-deg)
+```
+
+And the airports of highest betweenness:
+
+```{r}
+ryanair %>%
+  activate(nodes) %>%
+  as_tibble() %>%
+  arrange(-btw)
+```
+
+We can even plot degree against betweenness straight from the `tbl_graph` object:
+
+```{r, out.width='100%'}
+
+ryanair_nodes <- ryanair %>%
+  activate(nodes) %>%
+  as_tibble()
+
+ggplot(ryanair_nodes, aes(deg, btw)) +
+  geom_point() +
+  geom_text(data = ryanair_nodes %>% filter(deg > 0.3), aes(label = name), nudge_y = 0.015) +
+  labs(title = "Degree vs. betwenness (Ryanair)", x = "degree", y = "betweenness") +
+  theme_minimal()
+```
+
+The most central airports of this Ryanair network are London-Stansted (STN), Dubin (DUB),Brussels South Charleroi (CRL) and Oriol al Serio (BGY).
+
+Let's use ggraph to plot the Ryanair network with `ggraph`. The default plot is not very encouraging:
+
+```{r, out.width='100%', fig.height=8}
+set.seed(1313)
+ryanair %>%
+  ggraph +
+  geom_edge_link() +
+  geom_node_point() +
+  geom_node_text(aes(label = name))
+```
+
+Here I have done some tuning of the output to plot a nicer graph:
+
+* I have chosen `kk` among the several layouts available from `igraph`. You can see them [here](https://www.data-imaginist.com/2017/introducing-tidygraph/) or typing `?layout_tbl_graph_igraph` in the console.
+* To make visible node labels, it is a good idea to make edges transparent. Here I have used a very low value of `alpha` in `geom_edge_link`.
+* The color of nodes is proportional to its betweenness. The scale of colors has been tuned with `scale_color_gradient`.
+* `size` and `nudge` of text labels has been tuned up through trial and error.
+* I have used the `theme_graph()` and I have removed the legend in `theme`.
+
+```{r, out.width='100%', fig.height=8}
+set.seed(1313)
+ryanair %>% 
+  ggraph(layout = 'kk') + 
+  geom_edge_link(alpha = 0.05) + 
+  geom_node_point(aes(colour = btw), size = 2) + 
+  geom_node_text(aes(label = name), size = 2, nudge_x = 0.3) +
+  scale_color_gradient(low = "#CCFFFF", high = "#006666") + 
+  theme_graph() +
+  theme(legend.position = "none")
+```
+
+The resulting network is typical of a point-to-point network. Each flight is operated independently, and no connecting flights are offered by the airline.
+
+## The KLM network of operated flights
+
+Let's examine now the KLM network. KLM follows the **full-service carrier** business model, so it has a **hub-and-spoke network**. I start defining the `klm` network object:
+
+```{r}
+klm_table <- of_routes %>%
+  filter(airline == "KL") %>%
+  select(org, dst, codeshare)
+
+klm <- tbl_graph(edge = klm_table, directed = TRUE)
+```
+
+We see now that edges have a `codeshare` attribute: edges with value `N` are operated by KLM, and edges with Y are marketed by KLM through codeshare agreements, but operated by other companies. This is a a common practice among full-service carriers.
+
+```{r}
+klm
+```
+
+Let's define the network `klm_own` of routes operated by KLM. I have removed the nodes not included in this network by removing the nodes with degree equal to zero:
+
+```{r}
+klm_own <- klm %>%
+    activate(edges) %>%
+  filter(codeshare == "N") %>%
+  activate(nodes) %>%
+  mutate(deg = centrality_degree()) %>%
+  filter(deg !=0) %>%
+  select(-deg)
+```
+
+Now I am computing the normalized measures of degree and betweenness:
+
+```{r}
+klm_own <- klm_own %>%
+  activate(nodes) %>%
+  mutate(deg = (centrality_degree(mode = "in") + centrality_degree(mode = "out"))/(2*(graph_order() - 1)),
+         btw = centrality_betweenness()/((graph_order() - 1)*(graph_order() - 2)))
+```
+
+We observe that the Amsterdam-Schipol airport (AMS) has the highest values of degree and betweenness. These values are close to one for this airport, suggesting an almost star network centered in AMS.
+
+```{r}
+klm_own %>%
+  activate(nodes) %>%
+  as_tibble() %>%
+  arrange(-btw)
+```
+
+This intuition is confirmed by when we plot the network. This airport network is a hub-and spoke network, where connections between airports are secured through connecting flights at the hub:
+
+```{r, out.width='100%'}
+set.seed(1313)
+klm_own %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(alpha = 0.05) +
+  geom_node_point(size = 2) +
+  geom_node_text(aes(label = name), size = 2, nudge_x = 0.4) +
+  theme_graph()
+```
+
+## The KLM network of operated flights
+
+Let's examine now the network of flights marketed (operated or not) by KLM:
+
+```{r}
+klm <- klm %>%
+  activate(nodes) %>%
+  mutate(deg = (centrality_degree(mode = "in") + centrality_degree(mode = "out"))/(2*(graph_order() - 1)),
+         btw = centrality_betweenness()/((graph_order() - 1)*(graph_order() - 2)))
+```
+
+The degree-betwenness plot presents two highly central nodes: Amsterdam-Schipol and Hartsfield–Jackson Atlanta International Airport (ATL). ATL is the hub of Delta Airlines. Delta and KLM are both members of the SkyTeam airline alliance.
+
+```{r, out.width='100%'}
+klm_nodes <- klm %>%
+  activate(nodes) %>%
+  as_tibble()
+  
+ggplot(klm_nodes, aes(deg, btw)) +
+  geom_point() +
+  geom_text(data = klm_nodes %>% filter(deg > 0.2), aes(label = name), nudge_y = 0.02) +
+  labs(title = "Degree vs. betwenness (KLM)", x = "degree", y = "betweenness") +
+  theme_minimal()
+```
+
+Here is the network of flights marketed by KLM. I have used the same tricks as Ryanair, adding now a color to edges depending if they correspond to flights operated (op) or marketed only (mk) by KLM. We can see how KLM extends its airport network to the United States thorugh its partnership with Delta Airlines and its participation in the SkyTeam alliance.
+
+```{r, out.width='100%', fig.height=8}
+set.seed(1313)
+klm %>%
+  ggraph(layout = "kk") +
+  geom_edge_link(aes(color = codeshare), alpha = 0.1) +
+  geom_node_point(size = 1) +
+  geom_node_text(aes(label = name), size = 2, nudge_x = 0.4) +
+  scale_edge_color_manual(name = "flight", labels = c("op", "mk"), values = c("#0000FF", "#FF0000")) +
+  theme_graph()  +
+  theme(legend.position = "bottom")
+```
+
+## References
+
+* Hoffman, M. (2021). Centrality, in *Methods for Network Analysis.* <https://bookdown.org/markhoff/social_network_analysis/centrality.html> (reference on degree, betweenness and other centrality measures).
+* OpenFlights (2014). Airport, airline and route data <https://openflights.org/data.html>
+* Pedersen, T. L. (2017). *Introducing tidygraph.* <https://www.data-imaginist.com/2017/introducing-tidygraph/>
+* Pedersen, T. L. (2017). *Introduction to ggraph: nodes.* <https://www.data-imaginist.com/2017/ggraph-introduction-nodes/>
+* Pedersen, T. L. (2017). *Introduction to ggraph: edges.* <https://www.data-imaginist.com/2017/ggraph-introduction-edges/>
+* Pedersen, T. L. (2017). *Introduction to ggraph: layouts.* <https://www.data-imaginist.com/2017/ggraph-introduction-layouts/>
+* Sallan, J. M. (2021). *`BAdatasetsSpatial` R package.* <https://github.com/jmsallan/BAdatasetsSpatial>
+* Sallan, J. M. & Lordan, O. (2019). *Air Route Networks Through Complex Networks Theory.* Elsevier. <https://doi.org/10.1016/C2016-0-02288-X> (see chapter 2 for a more detailed discussion on airline business models).
+
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
