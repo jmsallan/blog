@@ -1,0 +1,227 @@
+---
+title: Optimizing the Odyssey
+author: Jose M Sallan
+date: '2022-02-11'
+slug: optimizing-the-odyssey
+categories:
+  - R
+tags:
+  - maps
+  - linear programming
+  - optimization
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>In this post I will perform the following tasks:</p>
+<ul>
+<li>Read the <code>ulysses16</code> instance from TSP-LIB, and prepare data to obtain the geographical distance between the points of the instance using the <code>geospere</code> package.</li>
+<li>Implement the formulation of the travelling salesman problem of Miller, Tucker and Zemlin (MTZ) to solve the instance. I will use <code>ompr</code> package to build the model and <code>ompr.roi</code> and <code>ROI.pluging.glpk</code> packages to solve it using GLPK.</li>
+<li>To extract the solution and to present it on a map of the Mediterranean, using <code>BAdatasetsSpatial</code>.</li>
+</ul>
+<p>I will also load <code>dplyr</code> and <code>ggplot2</code> for data handling and visualization.</p>
+<pre class="r"><code>library(dplyr)
+library(ggplot2)
+library(ompr)
+library(ompr.roi)
+library(ROI.plugin.glpk)
+library(geosphere)
+library(BAdatasetsSpatial)</code></pre>
+<div id="acquiring-the-ulysses16-instance" class="section level2">
+<h2>Acquiring the ulysses16 instance</h2>
+<p>In the <code>ulysses16</code> instance consists of 16 locations of The Oddyssey, presented in (Grötschel &amp; Padberg, 2001). Our task is help Ulysses to travel the minimal possible distance solving the TSP for these 16 locations.</p>
+<p>To start with, we need to retrieve the data from TSP-LIB (Reinelt, 1991). The code below proceeds as follows:</p>
+<ul>
+<li>I am retrieving the dataset from the Internet using readLines, and retaninng the part of the text containing the coordinates.</li>
+<li>I use strpslit to obtain the elements between spaces for each line of the coordinates. Latitude and longitude are the third and fourth element of each line, respectively. I am storing them in <code>coord_lat</code> and <code>coord_lon</code>, respectively.</li>
+<li>In Reinelt (1991) we learn that coordinates are presented as <code>DD.MM</code>, where DD are degrees and MM minutes. So we need to obtain decimal degrees with the <code>min_to_dec</code> function.</li>
+<li>I store the transformed values of latitude and longitude in a tibble.</li>
+</ul>
+<pre class="r"><code>data &lt;- readLines(&quot;http://elib.zib.de/pub/mp-testdata/tsp/tsplib/tsp/ulysses16.tsp&quot;)
+bof &lt;- which(data == &quot;NODE_COORD_SECTION&quot;) + 1
+eof &lt;- which(data==&quot; EOF&quot;) - 1
+
+data &lt;- data[bof:eof]
+data_split &lt;- strsplit(data, &quot; &quot;)
+
+coord_lat &lt;- sapply(data_split, function(x) as.numeric(x[3]))
+coord_lon &lt;- sapply(data_split, function(x) as.numeric(x[4]))
+
+min_to_dec &lt;- function(x){
+  
+  deg &lt;- trunc(x)
+  min &lt;- (x - trunc(x)) * 100
+  
+  dec &lt;- deg + min/60
+  
+}
+
+coord_lat &lt;- min_to_dec(coord_lat)
+coord_lon &lt;- min_to_dec(coord_lon)
+
+n &lt;- length(coord_lat)
+
+coords &lt;- tibble(id =1:n, lat = coord_lat, lon = coord_lon)</code></pre>
+<p>To calculate distances between two points on the surface of the Earth we can use the <code>distGeo</code> function of the <code>geosphere</code> package. It is important to notice that each point has to be entered in longitude / latitude format. If we take this into account, the distances obtained are similar to the results of the formula in Reinelt (1991).</p>
+<pre class="r"><code>distances &lt;- matrix(0, nrow = n, ncol = n)
+
+for(i in 1:n)
+  for(j in 1:n){
+    x &lt;- c(coords[i,]$lon, coords[i,]$lat)
+    y &lt;- c(coords[j,]$lon, coords[j,]$lat)
+    distances[i, j] &lt;- round(distGeo(x, y)/1000)
+  }</code></pre>
+</div>
+<div id="the-miller-tucker-zemlin-formulation-of-the-travelling-salesman-problem" class="section level2">
+<h2>The Miller-Tucker-Zemlin formulation of the travelling salesman problem</h2>
+<p>Now is time to solve the <strong>travelling salesman problem</strong> (TSP). Given a matrix of distances between nodes, the solution of the TSP is the shortest cycle that visits each city exactly once.</p>
+<p>A classical formulation of this problem is the one presented in Miller, Tucker and Zemlin (1960), often called the <strong>MZT formulation</strong>. It has two sets of variables:</p>
+<ul>
+<li>Variables <span class="math inline">\(x_{ij}\)</span>, for all pairs <span class="math inline">\(i = 1, \dots, n\)</span>, <span class="math inline">\(j = 1, \dots, n\)</span> and <span class="math inline">\(i \neq j\)</span>. <span class="math inline">\(n\)</span> is the number of nodes. These variables are equal to one if edge <span class="math inline">\(\left( i, j \right)\)</span> belongs to the solution, and zero otherwise.</li>
+<li>Variables <span class="math inline">\(u_i\)</span> with <span class="math inline">\(i=2, \dots, n\)</span>, used for the subtour elimination constraints.</li>
+</ul>
+<p>The objective function is defined as:</p>
+<p><span class="math display">\[ \text{MIN } z = \sum_{i=1}^n \sum_{j=1}^n d_{ij}x_{ij}\]</span></p>
+<p>In the solution, exactly one edge must depart from each node:</p>
+<p><span class="math display">\[ \sum_{j=1}^n x_{ij} = 1, \ \ i = 1, \dots, n\]</span></p>
+<p>and one edge mmust arrive to each node:</p>
+<p><span class="math display">\[ \sum_{i=1}^n x_{ij} = 1, \ \ j = 1, \dots, n\]</span></p>
+<p>We use variables <span class="math inline">\(u_i\)</span> to eliminate subtours:</p>
+<p><span class="math display">\[ u_j - u_i + nx_{ij} \leq n-1,\ \ i = 2, \dots ,n,\ \ j = 2, \dots, n \]</span></p>
+<p>These variables are defined for all nodes except <span class="math inline">\(i=1\)</span>, which is chosen arbitrarily. For pairs of edges where <span class="math inline">\(x_{ij} = 1\)</span>, the constraint works as <span class="math inline">\(u_j - u_i \leq 1\)</span>. For the remaining <span class="math inline">\(x_{ij} = 0\)</span> the constraint works as <span class="math inline">\(u_j - u_i \leq n-1\)</span>. The result is that <span class="math inline">\(u_i\)</span> increase by one as edges <span class="math inline">\(i\)</span> separate from node 1 in the solution, so that the tour can only close on node 1. As the value of the first <span class="math inline">\(u_i\)</span> can be arbritray, I have bounded these variables to take values between 1 and <span class="math inline">\(n-1\)</span>.</p>
+<p>I am using the <code>ompr</code> package to define a mixed integer linear programming <code>model</code>. We can <code>add_variable</code>, <code>set_objective</code> and <code>add_constraint</code> straight from the R environment. The parameters of the model are the number of nodes <code>n</code> and he <code>distances</code> matrix.</p>
+<pre class="r"><code>model &lt;- MIPModel() %&gt;%
+  
+  # we create a variable that is 1 iff we travel from city i to j by Salesman k
+  add_variable(x[i, j], i = 1:n, j = 1:n, i != j, type = &quot;binary&quot;) %&gt;%
+  
+  # helper variable for the MTZ sub-tour constraints
+  add_variable(u[i], i = 2:n, lb = 1, ub = n) %&gt;%
+  
+  # minimize travel distance and latest arrival
+  set_objective(sum_over(distances[i, j] * x[i, j], i = 1:n, j = 1:n, i != j), &quot;min&quot;) %&gt;%
+
+  # leave each city with only one salesman
+  add_constraint(sum_over(x[i, j], j = 1:n, i != j) == 1, i = 1:n) %&gt;%
+  
+  # arrive at each city with only one salesman
+  add_constraint(sum_over(x[i, j], i = 1:n, i != j) == 1, j = 1:n) %&gt;%
+  
+  # ensure no subtours (arc constraints)
+  add_constraint(u[i] - u[j] + n*x[i, j] &lt;= n-1, i = 2:n, j = 2:n, i != j)</code></pre>
+</div>
+<div id="solving-the-ulysses16-instance" class="section level2">
+<h2>Solving the ulysses16 instance</h2>
+<p>I am using the <code>ompr.roi</code> and the <code>ROI.plugin.glpk</code> packages to solve the model using the GLPK library. The solution is stored in the result object.</p>
+<pre class="r"><code>result &lt;- solve_model(model, with_ROI(solver = &quot;glpk&quot;))
+result</code></pre>
+<pre><code>## Status: success
+## Objective value: 6855</code></pre>
+<p>We can extract the variables of the solution using <code>get_solution</code>. Here I am extracting the values of <span class="math inline">\(x_{ij} = 1\)</span>:</p>
+<pre class="r"><code>solution &lt;- get_solution(result, x[i, j]) %&gt;%
+  filter(value &gt; 0)
+solution</code></pre>
+<pre><code>##    variable  i  j value
+## 1         x  8  1     1
+## 2         x  3  2     1
+## 3         x 16  3     1
+## 4         x  2  4     1
+## 5         x 15  5     1
+## 6         x  7  6     1
+## 7         x 12  7     1
+## 8         x  4  8     1
+## 9         x 11  9     1
+## 10        x  9 10     1
+## 11        x  5 11     1
+## 12        x 13 12     1
+## 13        x 14 13     1
+## 14        x  1 14     1
+## 15        x  6 15     1
+## 16        x 10 16     1</code></pre>
+<p>The objective function and the solution are the same as the reported in TSP-LIB: <a href="http://elib.zib.de/pub/mp-testdata/tsp/tsplib/tsp/ulysses16.opt.tour" class="uri">http://elib.zib.de/pub/mp-testdata/tsp/tsplib/tsp/ulysses16.opt.tour</a></p>
+</div>
+<div id="plotting-the-solution" class="section level2">
+<h2>Plotting the solution</h2>
+<p>Let’s add latitude and longitude to each point of the solution to plot the segments on a map:</p>
+<pre class="r"><code>solution &lt;- left_join(solution, coords, by = c(&quot;i&quot; = &quot;id&quot;)) %&gt;%
+  rename(lati = lat, loni = lon)
+
+solution &lt;- left_join(solution, coords, by = c(&quot;j&quot; = &quot;id&quot;)) %&gt;%
+  rename(latj = lat, lonj = lon)</code></pre>
+<p>This code allows presenting the geographical positions of the optimal tour:</p>
+<ul>
+<li>I am setting the range of the world map to present with coord_sf. This values are usually obtained through trial and error.</li>
+<li>The nodes are plotted with the information of the <code>coords</code> table.</li>
+<li>The segments are plotted with the information of the <code>solution</code> table.</li>
+</ul>
+<pre class="r"><code>ggplot(WorldMap1_10) +
+  geom_sf(fill = &quot;#F5DEB3&quot;) +
+  coord_sf(xlim = c(-6, 28), ylim = c(30, 45)) +
+  geom_point(data = coords, aes(lon, lat)) +
+  geom_segment(data = solution, aes(x = loni, y = lati, xend = lonj, yend = latj)) +
+  theme_void() +
+  theme(plot.background = element_rect(fill = &#39;#CCFFFF&#39;))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="100%" /></p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>AIMS (2022). The Miller-Tucker-Zeimlin formulation. <a href="https://how-to.aimms.com/Articles/332/332-Miller-Tucker-Zemlin-formulation.html" class="uri">https://how-to.aimms.com/Articles/332/332-Miller-Tucker-Zemlin-formulation.html</a></li>
+<li>Reinelt, G. (1991). TSPLIB—A Traveling Salesman Problem Library. <em>ORSA Journal on Computing</em>, 3(4):376-384. <a href="https://doi.org/10.1287/ijoc.3.4.376" class="uri">https://doi.org/10.1287/ijoc.3.4.376</a></li>
+<li>Grötschel, M., &amp; Padberg, M. (2001). The Optimized Odyssey. <em>AIROnews</em> VI, 2, 1-7.</li>
+<li>Miller, C. E., Tucker, A. W., &amp; Zemlin, R. A. (1960). Integer programming formulation of traveling salesman problems. <em>Journal of the ACM (JACM)</em>, 7(4), 326-329. <a href="https://doi.org/10.1145/321043.321046" class="uri">https://doi.org/10.1145/321043.321046</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre><code>## R version 4.1.2 (2021-11-01)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Debian GNU/Linux 10 (buster)
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.8.0
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.8.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] BAdatasetsSpatial_0.1.0 sf_1.0-2                geosphere_1.5-14       
+## [4] ROI.plugin.glpk_1.0-0   ompr.roi_1.0.0          ompr_1.0.2             
+## [7] ggplot2_3.3.5           dplyr_1.0.7            
+## 
+## loaded via a namespace (and not attached):
+##  [1] Rcpp_1.0.6          lattice_0.20-45     class_7.3-19       
+##  [4] assertthat_0.2.1    digest_0.6.27       utf8_1.2.1         
+##  [7] slam_0.1-49         R6_2.5.0            evaluate_0.14      
+## [10] e1071_1.7-8         highr_0.9           blogdown_1.5       
+## [13] pillar_1.6.4        rlang_0.4.12        lazyeval_0.2.2     
+## [16] data.table_1.14.0   jquerylib_0.1.4     Matrix_1.3-4       
+## [19] rmarkdown_2.9       listcomp_0.4.1      stringr_1.4.0      
+## [22] munsell_0.5.0       proxy_0.4-26        ROI_1.0-0          
+## [25] compiler_4.1.2      numDeriv_2016.8-1.1 xfun_0.23          
+## [28] pkgconfig_2.0.3     Rglpk_0.6-4         htmltools_0.5.1.1  
+## [31] tidyselect_1.1.1    tibble_3.1.5        bookdown_0.24      
+## [34] fansi_0.5.0         crayon_1.4.1        withr_2.4.2        
+## [37] wk_0.5.0            grid_4.1.2          jsonlite_1.7.2     
+## [40] gtable_0.3.0        lifecycle_1.0.0     registry_0.5-1     
+## [43] DBI_1.1.1           magrittr_2.0.1      units_0.7-2        
+## [46] scales_1.1.1        KernSmooth_2.23-20  stringi_1.7.3      
+## [49] farver_2.1.0        sp_1.4-5            bslib_0.2.5.1      
+## [52] ellipsis_0.3.2      generics_0.1.0      vctrs_0.3.8        
+## [55] s2_1.0.6            tools_4.1.2         glue_1.4.2         
+## [58] purrr_0.3.4         fastmap_1.1.0       yaml_2.2.1         
+## [61] colorspace_2.0-1    classInt_0.4-3      knitr_1.33         
+## [64] sass_0.4.0</code></pre>
+</div>

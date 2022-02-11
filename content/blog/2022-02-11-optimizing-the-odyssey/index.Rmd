@@ -1,0 +1,199 @@
+---
+title: Optimizing the Odyssey
+author: Jose M Sallan
+date: '2022-02-11'
+slug: optimizing-the-odyssey
+categories:
+  - R
+tags:
+  - maps
+  - linear programming
+  - optimization
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post I will perform the following tasks:
+
+* Read the `ulysses16` instance from TSP-LIB, and prepare data to obtain the geographical distance between the points of the instance using the `geospere` package.
+* Implement the formulation of the travelling salesman problem of Miller, Tucker and Zemlin (MTZ) to solve the instance. I will use `ompr` package to build the model and `ompr.roi` and `ROI.pluging.glpk` packages to solve it using GLPK.
+* To extract the solution and to present it on a map of the Mediterranean, using `BAdatasetsSpatial`.
+
+I will also load `dplyr` and `ggplot2` for data handling and visualization.
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(ompr)
+library(ompr.roi)
+library(ROI.plugin.glpk)
+library(geosphere)
+library(BAdatasetsSpatial)
+```
+
+## Acquiring the ulysses16 instance
+
+In the `ulysses16` instance consists of 16 locations of The Oddyssey, presented in (Grötschel & Padberg, 2001). Our task is help Ulysses to travel the minimal possible distance solving the TSP for these 16 locations.
+
+To start with, we need to retrieve the data from TSP-LIB (Reinelt, 1991). The code below proceeds as follows:
+
+* I am retrieving the dataset from the Internet using readLines, and retaninng the part of the text containing the coordinates.
+* I use strpslit to obtain the elements between spaces for each line of the coordinates. Latitude and longitude are the third and fourth element of each line, respectively. I am storing them in `coord_lat` and `coord_lon`, respectively.
+* In Reinelt (1991) we learn that coordinates are presented as `DD.MM`, where DD are degrees and MM minutes. So we need to obtain decimal degrees with the `min_to_dec` function.
+* I store the transformed values of latitude and longitude in a tibble.
+
+```{r}
+data <- readLines("http://elib.zib.de/pub/mp-testdata/tsp/tsplib/tsp/ulysses16.tsp")
+bof <- which(data == "NODE_COORD_SECTION") + 1
+eof <- which(data==" EOF") - 1
+
+data <- data[bof:eof]
+data_split <- strsplit(data, " ")
+
+coord_lat <- sapply(data_split, function(x) as.numeric(x[3]))
+coord_lon <- sapply(data_split, function(x) as.numeric(x[4]))
+
+min_to_dec <- function(x){
+  
+  deg <- trunc(x)
+  min <- (x - trunc(x)) * 100
+  
+  dec <- deg + min/60
+  
+}
+
+coord_lat <- min_to_dec(coord_lat)
+coord_lon <- min_to_dec(coord_lon)
+
+n <- length(coord_lat)
+
+coords <- tibble(id =1:n, lat = coord_lat, lon = coord_lon)
+```
+
+To calculate distances between two points on the surface of the Earth we can use the `distGeo` function of the `geosphere` package. It is important to notice that each point has to be entered in longitude / latitude format. If we take this into account, the distances obtained are similar to the results of the formula in Reinelt (1991).
+
+```{r}
+distances <- matrix(0, nrow = n, ncol = n)
+
+for(i in 1:n)
+  for(j in 1:n){
+    x <- c(coords[i,]$lon, coords[i,]$lat)
+    y <- c(coords[j,]$lon, coords[j,]$lat)
+    distances[i, j] <- round(distGeo(x, y)/1000)
+  }
+```
+
+## The Miller-Tucker-Zemlin formulation of the travelling salesman problem
+
+Now is time to solve the **travelling salesman problem** (TSP). Given a matrix of distances between nodes, the solution of the TSP is the shortest cycle that visits each city exactly once. 
+
+A classical formulation of this problem is the one presented in Miller, Tucker and Zemlin (1960), often called the **MZT formulation**. It has two sets of variables:
+
+* Variables $x_{ij}$, for all pairs $i = 1, \dots, n$, $j = 1, \dots, n$ and $i \neq j$. $n$ is the number of nodes. These variables are equal to one if edge $\left( i, j \right)$ belongs to the solution, and zero otherwise.
+* Variables $u_i$ with $i=2, \dots, n$, used for the subtour elimination constraints.
+
+The objective function is defined as:
+
+\[ \text{MIN } z = \sum_{i=1}^n \sum_{j=1}^n d_{ij}x_{ij}\]
+
+In the solution, exactly one edge must depart from each node:
+
+\[ \sum_{j=1}^n x_{ij} = 1, \ \ i = 1, \dots, n\]
+
+and one edge mmust arrive to each node:
+
+\[ \sum_{i=1}^n x_{ij} = 1, \ \ j = 1, \dots, n\]
+
+We use variables $u_i$ to eliminate subtours:
+
+\[ u_j - u_i + nx_{ij} \leq n-1,\ \ i = 2, \dots ,n,\ \ j = 2, \dots, n \]
+
+These variables are defined for all nodes except $i=1$, which is chosen arbitrarily. For pairs of edges where $x_{ij} = 1$, the constraint works as $u_j - u_i \leq 1$. For the remaining $x_{ij} = 0$ the constraint works as $u_j - u_i \leq n-1$. The result is that $u_i$ increase by one as edges $i$ separate from node 1 in the solution, so that the tour can only close on node 1. As the value of the first $u_i$ can be arbritray, I have bounded these variables to take values between 1 and $n-1$.
+
+I am using the `ompr` package to define a mixed integer linear programming `model`. We can `add_variable`, `set_objective` and `add_constraint` straight from the R environment. The parameters of the model are the number of nodes `n` and he `distances` matrix.
+
+```{r}
+model <- MIPModel() %>%
+  
+  # we create a variable that is 1 iff we travel from city i to j by Salesman k
+  add_variable(x[i, j], i = 1:n, j = 1:n, i != j, type = "binary") %>%
+  
+  # helper variable for the MTZ sub-tour constraints
+  add_variable(u[i], i = 2:n, lb = 1, ub = n) %>%
+  
+  # minimize travel distance and latest arrival
+  set_objective(sum_over(distances[i, j] * x[i, j], i = 1:n, j = 1:n, i != j), "min") %>%
+
+  # leave each city with only one salesman
+  add_constraint(sum_over(x[i, j], j = 1:n, i != j) == 1, i = 1:n) %>%
+  
+  # arrive at each city with only one salesman
+  add_constraint(sum_over(x[i, j], i = 1:n, i != j) == 1, j = 1:n) %>%
+  
+  # ensure no subtours (arc constraints)
+  add_constraint(u[i] - u[j] + n*x[i, j] <= n-1, i = 2:n, j = 2:n, i != j)
+```
+
+## Solving the ulysses16 instance
+
+I am using the `ompr.roi` and the `ROI.plugin.glpk` packages to solve the model using the GLPK library. The solution is stored in the result object.
+
+```{r}
+result <- solve_model(model, with_ROI(solver = "glpk"))
+result
+```
+
+We can extract the variables of the solution using `get_solution`. Here I am extracting the values of $x_{ij} = 1$:
+
+```{r}
+solution <- get_solution(result, x[i, j]) %>%
+  filter(value > 0)
+solution
+```
+
+The objective function and the solution are the same as the reported in TSP-LIB: <http://elib.zib.de/pub/mp-testdata/tsp/tsplib/tsp/ulysses16.opt.tour>
+
+## Plotting the solution
+
+Let's add latitude and longitude to each point of the solution to plot the segments on a map:
+
+```{r}
+solution <- left_join(solution, coords, by = c("i" = "id")) %>%
+  rename(lati = lat, loni = lon)
+
+solution <- left_join(solution, coords, by = c("j" = "id")) %>%
+  rename(latj = lat, lonj = lon)
+```
+
+This code allows presenting the geographical positions of the optimal tour:
+
+* I am setting the range of the world map to present with coord_sf. This values are usually obtained through trial and error.
+* The nodes are plotted with the information of the `coords` table.
+* The segments are plotted with the information of the `solution` table.
+
+```{r, out.width='100%'}
+ggplot(WorldMap1_10) +
+  geom_sf(fill = "#F5DEB3") +
+  coord_sf(xlim = c(-6, 28), ylim = c(30, 45)) +
+  geom_point(data = coords, aes(lon, lat)) +
+  geom_segment(data = solution, aes(x = loni, y = lati, xend = lonj, yend = latj)) +
+  theme_void() +
+  theme(plot.background = element_rect(fill = '#CCFFFF'))
+```
+
+## References
+
+* AIMS (2022). The Miller-Tucker-Zeimlin formulation. <https://how-to.aimms.com/Articles/332/332-Miller-Tucker-Zemlin-formulation.html>
+* Reinelt, G. (1991). TSPLIB—A Traveling Salesman Problem Library. *ORSA Journal on Computing*, 3(4):376-384. <https://doi.org/10.1287/ijoc.3.4.376>
+* Grötschel, M., & Padberg, M. (2001). The Optimized Odyssey. *AIROnews* VI, 2, 1-7.
+* Miller, C. E., Tucker, A. W., & Zemlin, R. A. (1960). Integer programming formulation of traveling salesman problems. *Journal of the ACM (JACM)*, 7(4), 326-329. <https://doi.org/10.1145/321043.321046>
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
