@@ -19,8 +19,8 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE)
 
 In this post I will perform the following tasks:
 
-* Read the `ulysses16` instance from TSP-LIB, and prepare data to obtain the geographical distance between the points of the instance using the `geospere` package.
-* Implement the formulation of the travelling salesman problem of Miller, Tucker and Zemlin (MTZ) to solve the instance. I will use `ompr` package to build the model and `ompr.roi` and `ROI.pluging.glpk` packages to solve it using GLPK.
+* Read the `ulysses16` instance from TSP-LIB (Reinelt, 1991), and prepare data to obtain the geographical distance between the points of the instance using the `geosphere` package.
+* Implement the MTZ formulation of the travelling salesman problem of Miller, Tucker and Zemlin (1960) to solve the instance. I will use `ompr` package to build the model and `ompr.roi` and `ROI.pluging.glpk` packages to solve it using GLPK.
 * To extract the solution and to present it on a map of the Mediterranean, using `BAdatasetsSpatial`.
 
 I will also load `dplyr` and `ggplot2` for data handling and visualization.
@@ -37,14 +37,14 @@ library(BAdatasetsSpatial)
 
 ## Acquiring the ulysses16 instance
 
-In the `ulysses16` instance consists of 16 locations of The Oddyssey, presented in (Grötschel & Padberg, 2001). Our task is help Ulysses to travel the minimal possible distance solving the TSP for these 16 locations.
+The `ulysses16` instance consists of 16 locations of The Oddyssey, presented in Grötschel & Padberg (2001). Our task is help Ulysses to travel the minimal possible distance solving the TSP for these 16 locations.
 
 To start with, we need to retrieve the data from TSP-LIB (Reinelt, 1991). The code below proceeds as follows:
 
 * I am retrieving the dataset from the Internet using readLines, and retaninng the part of the text containing the coordinates.
 * I use strpslit to obtain the elements between spaces for each line of the coordinates. Latitude and longitude are the third and fourth element of each line, respectively. I am storing them in `coord_lat` and `coord_lon`, respectively.
 * In Reinelt (1991) we learn that coordinates are presented as `DD.MM`, where DD are degrees and MM minutes. So we need to obtain decimal degrees with the `min_to_dec` function.
-* I store the transformed values of latitude and longitude in a tibble.
+* I store the transformed values of latitude and longitude in a tibble, a modified data frame used in the Tidyverse.
 
 ```{r}
 data <- readLines("http://elib.zib.de/pub/mp-testdata/tsp/tsplib/tsp/ulysses16.tsp")
@@ -93,7 +93,7 @@ Now is time to solve the **travelling salesman problem** (TSP). Given a matrix o
 
 A classical formulation of this problem is the one presented in Miller, Tucker and Zemlin (1960), often called the **MZT formulation**. It has two sets of variables:
 
-* Variables $x_{ij}$, for all pairs $i = 1, \dots, n$, $j = 1, \dots, n$ and $i \neq j$. $n$ is the number of nodes. These variables are equal to one if edge $\left( i, j \right)$ belongs to the solution, and zero otherwise.
+* Variables $x_{ij}$, for all ordered pairs $i = 1, \dots, n$, $j = 1, \dots, n$ and $i \neq j$. $n$ is the number of nodes. These variables are equal to one if the directed arc $\left( i, j \right)$ belongs to the solution, and zero otherwise.
 * Variables $u_i$ with $i=2, \dots, n$, used for the subtour elimination constraints.
 
 The objective function is defined as:
@@ -104,7 +104,7 @@ In the solution, exactly one edge must depart from each node:
 
 \[ \sum_{j=1}^n x_{ij} = 1, \ \ i = 1, \dots, n\]
 
-and one edge mmust arrive to each node:
+and one edge must arrive to each node:
 
 \[ \sum_{i=1}^n x_{ij} = 1, \ \ j = 1, \dots, n\]
 
@@ -112,26 +112,26 @@ We use variables $u_i$ to eliminate subtours:
 
 \[ u_j - u_i + nx_{ij} \leq n-1,\ \ i = 2, \dots ,n,\ \ j = 2, \dots, n \]
 
-These variables are defined for all nodes except $i=1$, which is chosen arbitrarily. For pairs of edges where $x_{ij} = 1$, the constraint works as $u_j - u_i \leq 1$. For the remaining $x_{ij} = 0$ the constraint works as $u_j - u_i \leq n-1$. The result is that $u_i$ increase by one as edges $i$ separate from node 1 in the solution, so that the tour can only close on node 1. As the value of the first $u_i$ can be arbritray, I have bounded these variables to take values between 1 and $n-1$.
+These variables are defined for all nodes except $i=1$, which is chosen arbitrarily. For pairs of edges where $x_{ij} = 1$, the constraint works as $u_j - u_i \leq -1$. For the remaining $x_{ij} = 0$ the constraint works as $u_j - u_i \leq n-1$. The result is that $u_i$ increases as node $i$ separates from node 1 in the solution, so that the tour can only close on node 1. As the value of the first $u_i$ can be arbitrary, I have bounded $u_i$ variables to take values between 1 and $n-1$.
 
-I am using the `ompr` package to define a mixed integer linear programming `model`. We can `add_variable`, `set_objective` and `add_constraint` straight from the R environment. The parameters of the model are the number of nodes `n` and he `distances` matrix.
+I am using the `ompr` package to define a mixed integer linear programming `model`. We can `add_variable`, `set_objective` and `add_constraint` straight from the R environment. The parameters of the model are the number of nodes `n` and the `distances` matrix.
 
 ```{r}
 model <- MIPModel() %>%
   
-  # we create a variable that is 1 iff we travel from city i to j by Salesman k
+  # we create a variable that is 1 iff we travel from node i to j
   add_variable(x[i, j], i = 1:n, j = 1:n, i != j, type = "binary") %>%
   
   # helper variable for the MTZ sub-tour constraints
-  add_variable(u[i], i = 2:n, lb = 1, ub = n) %>%
+  add_variable(u[i], i = 2:n, lb = 1, ub = n-1) %>%
   
   # minimize travel distance and latest arrival
   set_objective(sum_over(distances[i, j] * x[i, j], i = 1:n, j = 1:n, i != j), "min") %>%
 
-  # leave each city with only one salesman
+  # leave each city exactly once
   add_constraint(sum_over(x[i, j], j = 1:n, i != j) == 1, i = 1:n) %>%
   
-  # arrive at each city with only one salesman
+  # arrive at each city exactly once
   add_constraint(sum_over(x[i, j], i = 1:n, i != j) == 1, j = 1:n) %>%
   
   # ensure no subtours (arc constraints)
@@ -155,6 +155,14 @@ solution <- get_solution(result, x[i, j]) %>%
 solution
 ```
 
+If we extract the values of $u_i$ we observe that they increase as we depart from node 1:
+
+```{r}
+get_solution(result, u[i]) %>%
+  arrange(value)
+```
+
+
 The objective function and the solution are the same as the reported in TSP-LIB: <http://elib.zib.de/pub/mp-testdata/tsp/tsplib/tsp/ulysses16.opt.tour>
 
 ## Plotting the solution
@@ -171,7 +179,7 @@ solution <- left_join(solution, coords, by = c("j" = "id")) %>%
 
 This code allows presenting the geographical positions of the optimal tour:
 
-* I am setting the range of the world map to present with coord_sf. This values are usually obtained through trial and error.
+* I am setting the range of the world map to present with `coord_sf`. These values are usually obtained through trial and error.
 * The nodes are plotted with the information of the `coords` table.
 * The segments are plotted with the information of the `solution` table.
 
@@ -184,6 +192,10 @@ ggplot(WorldMap1_10) +
   theme_void() +
   theme(plot.background = element_rect(fill = '#CCFFFF'))
 ```
+
+## Acknowledgements
+
+Thanks again to Mari Albareda for proofreading the text and correcting the mistakes of the MZT formulation of an earlier version of this post. All remaining errors are my own.
 
 ## References
 

@@ -373,13 +373,13 @@ unlink(&quot;bpp.mod&quot;)</code></pre>
 benchmark(solve_lpmod(model_bpp1), solve_lpmod(model_bpp2), columns=c(&#39;test&#39;, &#39;replications&#39;, &#39;elapsed&#39;, &#39;relative&#39;, &#39;user.self&#39;, &#39;sys.self&#39;), replications = 10, order=&#39;elapsed&#39;)
 speed_test</code></pre>
 <pre><code>##                      test replications elapsed relative user.self sys.self
-## 2 solve_lpmod(model_bpp2)           10   0.016    1.000     0.016        0
-## 1 solve_lpmod(model_bpp1)           10   7.937  496.062     7.932        0</code></pre>
-<p>We observe that the second formulation is considerably faster: the second formulation is 496.062 times faster than the second.</p>
+## 2 solve_lpmod(model_bpp2)           10   0.015      1.0     0.015        0
+## 1 solve_lpmod(model_bpp1)           10   8.016    534.4     8.014        0</code></pre>
+<p>We observe that the second formulation is considerably faster: the second formulation is 534.4 times faster than the second.</p>
 </div>
-<div id="ackownledgements" class="section level2">
-<h2>Ackownledgements</h2>
-<p>Thanks to Mari Albareda for proofreading this post, suggesting a satisfactory definition of <span class="math inline">\(u_{ij}\)</span> variables and further work on this formulation.</p>
+<div id="acknowledgements" class="section level2">
+<h2>Acknowledgements</h2>
+<p>Thanks to Mari Albareda for proofreading this post, suggesting a satisfactory definition of <span class="math inline">\(u_{ij}\)</span> variables and further work on this formulation. All remaining errors are my own.</p>
 </div>
 <div id="references" class="section level2">
 <h2>References</h2>

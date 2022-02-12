@@ -284,9 +284,9 @@ speed_test
 
 We observe that the second formulation is considerably faster: the second formulation is `r format(speed_test$relative[2], digits = 6)` times faster than the second.
 
-## Ackownledgements
+## Acknowledgements
 
-Thanks to Mari Albareda for proofreading this post, suggesting a satisfactory definition of $u_{ij}$ variables and further work on this formulation.
+Thanks to Mari Albareda for proofreading this post, suggesting a satisfactory definition of $u_{ij}$ variables and further work on this formulation. All remaining errors are my own.
 
 ## References
 
