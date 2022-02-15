@@ -1,0 +1,20 @@
+---
+title: Combinatorial explosion
+author: Jose M Sallan
+date: '2022-02-15'
+slug: combinatorial-explosion
+categories:
+  - optimization
+tags:
+  - optimization
+meta_img: images/image.png
+description: Description for the page
+---
+
+Combinatorial optimization is about picking one element of a set of finite objects that optimizes an objective function. Put in this way, the solution may seem straightforward: just enumerate all elements of the set and assess the objective function for each object.
+
+The problem with this naïve approach is that the number of elements of the set can be very large. Let's consider, for instance, the symmetric travelling salesperson problem. For an instance of $n$ nodes, the number of possible solutions is $\left(n-1\right)!/2$. This means that, for a problem of size $n=20$, and taking one millisecond to assess each solution, it takes around 1,108,606 years to assess all solutions. This effect is called **combinatorial explosion**.
+
+This video shows an example of an even faster combinatorial explosion. Additionally, helps in learning how to count large numbers in Japanese...
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/Q4gTV4r0zRs" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
