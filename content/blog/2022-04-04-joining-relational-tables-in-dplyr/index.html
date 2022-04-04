@@ -1,0 +1,368 @@
+---
+title: Joining relational tables in dplyr
+author: Jose M Sallan
+date: '2022-04-04'
+slug: joining-relational-tables-in-dplyr
+categories:
+  - R
+tags:
+  - dplyr
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>The <code>dplyr</code> package for tabular data handling includes a set of functions for joining data frames with a relational structure. By relational structure, I mean that there are columns in each table that can relate the contents of the two tables.</p>
+<p>I will illustrate how these functions work using data from the World Bank. In addition to <code>dplyr</code>, I am using the <code>wbstats</code> package to retrieve those data directly from the web.</p>
+<pre class="r"><code>library(dplyr)
+library(wbstats)</code></pre>
+<p><strong>Mutating joins</strong> (also called <em>merges</em>) return a data frame with the columns of two data frames <em>x</em> and <em>y</em>:</p>
+<p><img src="https://d33wubrfki0l68.cloudfront.net/aeab386461820b029b7e7606ccff1286f623bae1/ef0d4/diagrams/join-venn.png" width="100%" /></p>
+<ul>
+<li><p><strong>inner join</strong>: returns all rows from <em>x</em> where there are matching values in <em>y</em>. If there are multiple matches between <em>x</em> and <em>y</em>, all combination of the matches are returned.</p></li>
+<li><p><strong>full (outer) join</strong>: returns all rows from both <em>x</em> and <em>y</em>. Where there are not matching values, returns NA for the ones missing.</p></li>
+<li><p><strong>left join</strong>: returns all rows from <strong>x</strong>. Rows of <em>x</em> with no match in <em>y</em> will have NA values in the <em>y</em> columns. If there are multiple matches between <em>x</em> and <em>y</em>, all combination of the matches are returned.</p></li>
+<li><p><strong>right join</strong>: returns all rows from <strong>y</strong>. Rows of <em>y</em> with no match in <em>x</em> will have <code>NA</code> values in the <em>x</em> columns. If there are multiple matches, all combinations are returned.</p></li>
+</ul>
+<p>These four mutating joins are implemented in <code>dplyr</code> with the functions <code>inner_join</code>, <code>full_join</code>, <code>left_join</code> and <code>right_join</code>.</p>
+<div id="getting-data-from-the-world-bank" class="section level2">
+<h2>Getting data from the World Bank</h2>
+<p>Let’s use the <code>wbstats</code> package to retrieve values of two series:</p>
+<ul>
+<li>The <code>SP.POP.TOTL</code> indicator of total population <a href="https://data.worldbank.org/indicator/SP.POP.TOTL" class="uri">https://data.worldbank.org/indicator/SP.POP.TOTL</a></li>
+<li>The <code>SP.DYN.TFRT.IN</code>of total fertility rate in rates per woman <a href="https://data.worldbank.org/indicator/SP.DYN.TFRT.IN" class="uri">https://data.worldbank.org/indicator/SP.DYN.TFRT.IN</a></li>
+</ul>
+<pre class="r"><code>pop_wb &lt;- wb_data(&quot;SP.POP.TOTL&quot;, start_date = 2000, end_date = 2022)
+pop_wb</code></pre>
+<pre><code>## # A tibble: 4,557 × 9
+##    iso2c iso3c country   date SP.POP.TOTL unit  obs_status footnote last_updated
+##    &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;    &lt;dbl&gt;       &lt;dbl&gt; &lt;chr&gt; &lt;chr&gt;      &lt;chr&gt;    &lt;date&gt;      
+##  1 AF    AFG   Afghani…  2020    38928341 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;     2022-02-15  
+##  2 AF    AFG   Afghani…  2019    38041757 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;     2022-02-15  
+##  3 AF    AFG   Afghani…  2018    37171922 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;     2022-02-15  
+##  4 AF    AFG   Afghani…  2017    36296111 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;     2022-02-15  
+##  5 AF    AFG   Afghani…  2016    35383028 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;     2022-02-15  
+##  6 AF    AFG   Afghani…  2015    34413603 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;     2022-02-15  
+##  7 AF    AFG   Afghani…  2014    33370804 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;     2022-02-15  
+##  8 AF    AFG   Afghani…  2013    32269592 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;     2022-02-15  
+##  9 AF    AFG   Afghani…  2012    31161378 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;     2022-02-15  
+## 10 AF    AFG   Afghani…  2011    30117411 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;     2022-02-15  
+## # … with 4,547 more rows</code></pre>
+<pre class="r"><code>tfrt_wb &lt;- wb_data(&quot;SP.DYN.TFRT.IN&quot;, start_date = 2000, end_date = 2022)
+tfrt_wb</code></pre>
+<pre><code>## # A tibble: 4,557 × 9
+##    iso2c iso3c country  date SP.DYN.TFRT.IN unit  obs_status footnote
+##    &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;   &lt;dbl&gt;          &lt;dbl&gt; &lt;chr&gt; &lt;chr&gt;      &lt;chr&gt;   
+##  1 AW    ABW   Aruba    2000           1.87 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;    
+##  2 AW    ABW   Aruba    2001           1.85 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;    
+##  3 AW    ABW   Aruba    2002           1.82 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;    
+##  4 AW    ABW   Aruba    2003           1.80 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;    
+##  5 AW    ABW   Aruba    2004           1.79 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;    
+##  6 AW    ABW   Aruba    2005           1.77 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;    
+##  7 AW    ABW   Aruba    2006           1.76 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;    
+##  8 AW    ABW   Aruba    2007           1.76 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;    
+##  9 AW    ABW   Aruba    2008           1.76 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;    
+## 10 AW    ABW   Aruba    2009           1.76 &lt;NA&gt;  &lt;NA&gt;       &lt;NA&gt;    
+## # … with 4,547 more rows, and 1 more variable: last_updated &lt;date&gt;</code></pre>
+<p>I will edit the resulting tables removing missing values, retaining the columns with <code>country</code>, <code>date</code> and value and renaming the value.</p>
+<pre class="r"><code>pop &lt;- pop_wb %&gt;%
+  filter(!is.na(SP.POP.TOTL)) %&gt;%
+  select(country, date, SP.POP.TOTL) %&gt;%
+  rename(population = SP.POP.TOTL)
+
+tfrt &lt;- tfrt_wb %&gt;%
+  filter(!is.na(SP.DYN.TFRT.IN)) %&gt;%
+  select(country, date, SP.DYN.TFRT.IN) %&gt;%
+  rename(fertility = SP.DYN.TFRT.IN)</code></pre>
+</div>
+<div id="joins-by-one-variable" class="section level2">
+<h2>Joins by one variable</h2>
+<p>I will start joining tables with data from year 2010:</p>
+<pre class="r"><code>pop_2010 &lt;- pop %&gt;%
+  filter(date == 2010) %&gt;%
+  select(-date)
+
+tfrt_2010 &lt;- tfrt %&gt;%
+  filter(date == 2010) %&gt;%
+  select(-date)</code></pre>
+<p>Both tables have different number of observations:</p>
+<ul>
+<li><code>pop_2010</code> has 217 rows.</li>
+<li><code>tfrt_2010</code> has 201 rows.</li>
+</ul>
+<p>It is important to track the number of rows of each table to examine the effect of each join. Let’s begin with the inner join. Like in the rest of joins, I have declared the joining columns with <code>by</code>. If no value of by is passed, the functions pick the columns of equal name in both tables.</p>
+<pre class="r"><code>inner_2010 &lt;- inner_join(pop_2010, 
+                         tfrt_2010, 
+                         by = &quot;country&quot;)
+inner_2010</code></pre>
+<pre><code>## # A tibble: 201 × 3
+##    country             population fertility
+##    &lt;chr&gt;                    &lt;dbl&gt;     &lt;dbl&gt;
+##  1 Afghanistan           29185511      5.98
+##  2 Albania                2913021      1.66
+##  3 Algeria               35977451      2.86
+##  4 Andorra                  84454      1.27
+##  5 Angola                23356247      6.19
+##  6 Antigua and Barbuda      88030      1.99
+##  7 Argentina             40788453      2.35
+##  8 Armenia                2877314      1.72
+##  9 Aruba                   101665      1.77
+## 10 Australia             22031750      1.93
+## # … with 191 more rows</code></pre>
+<p>The inner join will have the least rows of all joins, as it only includes values of the joining columns present in both tables. It has 201 rows, the same as <code>tfrt_2010</code>.</p>
+<pre class="r"><code>full_2010 &lt;- full_join(pop_2010, 
+                       tfrt_2010, 
+                       by = &quot;country&quot;)
+full_2010</code></pre>
+<pre><code>## # A tibble: 217 × 3
+##    country             population fertility
+##    &lt;chr&gt;                    &lt;dbl&gt;     &lt;dbl&gt;
+##  1 Afghanistan           29185511      5.98
+##  2 Albania                2913021      1.66
+##  3 Algeria               35977451      2.86
+##  4 American Samoa           56084     NA   
+##  5 Andorra                  84454      1.27
+##  6 Angola                23356247      6.19
+##  7 Antigua and Barbuda      88030      1.99
+##  8 Argentina             40788453      2.35
+##  9 Armenia                2877314      1.72
+## 10 Aruba                   101665      1.77
+## # … with 207 more rows</code></pre>
+<p>The full join has the maximum value of rows of all joins, as it includes the observations included in any of the tables. It has 201 rows, the same as <code>pop_2010</code>.</p>
+<p>With the full join, we can examine which rows do not include fertility or population:</p>
+<pre class="r"><code>full_2010 %&gt;%
+  filter(is.na(fertility))</code></pre>
+<pre><code>## # A tibble: 16 × 3
+##    country                   population fertility
+##    &lt;chr&gt;                          &lt;dbl&gt;     &lt;dbl&gt;
+##  1 American Samoa                 56084        NA
+##  2 British Virgin Islands         27796        NA
+##  3 Cayman Islands                 56672        NA
+##  4 Dominica                       70877        NA
+##  5 Gibraltar                      33585        NA
+##  6 Isle of Man                    84856        NA
+##  7 Marshall Islands               56361        NA
+##  8 Monaco                         35609        NA
+##  9 Nauru                          10009        NA
+## 10 Northern Mariana Islands       53971        NA
+## 11 Palau                          17954        NA
+## 12 San Marino                     31221        NA
+## 13 Sint Maarten (Dutch part)      34056        NA
+## 14 St. Kitts and Nevis            49011        NA
+## 15 Turks and Caicos Islands       32658        NA
+## 16 Tuvalu                         10521        NA</code></pre>
+<pre class="r"><code>full_2010 %&gt;%
+  filter(is.na(population))</code></pre>
+<pre><code>## # A tibble: 0 × 3
+## # … with 3 variables: country &lt;chr&gt;, population &lt;dbl&gt;, fertility &lt;dbl&gt;</code></pre>
+<p>We observe that some countries that have populations have not fertility rate records, but not in reverse.</p>
+<p>Left and rigth joins will have the same rows of the left and right tables in the join expression, respectively.</p>
+<pre class="r"><code>left_2010 &lt;- left_join(pop_2010, 
+                       tfrt_2010, 
+                       by = &quot;country&quot;)
+left_2010</code></pre>
+<pre><code>## # A tibble: 217 × 3
+##    country             population fertility
+##    &lt;chr&gt;                    &lt;dbl&gt;     &lt;dbl&gt;
+##  1 Afghanistan           29185511      5.98
+##  2 Albania                2913021      1.66
+##  3 Algeria               35977451      2.86
+##  4 American Samoa           56084     NA   
+##  5 Andorra                  84454      1.27
+##  6 Angola                23356247      6.19
+##  7 Antigua and Barbuda      88030      1.99
+##  8 Argentina             40788453      2.35
+##  9 Armenia                2877314      1.72
+## 10 Aruba                   101665      1.77
+## # … with 207 more rows</code></pre>
+<pre class="r"><code>right_2010 &lt;- right_join(pop_2010, 
+                         tfrt_2010, 
+                         by = &quot;country&quot;)
+right_2010</code></pre>
+<pre><code>## # A tibble: 201 × 3
+##    country             population fertility
+##    &lt;chr&gt;                    &lt;dbl&gt;     &lt;dbl&gt;
+##  1 Afghanistan           29185511      5.98
+##  2 Albania                2913021      1.66
+##  3 Algeria               35977451      2.86
+##  4 Andorra                  84454      1.27
+##  5 Angola                23356247      6.19
+##  6 Antigua and Barbuda      88030      1.99
+##  7 Argentina             40788453      2.35
+##  8 Armenia                2877314      1.72
+##  9 Aruba                   101665      1.77
+## 10 Australia             22031750      1.93
+## # … with 191 more rows</code></pre>
+</div>
+<div id="joins-by-two-variables" class="section level2">
+<h2>Joins by two variables</h2>
+<p>Let’s join the two original <code>pop</code> and <code>tfrt</code> tables. We need to do the join by two variables: <code>country</code> and <code>year</code>.</p>
+<pre class="r"><code>inner &lt;- inner_join(pop, 
+                    tfrt, 
+                    by = c(&quot;country&quot;, &quot;date&quot;))
+
+full &lt;- full_join(pop, 
+                  tfrt, 
+                  by = c(&quot;country&quot;, &quot;date&quot;)) 
+
+left &lt;- left_join(pop, 
+                  tfrt, 
+                  by = c(&quot;country&quot;, &quot;date&quot;))
+
+right &lt;- right_join(pop, 
+                    tfrt, 
+                    by = c(&quot;country&quot;, &quot;date&quot;))</code></pre>
+<p>Let’s see how many rows we have in each join and the two original tables:</p>
+<table class="table table-striped" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+table
+</th>
+<th style="text-align:right;">
+number of rows
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+pop
+</td>
+<td style="text-align:right;">
+4548
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+tfrt
+</td>
+<td style="text-align:right;">
+4017
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+inner
+</td>
+<td style="text-align:right;">
+4009
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+full
+</td>
+<td style="text-align:right;">
+4556
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+left
+</td>
+<td style="text-align:right;">
+4548
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+right
+</td>
+<td style="text-align:right;">
+4017
+</td>
+</tr>
+</tbody>
+</table>
+<p>Now the <code>inner</code> table has less rows than <code>tfrt</code>, while the <code>full</code> table has more rows than <code>pop</code>. This means that there are observations in <code>pop</code> missing in <code>tfrt</code>, and vice versa.</p>
+</div>
+<div id="filtering-join" class="section level2">
+<h2>Filtering join</h2>
+<p>To check which observations of one table are missing in the other, we can use the <code>anti_join</code> filtering join: <code>anti_join(x, y)</code> returns observations of <code>x</code> with no match in <code>y</code>.</p>
+<p>We can see which elements of <code>pop</code> are not present in <code>tfrt</code> doing:</p>
+<pre class="r"><code>anti_join(pop, tfrt, by = c(&quot;country&quot;, &quot;date&quot;))</code></pre>
+<pre><code>## # A tibble: 539 × 3
+##    country         date population
+##    &lt;chr&gt;          &lt;dbl&gt;      &lt;dbl&gt;
+##  1 Afghanistan     2020   38928341
+##  2 Albania         2020    2837743
+##  3 Algeria         2020   43851043
+##  4 American Samoa  2020      55197
+##  5 American Samoa  2019      55312
+##  6 American Samoa  2018      55461
+##  7 American Samoa  2017      55617
+##  8 American Samoa  2016      55739
+##  9 American Samoa  2015      55806
+## 10 American Samoa  2014      55791
+## # … with 529 more rows</code></pre>
+<p>We have 539 observations in this table. This is not surprising, as fertility records and not as exhaustive as population’s.</p>
+<p>Let’s examine which elements of <code>tfrt</code> are not present in <code>pop</code>:</p>
+<pre class="r"><code>anti_join(tfrt, pop, by = c(&quot;country&quot;, &quot;date&quot;))</code></pre>
+<pre><code>## # A tibble: 8 × 3
+##   country  date fertility
+##   &lt;chr&gt;   &lt;dbl&gt;     &lt;dbl&gt;
+## 1 Eritrea  2012      4.41
+## 2 Eritrea  2013      4.34
+## 3 Eritrea  2014      4.27
+## 4 Eritrea  2015      4.22
+## 5 Eritrea  2016      4.16
+## 6 Eritrea  2017      4.11
+## 7 Eritrea  2018      4.06
+## 8 Eritrea  2019      4.00</code></pre>
+<p>Here we have only 8 observations. None of them is from year 2010, so we did not observed them in the previous section.</p>
+<p><code>dplyr</code> offers a set of functions to join relational tables that allow performing <strong>mutating joins</strong>, because they return a new table with information from the two inputs. This allows doing SQL-like operations inside the R environment. The four mutating joins (inner, full, left and right) are a replacement for the R base <code>merge</code> function, hopefully in a more intuitive fashion. <strong>Filtering joins</strong> allow controlling for which rows have no match in the other table, so they do not return a new table.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li><em>Filtering joins.</em> <a href="https://dplyr.tidyverse.org/reference/filter-joins.html" class="uri">https://dplyr.tidyverse.org/reference/filter-joins.html</a></li>
+<li><em>Mutating joins.</em> <a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="uri">https://dplyr.tidyverse.org/reference/mutate-joins.html</a></li>
+<li><em><code>wbstats</code>: An R package for searching and downloading data from the World Bank API.</em> <a href="https://cran.r-project.org/web/packages/wbstats/vignettes/wbstats.html" class="uri">https://cran.r-project.org/web/packages/wbstats/vignettes/wbstats.html</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre><code>## R version 4.1.3 (2022-03-10)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Debian GNU/Linux 10 (buster)
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.8.0
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.8.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] wbstats_1.0.4    dplyr_1.0.7      kableExtra_1.3.4
+## 
+## loaded via a namespace (and not attached):
+##  [1] highr_0.9         bslib_0.2.5.1     compiler_4.1.3    pillar_1.6.4     
+##  [5] jquerylib_0.1.4   tools_4.1.3       digest_0.6.27     tibble_3.1.5     
+##  [9] jsonlite_1.7.2    evaluate_0.14     lifecycle_1.0.0   viridisLite_0.4.0
+## [13] pkgconfig_2.0.3   rlang_0.4.12      cli_3.0.1         DBI_1.1.1        
+## [17] rstudioapi_0.13   curl_4.3.1        yaml_2.2.1        blogdown_1.5     
+## [21] xfun_0.23         httr_1.4.2        stringr_1.4.0     xml2_1.3.2       
+## [25] knitr_1.33        hms_1.1.1         generics_0.1.0    sass_0.4.0       
+## [29] vctrs_0.3.8       systemfonts_1.0.2 tidyselect_1.1.1  webshot_0.5.2    
+## [33] svglite_2.0.0     glue_1.4.2        R6_2.5.0          fansi_0.5.0      
+## [37] rmarkdown_2.9     bookdown_0.24     tidyr_1.1.4       tzdb_0.1.2       
+## [41] readr_2.0.2       purrr_0.3.4       magrittr_2.0.1    scales_1.1.1     
+## [45] htmltools_0.5.1.1 ellipsis_0.3.2    assertthat_0.2.1  rvest_1.0.2      
+## [49] colorspace_2.0-1  utf8_1.2.1        stringi_1.7.3     munsell_0.5.0    
+## [53] crayon_1.4.1</code></pre>
+</div>

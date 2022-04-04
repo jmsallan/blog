@@ -1,0 +1,213 @@
+---
+title: Joining relational tables in dplyr
+author: Jose M Sallan
+date: '2022-04-04'
+slug: joining-relational-tables-in-dplyr
+categories:
+  - R
+tags:
+  - dplyr
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+library(kableExtra)
+```
+
+The `dplyr` package for tabular data handling includes a set of functions for joining data frames with a relational structure. By relational structure, I mean that there are columns in each table that can relate the contents of the two tables.
+
+I will illustrate how these functions work using data from the World Bank. In addition to `dplyr`, I am using the `wbstats` package to retrieve those data directly from the web.
+
+```{r}
+library(dplyr)
+library(wbstats)
+```
+
+**Mutating joins** (also called *merges*) return a data frame with the columns of two data frames *x* and *y*:
+
+```{r, echo=FALSE, out.width='100%'}
+url <- "https://d33wubrfki0l68.cloudfront.net/aeab386461820b029b7e7606ccff1286f623bae1/ef0d4/diagrams/join-venn.png"
+knitr::include_graphics(url)
+```
+
+* **inner join**: returns all rows from *x* where there are matching values in *y*. If there are multiple matches between *x* and *y*, all combination of the matches are returned.
+
+* **full (outer) join**: returns all rows from both *x* and *y*.  Where there are not matching values, returns NA for the ones missing.
+
+* **left join**: returns all rows from **x**. Rows of *x* with no match in *y* will have NA values in the *y* columns. If there are multiple matches between *x* and *y*, all combination of the matches are returned.
+
+* **right join**: returns all rows from **y**. Rows of *y* with no match in *x* will have `NA` values in the *x* columns. If there are multiple matches, all combinations are returned.
+
+These four mutating joins are implemented in `dplyr` with the functions `inner_join`, `full_join`, `left_join` and `right_join`.
+
+## Getting data from the World Bank
+
+Let's use the `wbstats` package to retrieve values of two series:
+
+* The `SP.POP.TOTL` indicator of total population <https://data.worldbank.org/indicator/SP.POP.TOTL>
+* The `SP.DYN.TFRT.IN `of total fertility rate in rates per woman <https://data.worldbank.org/indicator/SP.DYN.TFRT.IN>
+
+```{r}
+pop_wb <- wb_data("SP.POP.TOTL", start_date = 2000, end_date = 2022)
+pop_wb
+```
+
+```{r}
+tfrt_wb <- wb_data("SP.DYN.TFRT.IN", start_date = 2000, end_date = 2022)
+tfrt_wb
+```
+
+I will edit the resulting tables removing missing values, retaining the columns with `country`, `date` and value and renaming the value.
+
+```{r}
+pop <- pop_wb %>%
+  filter(!is.na(SP.POP.TOTL)) %>%
+  select(country, date, SP.POP.TOTL) %>%
+  rename(population = SP.POP.TOTL)
+
+tfrt <- tfrt_wb %>%
+  filter(!is.na(SP.DYN.TFRT.IN)) %>%
+  select(country, date, SP.DYN.TFRT.IN) %>%
+  rename(fertility = SP.DYN.TFRT.IN)
+```
+
+## Joins by one variable
+
+I will start joining tables with data from year 2010:
+
+```{r}
+pop_2010 <- pop %>%
+  filter(date == 2010) %>%
+  select(-date)
+
+tfrt_2010 <- tfrt %>%
+  filter(date == 2010) %>%
+  select(-date)
+```
+
+Both tables have different number of observations:
+
+* `pop_2010` has `r nrow(pop_2010)` rows.
+* `tfrt_2010` has `r nrow(tfrt_2010)` rows.
+
+It is important to track the number of rows of each table to examine the effect of each join. Let's begin with the inner join. Like in the rest of joins, I have declared the joining columns with `by`. If no value of by is passed, the functions pick the columns of equal name in both tables.
+
+```{r}
+inner_2010 <- inner_join(pop_2010, 
+                         tfrt_2010, 
+                         by = "country")
+inner_2010
+```
+
+The inner join will have the least rows of all joins, as it only includes values of the joining columns present in both tables. It has `r nrow(inner_2010)` rows, the same as `tfrt_2010`.
+
+```{r}
+full_2010 <- full_join(pop_2010, 
+                       tfrt_2010, 
+                       by = "country")
+full_2010
+```
+
+The full join has the maximum value of rows of all joins, as it includes the observations included in any of the tables. It has `r nrow(inner_2010)` rows, the same as `pop_2010`.
+
+With the full join, we can examine which rows do not include fertility or population:
+
+```{r}
+full_2010 %>%
+  filter(is.na(fertility))
+full_2010 %>%
+  filter(is.na(population))
+```
+
+We observe that some countries that have populations have not fertility rate records, but not in reverse.
+
+Left and rigth joins will have the same rows of the left and right tables in the join expression, respectively.
+
+```{r}
+left_2010 <- left_join(pop_2010, 
+                       tfrt_2010, 
+                       by = "country")
+left_2010
+```
+
+```{r}
+right_2010 <- right_join(pop_2010, 
+                         tfrt_2010, 
+                         by = "country")
+right_2010
+```
+
+## Joins by two variables
+
+Let's join the two original `pop` and `tfrt` tables. We need to do the join by two variables: `country` and `year`.
+
+```{r}
+inner <- inner_join(pop, 
+                    tfrt, 
+                    by = c("country", "date"))
+
+full <- full_join(pop, 
+                  tfrt, 
+                  by = c("country", "date")) 
+
+left <- left_join(pop, 
+                  tfrt, 
+                  by = c("country", "date"))
+
+right <- right_join(pop, 
+                    tfrt, 
+                    by = c("country", "date"))
+```
+
+Let's see how many rows we have in each join and the two original tables:
+
+```{r, echo=FALSE}
+rows_df <- data.frame(join = c("pop", "tfrt", "inner", "full", "left", "right"),
+                      rows = sapply(list(pop, tfrt, inner, full, left, right), nrow))
+names(rows_df)  <- c("table", "number of rows")
+
+rows_df %>%
+  kbl() %>%
+  kable_styling(bootstrap_options = "striped", full_width = FALSE, position = "center")
+```
+
+Now the `inner` table has less rows than `tfrt`, while the `full` table has more rows than `pop`. This means that there are observations in `pop` missing in `tfrt`, and vice versa.
+
+## Filtering join
+
+To check which observations of one table are missing in the other, we can use the `anti_join` filtering join: `anti_join(x, y)` returns observations of `x` with no match in `y`.
+
+We can see which elements of `pop` are not present in `tfrt` doing:
+
+```{r}
+anti_join(pop, tfrt, by = c("country", "date"))
+```
+
+We have `r nrow(anti_join(pop, tfrt, by = c("country", "date")))` observations in this table. This is not surprising, as fertility records and not as exhaustive as population's.
+
+Let's examine which elements of `tfrt` are not present in `pop`:
+
+```{r}
+anti_join(tfrt, pop, by = c("country", "date"))
+```
+
+Here we have only `r nrow(anti_join(tfrt, pop, by = c("country", "date")))` observations. None of them is from year 2010, so we did not observed them in the previous section.
+
+`dplyr` offers a set of functions to join relational tables that allow performing **mutating joins**, because they return a new table with information from the two inputs. This allows doing SQL-like operations inside the R environment. The four mutating joins (inner, full, left and right) are a replacement for the R base `merge` function, hopefully in a more intuitive fashion. **Filtering joins** allow controlling for which rows have no match in the other table, so they do not return a new table.
+
+## References
+
+* *Filtering joins.* <https://dplyr.tidyverse.org/reference/filter-joins.html>
+* *Mutating joins.* <https://dplyr.tidyverse.org/reference/mutate-joins.html>
+* *`wbstats`: An R package for searching and downloading data from the World Bank API.* <https://cran.r-project.org/web/packages/wbstats/vignettes/wbstats.html>
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
