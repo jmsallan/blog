@@ -1,0 +1,171 @@
+---
+title: A fast fitness function for the TSP in R
+author: Jose M Sallan
+date: '2022-04-11'
+slug: a-fast-fitness-function-for-the-tsp-in-r
+categories:
+  - optimization
+  - R
+tags:
+  - optimization
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+We use heuristics to obtain satisfactory solutions to optimization problems in a reasonable amount of time and computer memory. The section of code most critical in terms of time and memory consumption is the problem's fitness function. 
+
+I will illustrate some tricks to write fast fitness functions in R with the **travelling salesman problem** (TSP) as an example. Given a matrix of distances between nodes, the solution of the TSP is the shortest cycle that visits each city exactly once. So the inputs of the fitness function of the TSP are, in principle:
+
+* a distance matrix `D` of dimension `n`.
+* a cyclic permutation `sol` of lenght `n`, always starting with the same value.
+
+The return of the function is the total distance of  sol` with the matrix `D`.
+
+`TSP1` is a straightforward implementation of this fitness function:
+
+```{r}
+TSP1 <- function(D, sol){
+  
+  n <- length(sol)
+  d <- 0
+  for(i in 1:(n-1)) d <- d + D[sol[i],sol[i+1]]
+  d <- d + D[sol[n],sol[1]] 
+  return(d)
+} 
+```
+
+`TSP1` has some room of improvement because of:
+
+
+* the need to calculate the size of the instance each time we compute the fitness function making `n <- length(sol)` and
+* looping (we are told to loop as little as possible in R).
+
+We can remedy the first problem calculating `n` only once and using the function `TSP2`, which takes `n` as an input:
+
+```{r}
+TSP2 <- function(D, n, sol){
+  
+  d <- 0
+  for(i in 1:(n-1)) d <- d + D[sol[i],sol[i+1]]
+  d <- d + D[sol[n],sol[1]] 
+  return(d)
+}
+```
+
+Avoid looping is more complicated. A possible approach can be:
+
+* turn `D` into a vector `v`.
+* Subset the elements of `v` that belong to the cycle defined by `sol`.
+* Use the base R function `sum` to add the subseted values.
+
+Turn a matrix into a vector in R is straightforward using `c()`:
+
+```{r}
+M <- matrix(1:12, 3, 4, byrow = TRUE)
+
+vM <- c(M)
+```
+
+To subset values we just consider that:
+
+```{r, eval = FALSE}
+M[i, j] == vM[i + n*(j-1)]
+```
+
+Then we can write the vectorised fitness function `TSP3` as:
+
+```{r}
+TSP3 <- function(v, n, sol) sum(v[sol[c(1:(n-1), 1)] + (sol[c(2:n, n)] - 1)*n])
+```
+
+## Testing the functions
+
+To test the functions I will use a `circle_TSP` instance generator that spaces the nodes evenly on a circle:
+
+```{r}
+circle_TSP <- function(n, r=10){
+  
+  x <- r*cos( 2 * pi * 0:(n-1) / n)
+  y <- r*sin( 2* pi * 0:(n-1) / n)
+  
+  df <- data.frame(x=x, y=y)
+  D <- as.matrix(dist(df, diag = TRUE, upper = TRUE))
+  
+  return(list(coords = df, distances = D))
+}
+```
+
+Let's pick an instance of size 30. The distance matrix is `c30` and the vectorized distance matrix `v_c30`.
+
+```{r}
+c30 <- circle_TSP(30)$distances
+v_c30 <- c(c30)
+```
+
+First, let's see if the three functions return the same values. I will create a list of `tests` of 100 random solutions:
+
+```{r}
+set.seed(1111)
+tests <- replicate(100, c(1, sample(2:30, 29)), simplify = FALSE)
+```
+
+Then I will apply each function to all elements of `tests`:
+
+```{r}
+sol_TSP1 <- sapply(tests, \(x) TSP1(c30, x))
+sol_TSP2 <- sapply(tests, \(x) TSP2(c30, 30, x))
+sol_TSP3 <- sapply(tests, \(x) TSP3(v_c30, 30, x))
+```
+
+Let's see if the results are identical:
+
+```{r}
+identical(sol_TSP1, sol_TSP2)
+identical(sol_TSP1, sol_TSP3)
+identical(sol_TSP2, sol_TSP3)
+
+```
+
+Looks that `sol_TSP3` returns values different from `sol_TSP2` and `sol_TSP2`. Let's use `all.equal` to account for floating comma operation errors, with a low enough tolerance:
+
+```{r}
+all.equal(sol_TSP1, sol_TSP2, tolerance = 1e-10)
+all.equal(sol_TSP2, sol_TSP3, tolerance = 1e-10)
+all.equal(sol_TSP2, sol_TSP3, tolerance = 1e-10)
+```
+
+Now we see that the three functions returns similar enough values, that may account for the value of the fitness function.
+
+## Comparing functions performance
+
+Let's evaluate the speed of the three functions over one thousand replications of the calculation of the fitness of elements of `tests`:
+
+```{r}
+bench <- rbenchmark::benchmark(sapply(tests, \(x) TSP1(c30, x)), 
+                      sapply(tests, \(x) TSP2(c30, 30, x)), 
+                      sapply(tests, \(x) TSP3(v_c30, 30, x)),
+                      replications = 1000,
+                      columns = c("test", "replications", "elapsed", "relative"),
+                      order = "test",
+                      relative = "elapsed")
+bench
+```
+
+We observe that the fastest function is `TSP3` and that the highest gain of speed comes from moving from `TSP2` to `TSP3`. While `TSP3` is `r round(bench$relative[2], digits = 3)` times faster than `TSP2`, `TSP3` is `r round(bench$relative[1], digits = 3)` times faster than `TSP1`. Times and relative values vary slightly in each run.
+
+The bigger gain in speed comes from avoiding looping like in `TSP3`, and we obtain a marginal gain not calculating n each time we run the function like in `TSP2`.
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
+

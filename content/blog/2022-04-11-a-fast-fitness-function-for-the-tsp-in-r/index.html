@@ -1,0 +1,147 @@
+---
+title: A fast fitness function for the TSP in R
+author: Jose M Sallan
+date: '2022-04-11'
+slug: a-fast-fitness-function-for-the-tsp-in-r
+categories:
+  - optimization
+  - R
+tags:
+  - optimization
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
+
+
+<p>We use heuristics to obtain satisfactory solutions to optimization problems in a reasonable amount of time and computer memory. The section of code most critical in terms of time and memory consumption is the problem’s fitness function.</p>
+<p>I will illustrate some tricks to write fast fitness functions in R with the <strong>travelling salesman problem</strong> (TSP) as an example. Given a matrix of distances between nodes, the solution of the TSP is the shortest cycle that visits each city exactly once. So the inputs of the fitness function of the TSP are, in principle:</p>
+<ul>
+<li>a distance matrix <code>D</code> of dimension <code>n</code>.</li>
+<li>a cyclic permutation <code>sol</code> of lenght <code>n</code>, always starting with the same value.</li>
+</ul>
+<p>The return of the function is the total distance of sol<code>with the matrix</code>D`.</p>
+<p><code>TSP1</code> is a straightforward implementation of this fitness function:</p>
+<pre class="r"><code>TSP1 &lt;- function(D, sol){
+  
+  n &lt;- length(sol)
+  d &lt;- 0
+  for(i in 1:(n-1)) d &lt;- d + D[sol[i],sol[i+1]]
+  d &lt;- d + D[sol[n],sol[1]] 
+  return(d)
+} </code></pre>
+<p><code>TSP1</code> has some room of improvement because of:</p>
+<ul>
+<li>the need to calculate the size of the instance each time we compute the fitness function making <code>n &lt;- length(sol)</code> and</li>
+<li>looping (we are told to loop as little as possible in R).</li>
+</ul>
+<p>We can remedy the first problem calculating <code>n</code> only once and using the function <code>TSP2</code>, which takes <code>n</code> as an input:</p>
+<pre class="r"><code>TSP2 &lt;- function(D, n, sol){
+  
+  d &lt;- 0
+  for(i in 1:(n-1)) d &lt;- d + D[sol[i],sol[i+1]]
+  d &lt;- d + D[sol[n],sol[1]] 
+  return(d)
+}</code></pre>
+<p>Avoid looping is more complicated. A possible approach can be:</p>
+<ul>
+<li>turn <code>D</code> into a vector <code>v</code>.</li>
+<li>Subset the elements of <code>v</code> that belong to the cycle defined by <code>sol</code>.</li>
+<li>Use the base R function <code>sum</code> to add the subseted values.</li>
+</ul>
+<p>Turn a matrix into a vector in R is straightforward using <code>c()</code>:</p>
+<pre class="r"><code>M &lt;- matrix(1:12, 3, 4, byrow = TRUE)
+
+vM &lt;- c(M)</code></pre>
+<p>To subset values we just consider that:</p>
+<pre class="r"><code>M[i, j] == vM[i + n*(j-1)]</code></pre>
+<p>Then we can write the vectorised fitness function <code>TSP3</code> as:</p>
+<pre class="r"><code>TSP3 &lt;- function(v, n, sol) sum(v[sol[c(1:(n-1), 1)] + (sol[c(2:n, n)] - 1)*n])</code></pre>
+<div id="testing-the-functions" class="section level2">
+<h2>Testing the functions</h2>
+<p>To test the functions I will use a <code>circle_TSP</code> instance generator that spaces the nodes evenly on a circle:</p>
+<pre class="r"><code>circle_TSP &lt;- function(n, r=10){
+  
+  x &lt;- r*cos( 2 * pi * 0:(n-1) / n)
+  y &lt;- r*sin( 2* pi * 0:(n-1) / n)
+  
+  df &lt;- data.frame(x=x, y=y)
+  D &lt;- as.matrix(dist(df, diag = TRUE, upper = TRUE))
+  
+  return(list(coords = df, distances = D))
+}</code></pre>
+<p>Let’s pick an instance of size 30. The distance matrix is <code>c30</code> and the vectorized distance matrix <code>v_c30</code>.</p>
+<pre class="r"><code>c30 &lt;- circle_TSP(30)$distances
+v_c30 &lt;- c(c30)</code></pre>
+<p>First, let’s see if the three functions return the same values. I will create a list of <code>tests</code> of 100 random solutions:</p>
+<pre class="r"><code>set.seed(1111)
+tests &lt;- replicate(100, c(1, sample(2:30, 29)), simplify = FALSE)</code></pre>
+<p>Then I will apply each function to all elements of <code>tests</code>:</p>
+<pre class="r"><code>sol_TSP1 &lt;- sapply(tests, \(x) TSP1(c30, x))
+sol_TSP2 &lt;- sapply(tests, \(x) TSP2(c30, 30, x))
+sol_TSP3 &lt;- sapply(tests, \(x) TSP3(v_c30, 30, x))</code></pre>
+<p>Let’s see if the results are identical:</p>
+<pre class="r"><code>identical(sol_TSP1, sol_TSP2)</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<pre class="r"><code>identical(sol_TSP1, sol_TSP3)</code></pre>
+<pre><code>## [1] FALSE</code></pre>
+<pre class="r"><code>identical(sol_TSP2, sol_TSP3)</code></pre>
+<pre><code>## [1] FALSE</code></pre>
+<p>Looks that <code>sol_TSP3</code> returns values different from <code>sol_TSP2</code> and <code>sol_TSP2</code>. Let’s use <code>all.equal</code> to account for floating comma operation errors, with a low enough tolerance:</p>
+<pre class="r"><code>all.equal(sol_TSP1, sol_TSP2, tolerance = 1e-10)</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<pre class="r"><code>all.equal(sol_TSP2, sol_TSP3, tolerance = 1e-10)</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<pre class="r"><code>all.equal(sol_TSP2, sol_TSP3, tolerance = 1e-10)</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<p>Now we see that the three functions returns similar enough values, that may account for the value of the fitness function.</p>
+</div>
+<div id="comparing-functions-performance" class="section level2">
+<h2>Comparing functions performance</h2>
+<p>Let’s evaluate the speed of the three functions over one thousand replications of the calculation of the fitness of elements of <code>tests</code>:</p>
+<pre class="r"><code>bench &lt;- rbenchmark::benchmark(sapply(tests, \(x) TSP1(c30, x)), 
+                      sapply(tests, \(x) TSP2(c30, 30, x)), 
+                      sapply(tests, \(x) TSP3(v_c30, 30, x)),
+                      replications = 1000,
+                      columns = c(&quot;test&quot;, &quot;replications&quot;, &quot;elapsed&quot;, &quot;relative&quot;),
+                      order = &quot;test&quot;,
+                      relative = &quot;elapsed&quot;)
+bench</code></pre>
+<pre><code>##                                            test replications elapsed relative
+## 1       sapply(tests, function(x) TSP1(c30, x))         1000   4.660    5.574
+## 2   sapply(tests, function(x) TSP2(c30, 30, x))         1000   4.594    5.495
+## 3 sapply(tests, function(x) TSP3(v_c30, 30, x))         1000   0.836    1.000</code></pre>
+<p>We observe that the fastest function is <code>TSP3</code> and that the highest gain of speed comes from moving from <code>TSP2</code> to <code>TSP3</code>. While <code>TSP3</code> is 5.495 times faster than <code>TSP2</code>, <code>TSP3</code> is 5.574 times faster than <code>TSP1</code>. Times and relative values vary slightly in each run.</p>
+<p>The bigger gain in speed comes from avoiding looping like in <code>TSP3</code>, and we obtain a marginal gain not calculating n each time we run the function like in <code>TSP2</code>.</p>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre><code>## R version 4.1.3 (2022-03-10)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Debian GNU/Linux 10 (buster)
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.8.0
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.8.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## loaded via a namespace (and not attached):
+##  [1] bookdown_0.24     rbenchmark_1.0.0  digest_0.6.27     R6_2.5.0         
+##  [5] jsonlite_1.8.0    magrittr_2.0.3    evaluate_0.14     blogdown_1.5     
+##  [9] stringi_1.7.3     rlang_1.0.2       cli_3.0.1         rstudioapi_0.13  
+## [13] jquerylib_0.1.4   bslib_0.2.5.1     rmarkdown_2.9     tools_4.1.3      
+## [17] stringr_1.4.0     xfun_0.23         yaml_2.2.1        compiler_4.1.3   
+## [21] htmltools_0.5.1.1 knitr_1.33        sass_0.4.0</code></pre>
+</div>
