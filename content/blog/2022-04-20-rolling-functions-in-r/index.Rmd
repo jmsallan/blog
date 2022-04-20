@@ -1,0 +1,190 @@
+---
+title: Rolling functions in R
+author: Jose M Sallan
+date: '2022-04-20'
+slug: rolling-functions-in-r
+categories:
+  - R
+  - statistics
+tags:
+  - dplyr
+  - ggplot
+  - data.table
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+When we analyze time series data, we often want to highlight long-term trends and smooth out short-term fluctuations. To accomplish this, we use **rolling mean** values (sometimes called moving mean). The rolling mean of an observation is the average value of a subset of observations around that observation. If we want of give more importance to specific values of the subset (for instance, those closer in time to the observation), we speak of **weighted rolling mean**.
+
+In this post, I am introducing how to calculate rolling mean values in R:
+
+* Using the `rollmean` and `rollapply` functions of the `zoo` package together with the `dplyr` package of the tidyverse.
+* Using the `froll` family of functions of `data.table`.
+
+I will also load the `tidyr` and `ggplot2` packages for data handling and visualization.
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(zoo)
+library(data.table)
+```
+
+As example of temporal data, I am using the `txhousing` dataset of `ggplot2`. This dataset contains information about the housing market in Texas provided by the Texas A&M University real estate center, <https://www.recenter.tamu.edu/>.
+
+```{r}
+txhousing
+```
+
+Let's pick `volume` of sales in Austin:
+
+```{r}
+volume_Austin <- txhousing %>%
+  filter(city == "Austin") %>%
+  select(date, volume)
+```
+
+Let's plot `value` as a function of `date`:
+
+```{r, fig.align='center', out.width='80%'}
+ggplot(volume_Austin, aes(date, volume)) +
+  geom_line() +
+  theme_minimal()
+```
+
+We observe that the volume of sales in the housing market has long-term and short-term fluctuations. Short-term fluctuations have a period of around one year, showing the stationarity of the housing market. To smooth out those fluctuations, we can take the rolling mean, the mean of several contiguous observations. When calculating rolling values it is good practice to define an odd size of the rolling window, so I will use the 13 values around the observation.
+
+Let's use the `rollmean` function, with the following parameters:
+
+* the vector to calculate the rolling mean
+* the size of rolling window `k`
+* with `fill = NA` we instruct the function to set NA those observations that cannot be calculated
+* with `align = "center"` (the default) we opt for a centered aligment (see below)
+
+```{r}
+rollmean(volume_Austin$volume, k = 13, fill = NA, align = "center")
+```
+
+We can see that the first six and the six last observations have NA. This is because observation i is obtained averaging values between `6-i` and `6+i`, so the first valid index is `i=7`. That is why these values are equal: 
+
+```{r}
+mean(volume_Austin$volume[1:13])
+rollmean(volume_Austin$volume, k = 13, fill = NA, align = "center")[7]
+```
+
+Usually it makes more sense to obtain the `i` with observations going between `i` and `i-k+1`, so we use past values to calculate the rolling value. We achieve this with `align = "right"`.
+
+```{r}
+rollmean(volume_Austin$volume, k = 13, fill = NA, align = "right")
+```
+
+We can use the above expression with `mutate` of `dplyr` to add a column with the rolling mean.
+
+```{r}
+volume_Austin <- volume_Austin %>%
+  mutate(roll_volume = rollmean(volume, k = 13, fill = NA, align = "right"))
+```
+
+Let's make a temptative plot of the original vaariable and its rolling mean:
+
+```{r, fig.align='center', out.width='80%'}
+volume_Austin %>%
+  pivot_longer(-date, names_to = "data", values_to = "volume") %>%
+  ggplot(aes(date, volume, color = data)) +
+  geom_line() +
+  theme_minimal()
+```
+
+Finally, let's put it all together from `txhousing`:
+
+```{r, fig.align='center', out.width='100%'}
+txhousing %>%
+  filter(city == "Austin") %>%
+  select(date, volume) %>%
+  mutate(roll_volume = rollmean(volume, k = 13, fill = NA, align = "right")) %>%
+  pivot_longer(-date, names_to = "data", values_to = "volume") %>%
+  ggplot(aes(date, volume, color = data)) +
+  geom_line() +
+  theme_minimal() +
+  labs(title = "Volume of housing market (Austin)") +
+  scale_color_manual(values = c("#4C9900", "#99FF33"), labels = c("rolled", "straigth")) +
+  theme(legend.position = c(0.2, 0.8))
+```
+
+## Weighted rolling mean
+
+In some situations, we migth want not to give all observations the same weight when calculating the mean. Instead of giving a weight of 1/`k` to each observation, we night want to give more weigth to recent observations. We need to define weights so that the summation of them all is equal to one. A possible set of weights is:
+
+```{r}
+weights <- 1:13/sum(1:13)
+```
+
+Here is how each of the proposed weights is distributed among observations
+
+```{r, echo=FALSE, fig.align='center', out.width='80%'}
+ggplot(tibble(observation = 1:13, weight = weights), aes(observation, weight)) +
+  geom_bar(stat = "identity", fill = "#909090") +
+  theme_minimal() +
+  labs(title = "linear weights for k = 13")
+```
+
+To obtain weighted rolling mean, we can use `rollapply`. This function uses any function to calculate the rolling value. It is more flexible than `rollmean`, although les computationally efficient.
+
+```{r}
+rollapply(volume_Austin$volume, \(x) sum(weights*x), width = 13, fill = NA, align = "right")
+```
+
+Let's plot the two rolling values in the same plot:
+
+```{r, fig.align='center', out.width='100%'}
+txhousing %>%
+  filter(city == "Austin") %>%
+  select(date, volume) %>%
+  mutate(roll_volume = rollmean(volume, k = 13, fill = NA, align = "right"),
+         roll_volume_weighted = rollapply(volume, \(x) sum(weights*x), width = 13, fill = NA, align = "right")) %>%
+  pivot_longer(-date, names_to = "data", values_to = "volume") %>%
+  ggplot(aes(date, volume, color = data)) +
+  geom_line() +
+  theme_minimal() +
+  labs(title = "Volume of housing market (Austin)") +
+  scale_color_manual(values = c("#336600", "#66CC00", "#CCFF99"), labels = c("roll mean", "weighted roll mean", "valume")) +
+  theme(legend.position = c(0.2, 0.8))
+```
+
+We can see that for this dataset the weighted roll mean has not lost some of the short term fluctuations that are removed in the original roll mean.
+
+## Rolling values with data.table
+
+The data.table package includes the `froll` family of fast rolling functions: `frollmean`, `frollsum` and `frollapply`. Let's see how can we calculate the same parameters in `data.table`:
+
+```{r}
+txhousing_dt <- data.table(txhousing)
+
+txhousing_austin <- txhousing_dt[city == "Austin"][ , `:=`(roll_volume = frollmean(volume, n = 13, align = "right"), roll_volume_weighted = frollapply(volume, n = 13, \(x) sum(weights*x), align = "right"))]
+```
+
+Let's see if `zoo` and `data.table` rolling functions return the same values for this dataset:
+
+```{r}
+a <- rollmean(volume_Austin$volume, k = 13, fill = NA, align = "right")
+b <- txhousing_austin[, roll_volume]
+c <- rollapply(volume_Austin$volume, \(x) sum(weights*x), width = 13, fill = NA, align = "right")
+d <- txhousing_austin[, roll_volume_weighted]
+identical(a, b)
+identical(c, d)
+```
+
+Rolled values allow us to tell long-time cycles from short-term fluctuations in time series. The usual choice to obtained rolled values are the `rollmean`, `rollmedian`, `rollmax`, `rollsum` and `rollapply` from the `zoo` package. Users of data.table have available functions `frollmean`, `frollsum` and `frollaply`, optimized for performance and written to be embedded in data table objects.
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
