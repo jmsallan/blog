@@ -1,0 +1,166 @@
+---
+title: Dense visualization in R with ggrepel and plotly
+author: Jose M Sallan
+date: '2022-05-02'
+slug: dense-visualization-in-r-with-ggrepel-and-plotly
+categories:
+  - R
+tags:
+  - ggplot
+  - plotly
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+Sometimes we need to visualize datasets with many information and it is hard to set all the information at the same time. It may be the case of scatterplots with many points of which we need to present node labels. In this post I will present two possible solutions for this problem:
+
+* Resetting labels with package `ggrepel`.
+* Doing interactive plots with `plotly`.
+
+In addition to this two packages, I will be using `dplyr` for data handling, `ggplot2` for plotting and `zoo` to calculate rolling means.
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(ggrepel)
+library(plotly)
+library(zoo)
+```
+
+Let's use the `txhousing` dataset to plot the values of `median` and `sales` for Texas cities in a specific month. I have set `nudge_y = 4000` to separate text from point.
+
+```{r, out.width= '100%'}
+txhousing %>%
+  filter(year == 2005, month == 7) %>%
+  filter(!is.na(sales), !is.na(median)) %>%
+  ggplot(aes(sales, median, label = city)) +
+  geom_point() +
+  geom_text(nudge_y = 4000, size = 3) +
+  scale_x_log10() +
+  theme_minimal()
+```
+
+Although I have reduced somewhat the size of labels and adjusted sales logarithmically, there is still a huge overlay of labels.
+
+## Using ggrepel
+
+The `ggrepel` provides geoms for `ggplot2` to repel overlapping text labels:
+
+* `geom_text_repel()`
+* `geom_label_repel()`
+
+After loading the package, we only need to replace `geom_text()` with `geom_text_repel()`. Now we can override the `nudge_y` argument as the package detachs the text from the point.
+
+```{r, out.width= '100%'}
+txhousing %>%
+  filter(year == 2005, month == 7) %>%
+  filter(!is.na(sales), !is.na(median)) %>%
+  ggplot(aes(sales, median, label = city)) +
+  geom_point() +
+  geom_text_repel(size = 3) +
+  scale_x_log10() +
+  theme_minimal()
+```
+
+## Using plotly
+
+Another possibility to present labels is to create an interactive plot with `plotly`, an R package for creating interactive web-based graphs via the open source JavaScript graphing library `plotly.js`. These graphics can be made interactive in a html setting, like a Shiny app or a rnmarkdown document. You only need to set the cursor over the point to see a label (tooltip) with the name of the city on it.
+
+Steps to do the plot:
+
+* Set the content of the label to present (tooltip) in the `text` parameter of `aes`.
+* Save the plot in a variable.
+* Present the plot using the `ggplotly` function with `tooltip = "text"`.
+
+```{r}
+tx_ply <- txhousing %>%
+  filter(year == 2005, month == 7) %>%
+  filter(!is.na(sales), !is.na(median)) %>%
+  ggplot(aes(sales, median, text = city)) +
+  geom_point() +
+  scale_x_log10() +
+  theme_minimal()
+```
+
+```{r, out.width= '100%', fig.height=7}
+ggplotly(tx_ply, tooltip = "text")
+```
+
+Here is an example of a more complex tooltip.
+
+```{r, out.width= '100%', fig.height=7}
+tx_ply2 <- txhousing %>%
+  filter(year == 2005, month == 7) %>%
+  filter(!is.na(sales), !is.na(median)) %>%
+  ggplot(aes(sales, median, 
+             text = paste("City: ", city, "\n",
+                         "Median:", median, "\n",
+                         "Sales:", sales))) +
+  geom_point() +
+  scale_x_log10() +
+  theme_minimal()
+  
+ggplotly(tx_ply2, tooltip = "text")
+```
+
+## A line plot with plotly
+
+Let's see the rolling mean of the evolution of sales of the largest Texan cities:
+
+```{r, out.width= '100%'}
+txhousing %>%
+  filter(city %in% c("Houston", "Dallas")) %>%
+  group_by(city) %>%
+  mutate(av_sales = rollmean(sales, k = 12, fill = NA, na.rm = TRUE)) %>%
+  ungroup() %>%
+  filter(!is.na(av_sales)) %>%
+  select(date, city, av_sales) %>%
+  ggplot(aes(date, av_sales, color = city)) +
+  geom_line() +
+  theme_minimal() +
+  theme(legend.position = c(0.1, 0.8)) +
+  labs(x = "date", y = "sales", title = "Sales in large Texas cities")
+```
+
+Here is the same plot with `plotly`. Note that I have removed the legend as it is not necessary in this context. If you hover one of the lines you will see the starndard tooltip.
+
+```{r, out.width= '100%'}
+tx_line <- txhousing %>%
+  filter(city %in% c("Houston", "Dallas")) %>%
+  group_by(city) %>%
+  mutate(av_sales = rollmean(sales, k = 12, fill = NA, na.rm = TRUE)) %>%
+  ungroup() %>%
+  filter(!is.na(av_sales)) %>%
+  select(date, city, av_sales) %>%
+  ggplot(aes(date, av_sales, color = city)) +
+  geom_line() +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  labs(x = "date", y = "sales", title = "Sales in large Texas cities")
+
+ggplotly(tx_line)
+```
+
+## Using ggrepel and plotly
+
+We can use `ggrepel` and `plotly` to present visualizations with dense information. While `ggrepel` can be adequate for printed or PDF outcomes, `plotly` offers the possibility of presenting interactive plots in html format.
+
+## References
+
+* *Getting started with plotly in ggplot2* <https://plotly.com/ggplot2/getting-started/>
+* Fitton, Daniel (2018). *Plotly in R: How to make ggplot2 charts interactive with ggplotly.* <https://www.musgraveanalytics.com/blog/2018/8/24/how-to-make-ggplot2-charts-interactive-with-plotly>
+* Slowikowski, Kamil (2021-01-15). *Getting started with ggrepel.* <https://cran.r-project.org/web/packages/ggrepel/vignettes/ggrepel.html>
+
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
