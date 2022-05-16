@@ -1,0 +1,229 @@
+---
+title: Dependency networks of installed R packages
+author: Jose M Sallan
+date: '2022-05-16'
+slug: dependency-networks-of-installed-r-packages
+categories:
+  - R
+tags:
+  - complex networks
+  - data.table
+  - dplyr
+  - ggraph
+  - tidygraph
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+R packages are bundles of code, data, documentation and test structured to be easily shared through repositories like CRAN. An R package usually needs other packages to work, or maybe needs some other packages for optional functionalities. There are three ways of specifying these dependencies in the `DESCRIPTION` file of a package:
+
+* Prior to the roll-out of namespaces in R 2.14.0 in 2011, `Depends` was the only way to establish that the package *depends* on another package. Nowadays, dependencies are listed in `Imports`. We can use `Depends` to state a minimum version for R itself, e.g. `Depends: R (>= 3.6.0)`.
+* Packages listed in `Imports` are needed by package users at runtime. Any time the package is installed, those packages will also be installed, if not already present.
+* Packages listed in `Suggests` are either needed for development tasks or might unlock optional functionalities. They are not automatically installed along with the package.
+
+The relationship dependencies between a set of R packages leads to the definition of a directed network of dependencies, where nodes are packages connected through a direct link *(i,j)* if package *j* has some dependency on package *i*.
+
+To explore how these networks of dependencies look like, I will examine the network of packages installed in my computer. I will use `tidygraph` and `ggraph` for graph manipulation and plotting, and `data.table` and `dplyr` for tabular data handling.
+
+```{r}
+library(data.table)
+library(dplyr)
+library(tidygraph)
+library(ggraph)
+library(patchwork)
+library(kableExtra)
+```
+
+I have checked the packages installed in my computer using `installed.packages()`. The output is a matrix, that I transform to a `data.table` object. This list of packages will be different for every R user, and will be representative of its preferences and of how he or she is using R.
+
+```{r}
+ip <- data.table(installed.packages())
+```
+
+Dependencies are listed in the `Depends`, `Imports` and `Suggests` columns. Let's see the `Depends` column:
+
+```{r}
+ip[, .(Package, Depends)]
+```
+
+I am building a table of dependencies with the `get_table_packages()` function:
+
+* Selects a specific `column` of dependencies. 
+* gets each of the packages of each row in the column with `data:table::tstrsplit`.
+* Transforms the values of each package so that it represents a package name only. For instance, `dplyr (>= 0.8.5)` is transformed into `dplyr` and `R (>= 2.10.0)` into `R`.
+* Pivots the table into a long table with `origin` and `destination` columns.
+* Adds a `relation` column to store all data in a single table.
+
+```{r}
+get_table_packages <- function(dt, column){
+  
+  table <- copy(dt)
+  vars <- c("Package", column)
+  
+  table <- table[, ..vars]
+  
+  table <- cbind(table[, 1], table[ , tstrsplit(table[[2]], ",")])
+  table <- table[, lapply(.SD, \(x) gsub("^ ", "", x))]
+  table <- table[, lapply(.SD, \(x) gsub(">=", " ", x))]
+  table <- table[, lapply(.SD, \(x) gsub("\n", "", x))]
+  table <- table[, lapply(.SD, \(x) gsub("\\(", "", x))]
+  table <- table[, lapply(.SD, \(x) sapply(strsplit(x, " "), \(x) x[1]))]
+  table <- melt(table, id.vars = "Package", na.rm = TRUE)
+  
+  table[, variable := NULL]
+  table[, relation := column]
+  setnames(table, c("destination", "origin", "relation"))
+  setcolorder(table, c("origin", "destination", "relation"))
+  
+  return(table)
+  
+}
+```
+
+Finally I am applying the function to each dependency and storing the results in `ip_table`.
+
+```{r}
+rel_packages <- c("Depends", "Imports", "Suggests")
+
+ip_list <- lapply(rel_packages, \(x) get_table_packages(ip, x))
+
+ip_table <- rbindlist(ip_list)
+
+rm(ip_list)
+```
+
+## Obtaining package networks
+
+Let's obtain the three dependency networks defined in `rel_packages` and store then in a list. I am also calculating three node measures:
+
+* in-degree `d_in`, the number of edges incident to a node.
+* out-degree `d_out`, the number of edges going out of a node.
+* betweenness `btw`, the number of shortest paths passing through a node.
+
+```{r}
+network_packages <- lapply(rel_packages, function(x){
+  
+  g <- tbl_graph(edges = ip_table[relation == x], directed = TRUE)
+  
+  g <- g %>%
+    activate(nodes) %>%
+    mutate(d_in = centrality_degree(mode = "in"),
+         d_out = centrality_degree(mode = "out"),
+         btw = centrality_betweenness())
+    
+  return(g)
+})
+
+names(network_packages) <- rel_packages
+```
+
+Let's examine each of the produced networks.
+
+```{r}
+network_packages
+```
+
+We observe that:
+
+* The networks of `Depends` and `Imports` are trees. This makes sense since there may not be cyclical dependencies or imports. The set of nodes of both networks is a subset of the installed packages.
+* The network of `Suggests` has cycles. The set of nodes is larger than the one of installed packages, indicating that some suggested packages are not installed.
+
+## Plotting the networks
+
+I am defining a `plot_network_packages` function to plot the networks. Note how I am choosing a very low value of transparency `alpha` for edges, as networks are relatively dense.
+
+```{r}
+plot_network_packages <- function(i){
+  ggraph(network_packages[[i]], layout = "sugiyama") +
+  geom_node_point(aes(label = name)) +
+  geom_edge_link(alpha = 0.1, start_cap = circle(3, 'mm'), end_cap = circle(3, 'mm'), arrow = arrow(length = unit(2, 'mm'))) +
+  theme_graph() +
+  labs(title = paste("Network of", names(network_packages)[i]))
+}
+
+network_plots <- lapply(1:3, plot_network_packages)
+```
+
+To plot all networks at once, I am using `wrap_plots` from the `patchwork` package. Functions from `gridExtra` do not seem to work well with `ggraph` outcomes.
+
+```{r, out.width='100%', fig.height = 12}
+wrap_plots(network_plots, ncol = 1)
+```
+
+We observe that `Depends` and `Imports` have a tree like structure, more complex for `Imports`. Although the `Suggests` network has cycles and disconnected components, seems to behave like a tree for most of its nodes.
+
+## Relevant nodes
+
+Seeing that the networks of packages have a tree-like structure, we can establish two criteria to select relevant nodes:
+
+* **Root nodes:** the packages at the top of the tree seem to be critical for the functionality of the system. Root nodes will have **in-degree equal to zero**, and high values of **out degree**.
+* **Intermediate nodes:** for paths of relationships of two or more edges, the nodes in the middle are also important for package functionality. These nodes will have high values of **betweenness**.
+
+Let's create a function to present the relevant packages of a network.
+
+```{r}
+get_table_measure <- function(i, nnodes = 5){
+  
+  node_table <- network_packages[[i]] %>%
+    activate(nodes) %>%
+    as_tibble()
+  
+  root <- node_table %>%
+    filter(d_in == 0) %>%
+    arrange(-d_out) %>%
+    mutate(relation = names(network_packages)[i]) %>%
+    select(relation, name, d_out) %>%
+    rename(root = name) %>%
+    slice(1:nnodes)
+  
+  interm <- node_table %>%
+    arrange(-btw) %>%
+    select(name, btw) %>%
+    rename(intermediate = name) %>%
+    slice(1:nnodes)
+  
+  table <- bind_cols(root, interm)
+  
+  return(table)
+  
+}
+```
+
+Here is the result of applying the function, presented in a table formatted with `kableExtra`.
+
+```{r, fig.align='center'}
+nodes_list <- lapply(1:3, \(i) get_table_measure(i))
+nodes_table <- bind_rows(nodes_list)
+
+nodes_table %>%
+  kbl() %>%
+  kable_paper(full_width = FALSE) %>%
+  row_spec(1:5, background = "#FFFFCC") %>%
+   row_spec(6:10, background = "#CCFFFF") %>%
+   row_spec(11:15, background = "#FFCCCC")
+  
+```
+
+Root and intermediate packages are different for each network, representative of each relationship. The main root package in `Depends` is the minimal version of R required. This was to be expected, given the role of `Depends` on package dependencies definition. Root packages in `Imports` are related with the tidyverse like magrittr or with data visualization like `grDevices`. Root packages in Suggests are related with package development, and most of them are not installed in my computer.
+
+As for intermediate packages, the ones in `Depends` are not quite representative, as this relationship is not intended to be chained at several levels. The results of `Imports` are more informative, and show the relevance of the tidyverse in package development, at least the ones in my computer. This is also evident in `Suggests`, where together with package development appear other packages related with publishing and visualization like `knitr` and `ggplot2`.
+
+The results of this analysis are not representative of the whole R CRAN package ecosystem. They have to be considered as a preliminary analysis for a further examination of the whole CRAN network.
+
+## References
+
+* *Depends or imports?* (From the *Developing R packages* course)
+ <https://campus.datacamp.com/courses/developing-r-packages/checking-and-building-r-packages?ex=8>
+* *Dependencies: What does your package need?* (from Wickham, H. & Bryant, J. *R packages*) <https://r-pkgs.org/description.html#description-dependencies>
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+

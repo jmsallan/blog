@@ -1,0 +1,586 @@
+---
+title: Dependency networks of installed R packages
+author: Jose M Sallan
+date: '2022-05-16'
+slug: dependency-networks-of-installed-r-packages
+categories:
+  - R
+tags:
+  - complex networks
+  - data.table
+  - dplyr
+  - ggraph
+  - tidygraph
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>R packages are bundles of code, data, documentation and test structured to be easily shared through repositories like CRAN. An R package usually needs other packages to work, or maybe needs some other packages for optional functionalities. There are three ways of specifying these dependencies in the <code>DESCRIPTION</code> file of a package:</p>
+<ul>
+<li>Prior to the roll-out of namespaces in R 2.14.0 in 2011, <code>Depends</code> was the only way to establish that the package <em>depends</em> on another package. Nowadays, dependencies are listed in <code>Imports</code>. We can use <code>Depends</code> to state a minimum version for R itself, e.g. <code>Depends: R (&gt;= 3.6.0)</code>.</li>
+<li>Packages listed in <code>Imports</code> are needed by package users at runtime. Any time the package is installed, those packages will also be installed, if not already present.</li>
+<li>Packages listed in <code>Suggests</code> are either needed for development tasks or might unlock optional functionalities. They are not automatically installed along with the package.</li>
+</ul>
+<p>The relationship dependencies between a set of R packages leads to the definition of a directed network of dependencies, where nodes are packages connected through a direct link <em>(i,j)</em> if package <em>j</em> has some dependency on package <em>i</em>.</p>
+<p>To explore how these networks of dependencies look like, I will examine the network of packages installed in my computer. I will use <code>tidygraph</code> and <code>ggraph</code> for graph manipulation and plotting, and <code>data.table</code> and <code>dplyr</code> for tabular data handling.</p>
+<pre class="r"><code>library(data.table)
+library(dplyr)
+library(tidygraph)
+library(ggraph)
+library(patchwork)
+library(kableExtra)</code></pre>
+<p>I have checked the packages installed in my computer using <code>installed.packages()</code>. The output is a matrix, that I transform to a <code>data.table</code> object. This list of packages will be different for every R user, and will be representative of its preferences and of how he or she is using R.</p>
+<pre class="r"><code>ip &lt;- data.table(installed.packages())</code></pre>
+<p>Dependencies are listed in the <code>Depends</code>, <code>Imports</code> and <code>Suggests</code> columns. Let’s see the <code>Depends</code> column:</p>
+<pre class="r"><code>ip[, .(Package, Depends)]</code></pre>
+<pre><code>##         Package                                                   Depends
+##   1:      abind                                              R (&gt;= 1.5.0)
+##   2:        arm R (&gt;= 3.1.0), MASS, Matrix (&gt;= 1.0), stats, lme4 (&gt;= 1.0)
+##   3:    askpass                                                      &lt;NA&gt;
+##   4: assertthat                                                      &lt;NA&gt;
+##   5:  backports                                              R (&gt;= 3.0.0)
+##  ---                                                                     
+## 310:     stats4                                                      &lt;NA&gt;
+## 311:   survival                                              R (&gt;= 3.5.0)
+## 312:      tcltk                                                      &lt;NA&gt;
+## 313:      tools                                                      &lt;NA&gt;
+## 314:      utils                                                      &lt;NA&gt;</code></pre>
+<p>I am building a table of dependencies with the <code>get_table_packages()</code> function:</p>
+<ul>
+<li>Selects a specific <code>column</code> of dependencies.</li>
+<li>gets each of the packages of each row in the column with <code>data:table::tstrsplit</code>.</li>
+<li>Transforms the values of each package so that it represents a package name only. For instance, <code>dplyr (&gt;= 0.8.5)</code> is transformed into <code>dplyr</code> and <code>R (&gt;= 2.10.0)</code> into <code>R</code>.</li>
+<li>Pivots the table into a long table with <code>origin</code> and <code>destination</code> columns.</li>
+<li>Adds a <code>relation</code> column to store all data in a single table.</li>
+</ul>
+<pre class="r"><code>get_table_packages &lt;- function(dt, column){
+  
+  table &lt;- copy(dt)
+  vars &lt;- c(&quot;Package&quot;, column)
+  
+  table &lt;- table[, ..vars]
+  
+  table &lt;- cbind(table[, 1], table[ , tstrsplit(table[[2]], &quot;,&quot;)])
+  table &lt;- table[, lapply(.SD, \(x) gsub(&quot;^ &quot;, &quot;&quot;, x))]
+  table &lt;- table[, lapply(.SD, \(x) gsub(&quot;&gt;=&quot;, &quot; &quot;, x))]
+  table &lt;- table[, lapply(.SD, \(x) gsub(&quot;\n&quot;, &quot;&quot;, x))]
+  table &lt;- table[, lapply(.SD, \(x) gsub(&quot;\\(&quot;, &quot;&quot;, x))]
+  table &lt;- table[, lapply(.SD, \(x) sapply(strsplit(x, &quot; &quot;), \(x) x[1]))]
+  table &lt;- melt(table, id.vars = &quot;Package&quot;, na.rm = TRUE)
+  
+  table[, variable := NULL]
+  table[, relation := column]
+  setnames(table, c(&quot;destination&quot;, &quot;origin&quot;, &quot;relation&quot;))
+  setcolorder(table, c(&quot;origin&quot;, &quot;destination&quot;, &quot;relation&quot;))
+  
+  return(table)
+  
+}</code></pre>
+<p>Finally I am applying the function to each dependency and storing the results in <code>ip_table</code>.</p>
+<pre class="r"><code>rel_packages &lt;- c(&quot;Depends&quot;, &quot;Imports&quot;, &quot;Suggests&quot;)
+
+ip_list &lt;- lapply(rel_packages, \(x) get_table_packages(ip, x))
+
+ip_table &lt;- rbindlist(ip_list)
+
+rm(ip_list)</code></pre>
+<div id="obtaining-package-networks" class="section level2">
+<h2>Obtaining package networks</h2>
+<p>Let’s obtain the three dependency networks defined in <code>rel_packages</code> and store then in a list. I am also calculating three node measures:</p>
+<ul>
+<li>in-degree <code>d_in</code>, the number of edges incident to a node.</li>
+<li>out-degree <code>d_out</code>, the number of edges going out of a node.</li>
+<li>betweenness <code>btw</code>, the number of shortest paths passing through a node.</li>
+</ul>
+<pre class="r"><code>network_packages &lt;- lapply(rel_packages, function(x){
+  
+  g &lt;- tbl_graph(edges = ip_table[relation == x], directed = TRUE)
+  
+  g &lt;- g %&gt;%
+    activate(nodes) %&gt;%
+    mutate(d_in = centrality_degree(mode = &quot;in&quot;),
+         d_out = centrality_degree(mode = &quot;out&quot;),
+         btw = centrality_betweenness())
+    
+  return(g)
+})
+
+names(network_packages) &lt;- rel_packages</code></pre>
+<p>Let’s examine each of the produced networks.</p>
+<pre class="r"><code>network_packages</code></pre>
+<pre><code>## $Depends
+## # A tbl_graph: 232 nodes and 306 edges
+## #
+## # A directed acyclic simple graph with 1 component
+## #
+## # Node Data: 232 × 4 (active)
+##   name               d_in d_out   btw
+##   &lt;chr&gt;             &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+## 1 R                     0   215     0
+## 2 abind                 1     0     0
+## 3 arm                   5     0     0
+## 4 backports             1     0     0
+## 5 BAdatasets            1     0     0
+## 6 BAdatasetsSpatial     1     0     0
+## # … with 226 more rows
+## #
+## # Edge Data: 306 × 3
+##    from    to relation
+##   &lt;int&gt; &lt;int&gt; &lt;chr&gt;   
+## 1     1     2 Depends 
+## 2     1     3 Depends 
+## 3     1     4 Depends 
+## # … with 303 more rows
+## 
+## $Imports
+## # A tbl_graph: 299 nodes and 1359 edges
+## #
+## # A directed acyclic simple graph with 1 component
+## #
+## # Node Data: 299 × 4 (active)
+##   name     d_in d_out     btw
+##   &lt;chr&gt;   &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt;
+## 1 methods     2    62 191.   
+## 2 abind       2     2   0.167
+## 3 arm         7     1  18    
+## 4 sys         0     3   0    
+## 5 askpass     1     3  13    
+## 6 tools       0    20   0    
+## # … with 293 more rows
+## #
+## # Edge Data: 1,359 × 3
+##    from    to relation
+##   &lt;int&gt; &lt;int&gt; &lt;chr&gt;   
+## 1     1     2 Imports 
+## 2     2     3 Imports 
+## 3     4     5 Imports 
+## # … with 1,356 more rows
+## 
+## $Suggests
+## # A tbl_graph: 669 nodes and 1987 edges
+## #
+## # A directed simple graph with 5 components
+## #
+## # Node Data: 669 × 4 (active)
+##   name        d_in d_out     btw
+##   &lt;chr&gt;      &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt;
+## 1 testthat      11   175 20816. 
+## 2 askpass        1     0     0  
+## 3 assertthat     2     1     0.5
+## 4 BBmisc         3     0     0  
+## 5 bit            7     1   294. 
+## 6 covr           0   109     0  
+## # … with 663 more rows
+## #
+## # Edge Data: 1,987 × 3
+##    from    to relation
+##   &lt;int&gt; &lt;int&gt; &lt;chr&gt;   
+## 1     1     2 Suggests
+## 2     1     3 Suggests
+## 3     1     4 Suggests
+## # … with 1,984 more rows</code></pre>
+<p>We observe that:</p>
+<ul>
+<li>The networks of <code>Depends</code> and <code>Imports</code> are trees. This makes sense since there may not be cyclical dependencies or imports. The set of nodes of both networks is a subset of the installed packages.</li>
+<li>The network of <code>Suggests</code> has cycles. The set of nodes is larger than the one of installed packages, indicating that some suggested packages are not installed.</li>
+</ul>
+</div>
+<div id="plotting-the-networks" class="section level2">
+<h2>Plotting the networks</h2>
+<p>I am defining a <code>plot_network_packages</code> function to plot the networks. Note how I am choosing a very low value of transparency <code>alpha</code> for edges, as networks are relatively dense.</p>
+<pre class="r"><code>plot_network_packages &lt;- function(i){
+  ggraph(network_packages[[i]], layout = &quot;sugiyama&quot;) +
+  geom_node_point(aes(label = name)) +
+  geom_edge_link(alpha = 0.1, start_cap = circle(3, &#39;mm&#39;), end_cap = circle(3, &#39;mm&#39;), arrow = arrow(length = unit(2, &#39;mm&#39;))) +
+  theme_graph() +
+  labs(title = paste(&quot;Network of&quot;, names(network_packages)[i]))
+}
+
+network_plots &lt;- lapply(1:3, plot_network_packages)</code></pre>
+<p>To plot all networks at once, I am using <code>wrap_plots</code> from the <code>patchwork</code> package. Functions from <code>gridExtra</code> do not seem to work well with <code>ggraph</code> outcomes.</p>
+<pre class="r"><code>wrap_plots(network_plots, ncol = 1)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="100%" /></p>
+<p>We observe that <code>Depends</code> and <code>Imports</code> have a tree like structure, more complex for <code>Imports</code>. Although the <code>Suggests</code> network has cycles and disconnected components, seems to behave like a tree for most of its nodes.</p>
+</div>
+<div id="relevant-nodes" class="section level2">
+<h2>Relevant nodes</h2>
+<p>Seeing that the networks of packages have a tree-like structure, we can establish two criteria to select relevant nodes:</p>
+<ul>
+<li><strong>Root nodes:</strong> the packages at the top of the tree seem to be critical for the functionality of the system. Root nodes will have <strong>in-degree equal to zero</strong>, and high values of <strong>out degree</strong>.</li>
+<li><strong>Intermediate nodes:</strong> for paths of relationships of two or more edges, the nodes in the middle are also important for package functionality. These nodes will have high values of <strong>betweenness</strong>.</li>
+</ul>
+<p>Let’s create a function to present the relevant packages of a network.</p>
+<pre class="r"><code>get_table_measure &lt;- function(i, nnodes = 5){
+  
+  node_table &lt;- network_packages[[i]] %&gt;%
+    activate(nodes) %&gt;%
+    as_tibble()
+  
+  root &lt;- node_table %&gt;%
+    filter(d_in == 0) %&gt;%
+    arrange(-d_out) %&gt;%
+    mutate(relation = names(network_packages)[i]) %&gt;%
+    select(relation, name, d_out) %&gt;%
+    rename(root = name) %&gt;%
+    slice(1:nnodes)
+  
+  interm &lt;- node_table %&gt;%
+    arrange(-btw) %&gt;%
+    select(name, btw) %&gt;%
+    rename(intermediate = name) %&gt;%
+    slice(1:nnodes)
+  
+  table &lt;- bind_cols(root, interm)
+  
+  return(table)
+  
+}</code></pre>
+<p>Here is the result of applying the function, presented in a table formatted with <code>kableExtra</code>.</p>
+<pre class="r"><code>nodes_list &lt;- lapply(1:3, \(i) get_table_measure(i))
+nodes_table &lt;- bind_rows(nodes_list)
+
+nodes_table %&gt;%
+  kbl() %&gt;%
+  kable_paper(full_width = FALSE) %&gt;%
+  row_spec(1:5, background = &quot;#FFFFCC&quot;) %&gt;%
+   row_spec(6:10, background = &quot;#CCFFFF&quot;) %&gt;%
+   row_spec(11:15, background = &quot;#FFCCCC&quot;)</code></pre>
+<table class=" lightable-paper" style="font-family: &quot;Arial Narrow&quot;, arial, helvetica, sans-serif; width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+relation
+</th>
+<th style="text-align:left;">
+root
+</th>
+<th style="text-align:right;">
+d_out
+</th>
+<th style="text-align:left;">
+intermediate
+</th>
+<th style="text-align:right;">
+btw
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;background-color: #FFFFCC !important;">
+Depends
+</td>
+<td style="text-align:left;background-color: #FFFFCC !important;">
+R
+</td>
+<td style="text-align:right;background-color: #FFFFCC !important;">
+215
+</td>
+<td style="text-align:left;background-color: #FFFFCC !important;">
+MASS
+</td>
+<td style="text-align:right;background-color: #FFFFCC !important;">
+7.000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;background-color: #FFFFCC !important;">
+Depends
+</td>
+<td style="text-align:left;background-color: #FFFFCC !important;">
+methods
+</td>
+<td style="text-align:right;background-color: #FFFFCC !important;">
+16
+</td>
+<td style="text-align:left;background-color: #FFFFCC !important;">
+doParallel
+</td>
+<td style="text-align:right;background-color: #FFFFCC !important;">
+3.333333
+</td>
+</tr>
+<tr>
+<td style="text-align:left;background-color: #FFFFCC !important;">
+Depends
+</td>
+<td style="text-align:left;background-color: #FFFFCC !important;">
+stats
+</td>
+<td style="text-align:right;background-color: #FFFFCC !important;">
+15
+</td>
+<td style="text-align:left;background-color: #FFFFCC !important;">
+rpart
+</td>
+<td style="text-align:right;background-color: #FFFFCC !important;">
+3.000000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;background-color: #FFFFCC !important;">
+Depends
+</td>
+<td style="text-align:left;background-color: #FFFFCC !important;">
+utils
+</td>
+<td style="text-align:right;background-color: #FFFFCC !important;">
+11
+</td>
+<td style="text-align:left;background-color: #FFFFCC !important;">
+mlr
+</td>
+<td style="text-align:right;background-color: #FFFFCC !important;">
+1.333333
+</td>
+</tr>
+<tr>
+<td style="text-align:left;background-color: #FFFFCC !important;">
+Depends
+</td>
+<td style="text-align:left;background-color: #FFFFCC !important;">
+graphics
+</td>
+<td style="text-align:right;background-color: #FFFFCC !important;">
+6
+</td>
+<td style="text-align:left;background-color: #FFFFCC !important;">
+Formula
+</td>
+<td style="text-align:right;background-color: #FFFFCC !important;">
+1.250000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;background-color: #CCFFFF !important;">
+Imports
+</td>
+<td style="text-align:left;background-color: #CCFFFF !important;">
+utils
+</td>
+<td style="text-align:right;background-color: #CCFFFF !important;">
+96
+</td>
+<td style="text-align:left;background-color: #CCFFFF !important;">
+ggplot2
+</td>
+<td style="text-align:right;background-color: #CCFFFF !important;">
+326.386325
+</td>
+</tr>
+<tr>
+<td style="text-align:left;background-color: #CCFFFF !important;">
+Imports
+</td>
+<td style="text-align:left;background-color: #CCFFFF !important;">
+grDevices
+</td>
+<td style="text-align:right;background-color: #CCFFFF !important;">
+38
+</td>
+<td style="text-align:left;background-color: #CCFFFF !important;">
+tibble
+</td>
+<td style="text-align:right;background-color: #CCFFFF !important;">
+323.841281
+</td>
+</tr>
+<tr>
+<td style="text-align:left;background-color: #CCFFFF !important;">
+Imports
+</td>
+<td style="text-align:left;background-color: #CCFFFF !important;">
+magrittr
+</td>
+<td style="text-align:right;background-color: #CCFFFF !important;">
+30
+</td>
+<td style="text-align:left;background-color: #CCFFFF !important;">
+stats
+</td>
+<td style="text-align:right;background-color: #CCFFFF !important;">
+197.158883
+</td>
+</tr>
+<tr>
+<td style="text-align:left;background-color: #CCFFFF !important;">
+Imports
+</td>
+<td style="text-align:left;background-color: #CCFFFF !important;">
+tools
+</td>
+<td style="text-align:right;background-color: #CCFFFF !important;">
+20
+</td>
+<td style="text-align:left;background-color: #CCFFFF !important;">
+methods
+</td>
+<td style="text-align:right;background-color: #CCFFFF !important;">
+190.992857
+</td>
+</tr>
+<tr>
+<td style="text-align:left;background-color: #CCFFFF !important;">
+Imports
+</td>
+<td style="text-align:left;background-color: #CCFFFF !important;">
+R6
+</td>
+<td style="text-align:right;background-color: #CCFFFF !important;">
+20
+</td>
+<td style="text-align:left;background-color: #CCFFFF !important;">
+scales
+</td>
+<td style="text-align:right;background-color: #CCFFFF !important;">
+146.116667
+</td>
+</tr>
+<tr>
+<td style="text-align:left;background-color: #FFCCCC !important;">
+Suggests
+</td>
+<td style="text-align:left;background-color: #FFCCCC !important;">
+covr
+</td>
+<td style="text-align:right;background-color: #FFCCCC !important;">
+109
+</td>
+<td style="text-align:left;background-color: #FFCCCC !important;">
+broom
+</td>
+<td style="text-align:right;background-color: #FFCCCC !important;">
+29349.582022
+</td>
+</tr>
+<tr>
+<td style="text-align:left;background-color: #FFCCCC !important;">
+Suggests
+</td>
+<td style="text-align:left;background-color: #FFCCCC !important;">
+spelling
+</td>
+<td style="text-align:right;background-color: #FFCCCC !important;">
+22
+</td>
+<td style="text-align:left;background-color: #FFCCCC !important;">
+dplyr
+</td>
+<td style="text-align:right;background-color: #FFCCCC !important;">
+28755.545378
+</td>
+</tr>
+<tr>
+<td style="text-align:left;background-color: #FFCCCC !important;">
+Suggests
+</td>
+<td style="text-align:left;background-color: #FFCCCC !important;">
+mockery
+</td>
+<td style="text-align:right;background-color: #FFCCCC !important;">
+12
+</td>
+<td style="text-align:left;background-color: #FFCCCC !important;">
+testthat
+</td>
+<td style="text-align:right;background-color: #FFCCCC !important;">
+20815.623867
+</td>
+</tr>
+<tr>
+<td style="text-align:left;background-color: #FFCCCC !important;">
+Suggests
+</td>
+<td style="text-align:left;background-color: #FFCCCC !important;">
+codetools
+</td>
+<td style="text-align:right;background-color: #FFCCCC !important;">
+10
+</td>
+<td style="text-align:left;background-color: #FFCCCC !important;">
+knitr
+</td>
+<td style="text-align:right;background-color: #FFCCCC !important;">
+20242.894993
+</td>
+</tr>
+<tr>
+<td style="text-align:left;background-color: #FFCCCC !important;">
+Suggests
+</td>
+<td style="text-align:left;background-color: #FFCCCC !important;">
+survival
+</td>
+<td style="text-align:right;background-color: #FFCCCC !important;">
+10
+</td>
+<td style="text-align:left;background-color: #FFCCCC !important;">
+ggplot2
+</td>
+<td style="text-align:right;background-color: #FFCCCC !important;">
+17459.763665
+</td>
+</tr>
+</tbody>
+</table>
+<p>Root and intermediate packages are different for each network, representative of each relationship. The main root package in <code>Depends</code> is the minimal version of R required. This was to be expected, given the role of <code>Depends</code> on package dependencies definition. Root packages in <code>Imports</code> are related with the tidyverse like magrittr or with data visualization like <code>grDevices</code>. Root packages in Suggests are related with package development, and most of them are not installed in my computer.</p>
+<p>As for intermediate packages, the ones in <code>Depends</code> are not quite representative, as this relationship is not intended to be chained at several levels. The results of <code>Imports</code> are more informative, and show the relevance of the tidyverse in package development, at least the ones in my computer. This is also evident in <code>Suggests</code>, where together with package development appear other packages related with publishing and visualization like <code>knitr</code> and <code>ggplot2</code>.</p>
+<p>The results of this analysis are not representative of the whole R CRAN package ecosystem. They have to be considered as a preliminary analysis for a further examination of the whole CRAN network.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li><em>Depends or imports?</em> (From the <em>Developing R packages</em> course)
+<a href="https://campus.datacamp.com/courses/developing-r-packages/checking-and-building-r-packages?ex=8" class="uri">https://campus.datacamp.com/courses/developing-r-packages/checking-and-building-r-packages?ex=8</a></li>
+<li><em>Dependencies: What does your package need?</em> (from Wickham, H. &amp; Bryant, J. <em>R packages</em>) <a href="https://r-pkgs.org/description.html#description-dependencies" class="uri">https://r-pkgs.org/description.html#description-dependencies</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre><code>## R version 4.2.0 (2022-04-22)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 19.2
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/openblas/libblas.so.3
+## LAPACK: /usr/lib/x86_64-linux-gnu/libopenblasp-r0.2.20.so
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] kableExtra_1.3.4  patchwork_1.1.1   ggraph_2.0.5      ggplot2_3.3.5    
+## [5] tidygraph_1.2.1   dplyr_1.0.9       data.table_1.14.2
+## 
+## loaded via a namespace (and not attached):
+##  [1] tidyselect_1.1.2   xfun_0.30          bslib_0.3.1        purrr_0.3.4       
+##  [5] graphlayouts_0.8.0 colorspace_2.0-3   vctrs_0.4.1        generics_0.1.2    
+##  [9] viridisLite_0.4.0  htmltools_0.5.2    yaml_2.3.5         utf8_1.2.2        
+## [13] rlang_1.0.2        jquerylib_0.1.4    pillar_1.7.0       glue_1.6.2        
+## [17] withr_2.5.0        DBI_1.1.2          tweenr_1.0.2       lifecycle_1.0.1   
+## [21] stringr_1.4.0      munsell_0.5.0      blogdown_1.9       gtable_0.3.0      
+## [25] rvest_1.0.2        evaluate_0.15      labeling_0.4.2     knitr_1.39        
+## [29] fastmap_1.1.0      fansi_1.0.3        highr_0.9          Rcpp_1.0.8.3      
+## [33] scales_1.2.0       webshot_0.5.3      jsonlite_1.8.0     systemfonts_1.0.4 
+## [37] farver_2.1.0       gridExtra_2.3      ggforce_0.3.3      digest_0.6.29     
+## [41] stringi_1.7.6      bookdown_0.26      ggrepel_0.9.1      polyclip_1.10-0   
+## [45] grid_4.2.0         cli_3.3.0          tools_4.2.0        magrittr_2.0.3    
+## [49] sass_0.4.1         tibble_3.1.6       crayon_1.5.1       tidyr_1.2.0       
+## [53] pkgconfig_2.0.3    ellipsis_0.3.2     MASS_7.3-57        xml2_1.3.3        
+## [57] svglite_2.1.0      httr_1.4.2         viridis_0.6.2      assertthat_0.2.1  
+## [61] rmarkdown_2.14     rstudioapi_0.13    R6_2.5.1           igraph_1.3.1      
+## [65] compiler_4.2.0</code></pre>
+</div>
