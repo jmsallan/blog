@@ -54,7 +54,7 @@ As data splitting implies randomness, I have fixed the seed of the pseudo-random
 
 ```{r}
 set.seed(1313)
-bh_split <- initial_split(BostonHousing, p = 0.7, strata = "medv")
+bh_split <- initial_split(BostonHousing, prop = 0.7, strata = "medv")
 ```
 
 ## Data preprocessing
@@ -70,14 +70,14 @@ bh_recipe <- training(bh_split) %>%
   recipe(medv ~ .) %>%
   step_dummy(chas) %>%
   step_corr(all_predictors()) %>%
-  step_nzv(all_predictors()) %>%
-  prep()
+  step_nzv(all_predictors())
 ```
 
-As we have prepared the recipe with `prep()` we can see how it is working:
+We can see the results of applying the recipe doing `prep()`:
 
 ```{r}
-bh_recipe
+bh_recipe %>%
+  prep()
 ```
 
 The recipe is removing the `tax` variable, highly correlated with other variables:
@@ -109,12 +109,12 @@ bh_rt_wf <- workflow() %>%
 
 ## Comparing models with cross validation
 
-We need to compare the performance of regression tree and linear regression models, preferably with a dataset different to train the model to avoid overfitting. As we cannot make any decision about the model using the test set, we can use a cross validation strategy:
+We need to compare the performance of regression tree and linear regression models, preferably with a dataset different to the used to train the model to avoid overfitting. As we cannot make any decision about the model using the test set, we can use a **cross validation** strategy:
 
 * randomly split the data into *v* folds *f* of approximately equal size,
 * for each fold *f*, we train the data with the other *f-1* folds and assess performance on *f*,
 * optionally we repeat this `repeats` times,
-* we average model performance accross all folds and repeats.
+* we average model performance across all folds and repeats.
 
 We use the `vfold_cv` function to build the cross validation framework. I am defining three folds and three repeats, so we will perform nine evaluations of each model. With larger datasets, we can split the train set into more folders. We stratify by the dependent variable like in `initial_split`, so I am setting up againt the random number generator:
 
@@ -141,7 +141,7 @@ The **coefficient of determination** $R^2$ `rsq` (where $\bar{y}$ is the mean of
 
 Good predictive models will have values of `rmse` and `mae` close to zero, and values of `rsq` close to one.
 
-Let's wrap the three metrics into a `metrics_regression` `metric_set`:
+Let's wrap the three metrics into a `metrics_regression` object with the `metric_set` function:
 
 ```{r}
 metrics_regression <- metric_set(rmse, mae, rsq)
@@ -151,7 +151,7 @@ metrics_regression <- metric_set(rmse, mae, rsq)
 
 We use `fit_resamples` to evaluate each workflow with the cross validation scheme defined in `bh_folds`. The function will return the values of `metrics_regression` averaged across all folds and repeats.
 
-The outputs have `tibble` format, so I am storing them into variables and adding a column with the `model` description.
+The outputs have `tibble` format, so I am storing them and adding a column with the `model` description.
 
 ```{r}
 set.seed(1212)
@@ -177,7 +177,7 @@ bind_rows(lm_fit, rt_fit) %>%
   facet_grid(. ~ .metric)
 ```
 
-We observe that the regression tree model has slightly better metrics than linear regression. Let's present each of them in tabular form:
+We observe that linear tree model has slightly better metrics than regression trees. Let's present each of them in tabular form:
 
 ```{r}
 lm_fit %>%
@@ -191,7 +191,7 @@ rt_fit %>%
 We have chosen regression trees to predict data. Let's fit the model to the whole train set:
 
 ```{r}
-fitted_model <- bh_rt_wf %>%
+fitted_model <- bh_lm_wf %>%
   fit(training(bh_split))
 ```
 
@@ -222,9 +222,9 @@ predict_test %>%
   metrics_regression(truth = medv, estimate = .pred)
 ```
 
-We observe that the metrics on the test set are worse than on the train set, so the chosen model has slight variance.
+We observe that the metrics on the test set are worse than on the train set, so the chosen model has slight overfit.
 
-We can also visualize the **predicted vs real** value for each dataset. Ideally, most of the dots of this plot should be over the dashed line of intercept zero and slope one.
+We can also visualize the **predicted vs real** value for each dataset. Ideally, most of the dots of these plots should be over the dashed line of intercept zero and slope one.
 
 ```{r}
 bind_rows(predict_train, predict_test) %>%
@@ -235,7 +235,7 @@ bind_rows(predict_train, predict_test) %>%
   theme_bw()
 ```
 
-From the plot, we observe that the model has collapsed all possible values of `medv` into seven values, which are the same for the train and test sets. This is a result of the [recursive partitioning](https://en.wikipedia.org/wiki/Recursive_partitioning) strategy adopted by regression tree models. Data are grouped into seven subsets, and all elements of each subset are predicted with the same value. As a result, some observations for each of the seven groups have a poor fit.
+From the plots, we observe a similar pattern in the test and train sets.
 
 ## References
 
@@ -243,4 +243,8 @@ From the plot, we observe that the model has collapsed all possible values of `m
 * Harrison, D. and Rubinfeld, D.L. (1978). Hedonic prices and the demand for clean air. *Journal of Environmental Economics and Management*, 5, 81–102.
 * Therneau, T. M. and Atkinson, E. J. (2019). *An Introduction to Recursive Partitioning Using the RPART Routines*. Available at: <https://cran.r-project.org/web/packages/rpart/vignettes/longintro.pdf>
 
-*Built with R 4.0.3 and tidymodels 0.1.2*
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+Updated at `r Sys.time()`.
