@@ -12,7 +12,6 @@ meta_img: images/image.png
 description: Description for the page
 ---
 
-<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
 
 
 <p><code>tidymodels</code> is a collection of packages for modelling and machine learning in R, drawing on the tools and approach of the <code>tidyverse</code>. It is replacing <code>caret</code> as the main choice to work in supervised learning models.</p>
@@ -33,24 +32,23 @@ description: Description for the page
 <p>In binary classification problems, the class associated with the presence of a property is labelled <strong>positive</strong>. Here the positive class is that the flower <em>is</em> versicolor, that is <code>is_versicolor==versicolor</code>. The other class is labelled <strong>negative</strong>. Here that means that the flower <em>is not</em> versicolor <code>is_versicolor==not_versicolor</code>.</p>
 <div id="data-preprocessing-with-recipes" class="section level2">
 <h2>Data preprocessing with recipes</h2>
-<p>Data pre-processing in <code>tidymodels</code> is mainly performed with the <code>recipes</code> package. A recipe has the following structure:</p>
+<p>Data pre-processing in <code>tidymodels</code> is performed with the <code>recipes</code> package. A recipe has the following structure:</p>
 <pre class="r"><code>iris_recipe &lt;- iris %&gt;%
   recipe(is_versicolor ~.) %&gt;%
   step_rm(Species) %&gt;%
   step_corr(all_predictors()) %&gt;%
   step_center(all_predictors(), -all_outcomes()) %&gt;%
   step_scale(all_predictors(), -all_outcomes())</code></pre>
-<p>The components of a recipe are:</p>
+<p>The components of this recipe are:</p>
 <ul>
 <li>The <strong>data</strong> to apply the recipe, in this case the whole <code>iris</code>.</li>
-<li>A <code>recipe</code> instruction defining the <strong>model</strong>: here we state that is_versicolor is the target variable, and the remaining variables the features.</li>
-<li>Some <strong>steps</strong> to transform data. Here we remove <code>Species</code> from the analysis with <code>step_rm</code>, look for correlated predictors with <code>step_corr</code>, center (substract the mean) and scale (divide by standard deviation) the predictors.</li>
-<li>We estimate the parameters with <code>prep</code>.</li>
+<li>A <code>recipe</code> instruction defining the <strong>model</strong>: here we state that <code>is_versicolor</code> is the target variable, and the remaining variables the features.</li>
+<li>Some <strong>steps</strong> to transform data. Here we remove <code>Species</code> with <code>step_rm</code>, look for correlated predictors with <code>step_corr</code>, center (substract the mean) and scale (divide by standard deviation) the predictors with <code>step_scale</code>.</li>
 </ul>
-<p>To see what the recipe has done we can just look at it:</p>
+<p>To see what the recipe has done we can just estimate doing:</p>
 <pre class="r"><code>iris_recipe %&gt;%
   prep()</code></pre>
-<pre><code>## Data Recipe
+<pre><code>## Recipe
 ## 
 ## Inputs:
 ## 
@@ -63,14 +61,14 @@ description: Description for the page
 ## Operations:
 ## 
 ## Variables removed Species [trained]
-## Correlation filter removed Petal.Length [trained]
+## Correlation filter on Petal.Length [trained]
 ## Centering for Sepal.Length, Sepal.Width, Petal.Width [trained]
 ## Scaling for Sepal.Length, Sepal.Width, Petal.Width [trained]</code></pre>
-<p>We see that the recipe has removed the <code>Petal.Length</code> variable because it was highly correlated with other variables. The next steps of the recipe have not been applied to that variable, so the order in which apply the steps is relevant.</p>
+<p>We see that the recipe has removed <code>Petal.Length</code> because it was highly correlated with other variables. The next steps of the recipe have not been applied to that variable, so the order in which to apply the steps is relevant.</p>
 </div>
 <div id="defining-the-model-with-parsnip" class="section level2">
 <h2>Defining the model with parsnip</h2>
-<p>The models in <code>tidymodels</code> are stored in <code>parsnip</code>, the successor of <code>caret</code> (whence its name). Here we define a random forest <strong>model</strong> with some parameters and specify the engine we are using. The <strong>engine</strong> in the <code>parsnip</code> context is the source of the code to run the model. It can be a package, a R base function, <code>stan</code> or <code>spark</code>, among others.</p>
+<p>The models in <code>tidymodels</code> are stored in <code>parsnip</code>, the successor of <code>caret</code> (whence its name). Here we define a random forest <strong>model</strong> with some parameters and specify the engine we are using. The <strong>engine</strong> in the <code>parsnip</code> context is the source of the code to run the model. It can be a package, a R base function, <code>stan</code> or <code>spark</code>, among others. Here we are using the random forest implemented in the <code>ranger</code> package.</p>
 <pre class="r"><code>rf &lt;- rand_forest(mode = &quot;classification&quot;, trees = 100) %&gt;%
   set_engine(&quot;ranger&quot;)</code></pre>
 </div>
@@ -101,11 +99,11 @@ iris_pred &lt;- iris_rf_wf %&gt;%
 ## $ Petal.Width   &lt;dbl&gt; 0.2, 0.2, 0.2, 0.2, 0.2, 0.4, 0.3, 0.2, 0.2, 0.1, 0.2, 0…
 ## $ Species       &lt;fct&gt; setosa, setosa, setosa, setosa, setosa, setosa, setosa, …
 ## $ is_versicolor &lt;fct&gt; not_versicolor, not_versicolor, not_versicolor, not_vers…</code></pre>
-<p>We have the predicted outcome in the <code>.pred_class</code> variable. Note that no variable omitted in the recipe has been removed from the dataset.</p>
+<p>We have the predicted outcome in the <code>.pred_class</code> variable. Note that the variable omitted in the recipe has not been removed from the dataset.</p>
 </div>
 <div id="evaluating-model-performance" class="section level2">
 <h2>Evaluating model performance</h2>
-<p>We can examine how has performed the model with the <strong>confusion matrix</strong>:</p>
+<p>We can examine how well has performed the model with the <strong>confusion matrix</strong>:</p>
 <pre class="r"><code>iris_pred %&gt;%
   conf_mat(truth = is_versicolor, estimate = .pred_class)</code></pre>
 <pre><code>##                 Truth
@@ -123,7 +121,7 @@ iris_pred &lt;- iris_rf_wf %&gt;%
 <p>and estimate the values:</p>
 <pre class="r"><code>iris_pred %&gt;%
  class_metrics(truth = is_versicolor, estimate = .pred_class)</code></pre>
-<pre><code>## # A tibble: 3 x 3
+<pre><code>## # A tibble: 3 × 3
 ##   .metric  .estimator .estimate
 ##   &lt;chr&gt;    &lt;chr&gt;          &lt;dbl&gt;
 ## 1 accuracy binary         0.973
@@ -153,5 +151,52 @@ iris_pred &lt;- iris_rf_wf %&gt;%
 <li><code>recipes</code> function reference: <a href="https://recipes.tidymodels.org/reference/index.html" class="uri">https://recipes.tidymodels.org/reference/index.html</a></li>
 <li>list of available models in <code>parsnip</code>: <a href="https://www.tidymodels.org/find/parsnip/" class="uri">https://www.tidymodels.org/find/parsnip/</a></li>
 </ul>
-<p><em>Built with R 4.0.3 and tidymodels 0.1.2</em></p>
+<pre><code>## R version 4.2.0 (2022-04-22)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 19.2
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/openblas/libblas.so.3
+## LAPACK: /usr/lib/x86_64-linux-gnu/libopenblasp-r0.2.20.so
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] yardstick_0.0.9    workflowsets_0.2.1 workflows_0.2.6    tune_0.2.0        
+##  [5] tidyr_1.2.0        tibble_3.1.6       rsample_0.1.1      recipes_0.2.0     
+##  [9] purrr_0.3.4        parsnip_0.2.1      modeldata_0.1.1    infer_1.0.0       
+## [13] ggplot2_3.3.5      dplyr_1.0.9        dials_0.1.1        scales_1.2.0      
+## [17] broom_0.8.0        tidymodels_0.2.0  
+## 
+## loaded via a namespace (and not attached):
+##  [1] lubridate_1.8.0    DiceDesign_1.9     tools_4.2.0        backports_1.4.1   
+##  [5] bslib_0.3.1        utf8_1.2.2         R6_2.5.1           rpart_4.1.16      
+##  [9] DBI_1.1.2          colorspace_2.0-3   nnet_7.3-17        withr_2.5.0       
+## [13] tidyselect_1.1.2   compiler_4.2.0     cli_3.3.0          labeling_0.4.2    
+## [17] bookdown_0.26      sass_0.4.1         stringr_1.4.0      digest_0.6.29     
+## [21] rmarkdown_2.14     pkgconfig_2.0.3    htmltools_0.5.2    parallelly_1.31.1 
+## [25] lhs_1.1.5          highr_0.9          fastmap_1.1.0      rlang_1.0.2       
+## [29] rstudioapi_0.13    jquerylib_0.1.4    generics_0.1.2     farver_2.1.0      
+## [33] jsonlite_1.8.0     magrittr_2.0.3     Matrix_1.4-1       Rcpp_1.0.8.3      
+## [37] munsell_0.5.0      fansi_1.0.3        GPfit_1.0-8        lifecycle_1.0.1   
+## [41] furrr_0.3.0        stringi_1.7.6      pROC_1.18.0        yaml_2.3.5        
+## [45] MASS_7.3-57        plyr_1.8.7         grid_4.2.0         parallel_4.2.0    
+## [49] listenv_0.8.0      crayon_1.5.1       lattice_0.20-45    splines_4.2.0     
+## [53] knitr_1.39         pillar_1.7.0       ranger_0.13.1      future.apply_1.9.0
+## [57] codetools_0.2-18   glue_1.6.2         evaluate_0.15      blogdown_1.9      
+## [61] vctrs_0.4.1        foreach_1.5.2      gtable_0.3.0       future_1.25.0     
+## [65] assertthat_0.2.1   xfun_0.30          gower_1.0.0        prodlim_2019.11.13
+## [69] class_7.3-20       survival_3.2-13    timeDate_3043.102  iterators_1.0.14  
+## [73] hardhat_0.2.0      lava_1.6.10        globals_0.14.0     ellipsis_0.3.2    
+## [77] ipred_0.9-12</code></pre>
+<p>Updated at 2022-06-08 15:22:06</p>
 </div>

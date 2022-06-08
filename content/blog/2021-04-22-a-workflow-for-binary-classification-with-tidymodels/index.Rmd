@@ -46,7 +46,7 @@ In binary classification problems, the class associated with the presence of a p
 
 ## Data preprocessing with recipes
 
-Data pre-processing in `tidymodels` is mainly performed with the `recipes` package. A recipe has the following structure:
+Data pre-processing in `tidymodels` is performed with the `recipes` package. A recipe has the following structure:
 
 ```{r}
 iris_recipe <- iris %>%
@@ -57,25 +57,24 @@ iris_recipe <- iris %>%
   step_scale(all_predictors(), -all_outcomes())
 ```
 
-The components of a recipe are:
+The components of this recipe are:
 
 * The **data** to apply the recipe, in this case the whole `iris`.
-* A `recipe` instruction defining the **model**: here we state that is_versicolor is the target variable, and the remaining variables the features.
-* Some **steps** to transform data. Here we remove `Species` from the analysis with `step_rm`, look for correlated predictors with `step_corr`, center (substract the mean) and scale (divide by standard deviation) the predictors.
-* We estimate the parameters with `prep`.
+* A `recipe` instruction defining the **model**: here we state that `is_versicolor` is the target variable, and the remaining variables the features.
+* Some **steps** to transform data. Here we remove `Species` with `step_rm`, look for correlated predictors with `step_corr`, center (substract the mean) and scale (divide by standard deviation) the predictors with `step_scale`.
 
-To see what the recipe has done we can just look at it:
+To see what the recipe has done we can just estimate doing:
 
 ```{r}
 iris_recipe %>%
   prep()
 ```
 
-We see that the recipe has removed the `Petal.Length` variable because it was highly correlated with other variables. The next steps of the recipe have not been applied to that variable, so the order in which apply the steps is relevant.
+We see that the recipe has removed `Petal.Length` because it was highly correlated with other variables. The next steps of the recipe have not been applied to that variable, so the order in which to apply the steps is relevant.
 
 ## Defining the model with parsnip
 
-The models in `tidymodels` are stored in `parsnip`, the successor of `caret` (whence its name). Here we define a random forest **model** with some parameters and specify the engine we are using. The **engine** in the `parsnip` context is the source of the code to run the model. It can be a package, a R base function, `stan` or `spark`, among others.
+The models in `tidymodels` are stored in `parsnip`, the successor of `caret` (whence its name). Here we define a random forest **model** with some parameters and specify the engine we are using. The **engine** in the `parsnip` context is the source of the code to run the model. It can be a package, a R base function, `stan` or `spark`, among others. Here we are using the random forest implemented in the `ranger` package.
 
 ```{r}
 rf <- rand_forest(mode = "classification", trees = 100) %>%
@@ -112,11 +111,11 @@ Let's examine the results:
 iris_pred %>% glimpse()
 ```
 
-We have the predicted outcome in the `.pred_class` variable. Note that no variable omitted in the recipe has been removed from the dataset.
+We have the predicted outcome in the `.pred_class` variable. Note that the variable omitted in the recipe has not been removed from the dataset.
 
 ## Evaluating model performance
 
-We can examine how has performed the model with the **confusion matrix**:
+We can examine how well has performed the model with the **confusion matrix**:
 
 ```{r}
 iris_pred %>%
@@ -163,4 +162,8 @@ This is a very basic workflow of model training with `tidymodels`. There are man
 * `recipes` function reference: <https://recipes.tidymodels.org/reference/index.html>
 * list of available models in `parsnip`: <https://www.tidymodels.org/find/parsnip/>
 
-*Built with R 4.0.3 and tidymodels 0.1.2*
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+Updated at `r Sys.time()`
