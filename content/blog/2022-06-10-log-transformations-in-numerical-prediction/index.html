@@ -1,0 +1,420 @@
+---
+title: Log transformations in numerical prediction
+author: Jose M Sallan
+date: '2022-06-10'
+slug: log-transformations-in-numerical-prediction
+categories:
+  - R
+tags:
+  - machine learning
+  - R
+  - tidymodels
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>When we ned to predict a continuous variable, it is frequent to use a log transformation when it is right-skewed. Here I will discuss why and how should be doing so in the context of a prediction job with the <code>tidymodels</code> workflow, and how can we obtain a predicted value of the original variable.</p>
+<p>Apart from <code>tidymodels</code> I am using <code>corrplot</code> to display a correlation matrix, <code>patchwork</code> to present two plots together and <code>kableExtra</code> to present HTML tables.</p>
+<pre class="r"><code>library(tidymodels)
+library(corrplot)
+library(patchwork)
+library(kableExtra)</code></pre>
+<p>I will use the <code>diamonds</code> dataset included with <code>ggplot2</code>, that contains the prices and other attributes of almost 54,000 diamonds:</p>
+<pre class="r"><code>diamonds %&gt;% glimpse()</code></pre>
+<pre><code>## Rows: 53,940
+## Columns: 10
+## $ carat   &lt;dbl&gt; 0.23, 0.21, 0.23, 0.29, 0.31, 0.24, 0.24, 0.26, 0.22, 0.23, 0.…
+## $ cut     &lt;ord&gt; Ideal, Premium, Good, Premium, Good, Very Good, Very Good, Ver…
+## $ color   &lt;ord&gt; E, E, E, I, J, J, I, H, E, H, J, J, F, J, E, E, I, J, J, J, I,…
+## $ clarity &lt;ord&gt; SI2, SI1, VS1, VS2, SI2, VVS2, VVS1, SI1, VS2, VS1, SI1, VS1, …
+## $ depth   &lt;dbl&gt; 61.5, 59.8, 56.9, 62.4, 63.3, 62.8, 62.3, 61.9, 65.1, 59.4, 64…
+## $ table   &lt;dbl&gt; 55, 61, 65, 58, 58, 57, 57, 55, 61, 61, 55, 56, 61, 54, 62, 58…
+## $ price   &lt;int&gt; 326, 326, 327, 334, 335, 336, 336, 337, 337, 338, 339, 340, 34…
+## $ x       &lt;dbl&gt; 3.95, 3.89, 4.05, 4.20, 4.34, 3.94, 3.95, 4.07, 3.87, 4.00, 4.…
+## $ y       &lt;dbl&gt; 3.98, 3.84, 4.07, 4.23, 4.35, 3.96, 3.98, 4.11, 3.78, 4.05, 4.…
+## $ z       &lt;dbl&gt; 2.43, 2.31, 2.31, 2.63, 2.75, 2.48, 2.47, 2.53, 2.49, 2.39, 2.…</code></pre>
+<p>Our job will be predicting the <code>price</code> of diamonds from their attributes.</p>
+<div id="exploratory-analysis" class="section level2">
+<h2>Exploratory analysis</h2>
+<p>Let’s start examining the correlations between numerical variables.</p>
+<pre class="r"><code>cor_diamonds &lt;- diamonds %&gt;% 
+  select(where(is.numeric)) %&gt;% 
+  cor()</code></pre>
+<p>Let’s use <code>corrplot</code> to examine the correlations:</p>
+<pre class="r"><code>corrplot.mixed(cor_diamonds, order = &quot;hclust&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="70%" style="display: block; margin: auto;" /></p>
+<p>We observe that <code>carat</code>, <code>x</code>, <code>y</code> and <code>z</code> are highly correlated with <code>price</code> and among themselves. In line with other analysis, I have kept <code>carat</code> and discarded <code>x</code>, <code>y</code> and <code>z</code>.</p>
+<p>Let’s go now to the distribution of <code>price</code>:</p>
+<pre class="r"><code>ggplot(diamonds, aes(price)) +
+  geom_histogram(bins = 30) +
+  theme_minimal() +
+  labs(title = &quot;Distribution of price&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="70%" style="display: block; margin: auto;" /></p>
+<p>The histogram shows that price is a right skewed distribution, as has a long tail in the right hand side of the distribution. This means that some diamonds have a very large price, compared with the whole of the distribution. Something similar happens usually with variables housing price, income and other variables relevant in economics.</p>
+<p>Let’s examine the distribution of the decimal logarithm of <code>price</code>.</p>
+<pre class="r"><code>ggplot(diamonds, aes(price)) +
+  geom_histogram(bins = 30) +
+  theme_minimal() +
+  scale_x_log10() +
+  labs(title = &quot;Distribution of logarithm of price&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="70%" style="display: block; margin: auto;" /></p>
+<p>We observe a bimodal normal distribution. In general, the log of a right-skewed distribution looks similar to a normal distribution. This means that we will obtain better estimators in a regression model using the log transformation, as the residuals of the model will tend to be normal.</p>
+<p>Let’s add a <code>log_price</code> variable to the dataset, that we will be using later in the prediction job.</p>
+<pre class="r"><code>diamonds &lt;- diamonds %&gt;%
+  mutate(log_price = log10(price))</code></pre>
+<p>To end with the exploratory data analysis section, let’s examine the relationship between <code>carat</code> and <code>log_price</code>.</p>
+<pre class="r"><code>ggplot(diamonds, aes(carat, price)) +
+  geom_point() +
+  geom_smooth() +
+  scale_x_log10() +
+  theme_minimal() +
+  labs(title = &quot;Relationship between carat and price&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="70%" style="display: block; margin: auto;" /></p>
+<p>This relationship is nonlinear, so the model could benefit of the addition of a quadratic term.</p>
+</div>
+<div id="predicting-the-price" class="section level2">
+<h2>Predicting the price</h2>
+<p>To check the opportunity of using the log variable, I will predict using the original <code>price</code> variable. The workflow starts by splitting the data into train and test sets, stratifying by the target variable. I am doing this to get a similar distribution of <code>price</code> in the train and test sets.</p>
+<pre class="r"><code>set.seed(1111)
+split_price &lt;- initial_split(diamonds, prop = 0.9, strata = price)</code></pre>
+<p>The <code>rec_price</code> recipe includes the transformations for this model:</p>
+<ul>
+<li>removing variables with <code>step_rm</code>.</li>
+<li>adding a quadratic term to carat with <code>step_poly</code>.</li>
+<li>transforming categorical variables to a set of dummies generated with one hot encoding with <code>step_dummy</code>.</li>
+<li>removing near zero variance variables with <code>step_nzv</code>.</li>
+</ul>
+<pre class="r"><code>rec_price &lt;- training(split_price) %&gt;%
+  recipe(price ~ .) %&gt;%
+  step_rm(log_price, x, y, z) %&gt;%
+  step_poly(carat, degree = 2) %&gt;%
+  step_dummy(all_nominal(), one_hot = TRUE) %&gt;%
+  step_nzv(all_predictors()) %&gt;%
+  step_rm(color_1)</code></pre>
+<p>Here is the result of the recipe:</p>
+<pre class="r"><code>rec_price %&gt;% prep() %&gt;% juice() %&gt;% glimpse()</code></pre>
+<pre><code>## Rows: 48,545
+## Columns: 21
+## $ depth        &lt;dbl&gt; 59.8, 56.9, 62.4, 63.3, 62.8, 62.3, 61.9, 65.1, 59.4, 64.…
+## $ table        &lt;dbl&gt; 61, 65, 58, 58, 57, 57, 55, 61, 61, 55, 56, 61, 54, 62, 5…
+## $ price        &lt;int&gt; 326, 327, 334, 335, 336, 336, 337, 337, 338, 339, 340, 34…
+## $ carat_poly_1 &lt;dbl&gt; -0.005631217, -0.005439625, -0.004864846, -0.004673253, -…
+## $ carat_poly_2 &lt;dbl&gt; 0.006116938, 0.005640942, 0.004280652, 0.003849787, 0.005…
+## $ cut_2        &lt;dbl&gt; 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, …
+## $ cut_3        &lt;dbl&gt; 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, …
+## $ cut_4        &lt;dbl&gt; 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, …
+## $ cut_5        &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, …
+## $ color_2      &lt;dbl&gt; 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, …
+## $ color_3      &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, …
+## $ color_4      &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
+## $ color_5      &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
+## $ color_6      &lt;dbl&gt; 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, …
+## $ color_7      &lt;dbl&gt; 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0, …
+## $ clarity_2    &lt;dbl&gt; 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, …
+## $ clarity_3    &lt;dbl&gt; 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, …
+## $ clarity_4    &lt;dbl&gt; 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
+## $ clarity_5    &lt;dbl&gt; 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, …
+## $ clarity_6    &lt;dbl&gt; 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …
+## $ clarity_7    &lt;dbl&gt; 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, …</code></pre>
+<p>Let’s define a straightforward linear model…</p>
+<pre class="r"><code>lm &lt;- linear_reg(mode = &quot;regression&quot;) %&gt;%
+  set_engine(&quot;lm&quot;)</code></pre>
+<p>… and fit the model and the recipe with a workflow:</p>
+<pre class="r"><code>model_price &lt;- workflow() %&gt;%
+  add_recipe(rec_price) %&gt;%
+  add_model(lm) %&gt;%
+  fit(training(split_price))</code></pre>
+<p>We obtain the predicted values of price with <code>pred_price</code>…</p>
+<pre class="r"><code>pred_price &lt;- model_price %&gt;%
+  predict(training(split_price)) %&gt;%
+  bind_cols(training(split_price))</code></pre>
+<p>… And here it is the real versus predicted variables plot:</p>
+<pre class="r"><code>ggplot(pred_price, aes(price, .pred)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = &quot;red&quot;) +
+  theme_minimal() +
+  labs(title = &quot;Real versus predicted values (price model)&quot;, x = &quot;price&quot;, y = &quot;pred. price&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-15-1.png" width="70%" style="display: block; margin: auto;" /></p>
+<p>The result of this model is problematic, as it return negative prices for some observations. We can also avoid that with a log transformation. The logarithm can take any value, but it is only defined for positive values.</p>
+<p>Finally, let’s define the metrics we will be using in this job:</p>
+<pre class="r"><code>metric_prediction &lt;- metric_set(rsq, mae, rmse)</code></pre>
+<p>The values of the metrics in the train test of this model are:</p>
+<pre class="r"><code>metrics_price &lt;- pred_price %&gt;%
+  metric_prediction(truth = price, estimate = .pred) %&gt;%
+  mutate(.model = &quot;price&quot;) %&gt;%
+  select(-.estimator)
+
+metrics_price</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   .metric .estimate .model
+##   &lt;chr&gt;       &lt;dbl&gt; &lt;chr&gt; 
+## 1 rsq         0.899 price 
+## 2 mae       814.    price 
+## 3 rmse     1264.    price</code></pre>
+</div>
+<div id="predicting-with-log" class="section level2">
+<h2>Predicting with log</h2>
+<p>Let’s do the same job, but predicting the log of the target variable <code>log_price</code>. Let’s start with a new split, now with <code>log_price</code> as the stratifying variable.</p>
+<pre class="r"><code>set.seed(1111)
+split_log &lt;- initial_split(diamonds, prop = 0.9, strata = log_price) </code></pre>
+<p>The recipe is quite similar to the previous model:</p>
+<pre class="r"><code>rec_log &lt;- training(split_log) %&gt;%
+  recipe(log_price ~ .) %&gt;%
+  step_rm(price, x, y, z) %&gt;%
+  step_poly(carat, degree = 2) %&gt;%
+  step_dummy(all_nominal(), one_hot = TRUE) %&gt;%
+  step_nzv(all_predictors()) %&gt;%
+  step_rm(color_1)</code></pre>
+<p>I am fitting the same <code>lm</code> model, but with the <code>rec_log</code> recipe:</p>
+<pre class="r"><code>model_log &lt;- workflow() %&gt;%
+  add_recipe(rec_log) %&gt;%
+  add_model(lm) %&gt;%
+  fit(training(split_log))</code></pre>
+<p>And then we can predict the train set. Note that we will obtain a prediction of the log of price in the <code>.pred</code> column.</p>
+<pre class="r"><code>pred_log &lt;- model_log %&gt;%
+  predict(training(split_log)) %&gt;%
+  bind_cols(training(split_log))</code></pre>
+<p>If we want a predicted value of price, we need to undo the log transformation in the predicted variable. We do that in <code>.pred_price</code>.</p>
+<pre class="r"><code>pred_log &lt;- pred_log %&gt;%
+  mutate(.pred_price = 10^.pred)</code></pre>
+<p>Here is the result of plotting the real and predicted variables in the train set for price and its log. We observe now that we do not have negative values of price.</p>
+<pre class="r"><code>log &lt;- ggplot(pred_log, aes(log_price, .pred)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = &quot;red&quot;) +
+  theme_minimal() +
+  labs(title = &quot;Log real versus log predicted (log model)&quot;, x = &quot;price (log)&quot;, y = &quot;pred. price (log)&quot;)
+
+real &lt;- ggplot(pred_log, aes(price, .pred_price)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = &quot;red&quot;) +
+  theme_minimal() +
+  labs(title = &quot;Real versus predicted (log model)&quot;, x = &quot;price&quot;, y = &quot;pred. price&quot;)
+
+log + real</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-23-1.png" width="100%" /></p>
+<p>Let’s examine the metrics for the log of price:</p>
+<pre class="r"><code>metrics_log &lt;- pred_log %&gt;%
+  metric_prediction(truth = log_price, estimate = .pred) %&gt;%
+  mutate(.model = &quot;log&quot;) %&gt;%
+  select(-.estimator)
+
+metrics_log</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   .metric .estimate .model
+##   &lt;chr&gt;       &lt;dbl&gt; &lt;chr&gt; 
+## 1 rsq        0.965  log   
+## 2 mae        0.0582 log   
+## 3 rmse       0.0822 log</code></pre>
+<p>And then with price itself.</p>
+<pre class="r"><code>metrics_log_price &lt;- pred_log %&gt;%
+  metric_prediction(truth = price, estimate = .pred_price) %&gt;%
+  mutate(.model = &quot;price with log&quot;) %&gt;%
+  select(-.estimator)
+
+metrics_log_price</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   .metric .estimate .model        
+##   &lt;chr&gt;       &lt;dbl&gt; &lt;chr&gt;         
+## 1 rsq         0.924 price with log
+## 2 mae       528.    price with log
+## 3 rmse     1123.    price with log</code></pre>
+</div>
+<div id="comparing-metrics" class="section level2">
+<h2>Comparing metrics</h2>
+<p>Let’s compare how well performs each model putting side to side the metrics of both models. We can do that because <code>tidymodels</code> offers us the metrics as data frames that can be put together easily.</p>
+<pre class="r"><code>bind_rows(metrics_price, metrics_log_price) %&gt;%
+  mutate(.estimate = format(.estimate, digits = 3)) %&gt;%
+  pivot_wider(id_cols = &quot;.metric&quot;, names_from = &quot;.model&quot;, values_from = &quot;.estimate&quot;) %&gt;%
+  kbl(align = c(&quot;l&quot;, &quot;r&quot;, &quot;r&quot;)) %&gt;%
+  kable_styling(bootstrap_options = c(&quot;striped&quot;, &quot;condensed&quot;, &quot;responsive&quot;, &quot;hover&quot;), full_width = FALSE)</code></pre>
+<table class="table table-striped table-condensed table-responsive table-hover" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+.metric
+</th>
+<th style="text-align:right;">
+price
+</th>
+<th style="text-align:right;">
+price with log
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+rsq
+</td>
+<td style="text-align:right;">
+0.899
+</td>
+<td style="text-align:right;">
+0.924
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+mae
+</td>
+<td style="text-align:right;">
+813.541
+</td>
+<td style="text-align:right;">
+528.007
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rmse
+</td>
+<td style="text-align:right;">
+1263.751
+</td>
+<td style="text-align:right;">
+1123.007
+</td>
+</tr>
+</tbody>
+</table>
+<p>For the training test, the log model performs better than the price model. Let’s see how well each model performs in the test set.</p>
+<pre class="r"><code>pred_price_test &lt;- model_price %&gt;%
+  predict(testing(split_price)) %&gt;%
+  bind_cols(testing(split_price))
+
+pred_log_test &lt;- model_log %&gt;%
+  predict(testing(split_log)) %&gt;%
+  bind_cols(testing(split_log)) %&gt;%
+  mutate(.pred_price = 10^.pred)
+
+metrics_price_test &lt;- pred_price_test %&gt;%
+  metric_prediction(truth = price, estimate = .pred) %&gt;%
+  mutate(.model = &quot;price&quot;) %&gt;%
+  select(-.estimator)
+
+metrics_log_test &lt;- pred_log_test %&gt;%
+  metric_prediction(truth = price, estimate = .pred_price) %&gt;%
+  mutate(.model = &quot;price with log&quot;) %&gt;%
+  select(-.estimator)
+
+bind_rows(metrics_price_test, metrics_log_test) %&gt;%
+  mutate(.estimate = format(.estimate, digits = 3)) %&gt;%
+  pivot_wider(id_cols = &quot;.metric&quot;, names_from = &quot;.model&quot;, values_from = &quot;.estimate&quot;) %&gt;%
+  kbl(align = c(&quot;l&quot;, &quot;r&quot;, &quot;r&quot;)) %&gt;%
+  kable_styling(bootstrap_options = c(&quot;striped&quot;, &quot;condensed&quot;, &quot;responsive&quot;, &quot;hover&quot;), full_width = FALSE)</code></pre>
+<table class="table table-striped table-condensed table-responsive table-hover" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+.metric
+</th>
+<th style="text-align:right;">
+price
+</th>
+<th style="text-align:right;">
+price with log
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+rsq
+</td>
+<td style="text-align:right;">
+0.908
+</td>
+<td style="text-align:right;">
+0.923
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+mae
+</td>
+<td style="text-align:right;">
+811.561
+</td>
+<td style="text-align:right;">
+537.652
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+rmse
+</td>
+<td style="text-align:right;">
+1226.000
+</td>
+<td style="text-align:right;">
+1167.739
+</td>
+</tr>
+</tbody>
+</table>
+<p>Again, the log transformation has better performance in the test set.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Cross validated. <em>What is the reason the log transformation is used with right-skewed distributions?</em> <a href="https://stats.stackexchange.com/questions/107610/what-is-the-reason-the-log-transformation-is-used-with-right-skewed-distribution" class="uri">https://stats.stackexchange.com/questions/107610/what-is-the-reason-the-log-transformation-is-used-with-right-skewed-distribution</a></li>
+<li>Wei, Taiyun; Simko, Viliam (2021). <em>An Introduction to corrplot Package.</em> <a href="https://cran.r-project.org/web/packages/corrplot/vignettes/corrplot-intro.html" class="uri">https://cran.r-project.org/web/packages/corrplot/vignettes/corrplot-intro.html</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre><code>## R version 4.2.0 (2022-04-22)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 19.2
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/openblas/libblas.so.3
+## LAPACK: /usr/lib/x86_64-linux-gnu/libopenblasp-r0.2.20.so
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] kableExtra_1.3.4   patchwork_1.1.1    corrplot_0.92      yardstick_0.0.9   
+##  [5] workflowsets_0.2.1 workflows_0.2.6    tune_0.2.0         tidyr_1.2.0       
+##  [9] tibble_3.1.6       rsample_0.1.1      recipes_0.2.0      purrr_0.3.4       
+## [13] parsnip_0.2.1      modeldata_0.1.1    infer_1.0.0        ggplot2_3.3.5     
+## [17] dplyr_1.0.9        dials_0.1.1        scales_1.2.0       broom_0.8.0       
+## [21] tidymodels_0.2.0  
+## 
+## loaded via a namespace (and not attached):
+##  [1] nlme_3.1-157       lubridate_1.8.0    webshot_0.5.3      httr_1.4.2        
+##  [5] DiceDesign_1.9     tools_4.2.0        backports_1.4.1    bslib_0.3.1       
+##  [9] utf8_1.2.2         R6_2.5.1           rpart_4.1.16       mgcv_1.8-40       
+## [13] DBI_1.1.2          colorspace_2.0-3   nnet_7.3-17        withr_2.5.0       
+## [17] tidyselect_1.1.2   compiler_4.2.0     rvest_1.0.2        cli_3.3.0         
+## [21] xml2_1.3.3         labeling_0.4.2     bookdown_0.26      sass_0.4.1        
+## [25] systemfonts_1.0.4  stringr_1.4.0      digest_0.6.29      svglite_2.1.0     
+## [29] rmarkdown_2.14     pkgconfig_2.0.3    htmltools_0.5.2    parallelly_1.31.1 
+## [33] lhs_1.1.5          highr_0.9          fastmap_1.1.0      rlang_1.0.2       
+## [37] rstudioapi_0.13    farver_2.1.0       jquerylib_0.1.4    generics_0.1.2    
+## [41] jsonlite_1.8.0     magrittr_2.0.3     Matrix_1.4-1       Rcpp_1.0.8.3      
+## [45] munsell_0.5.0      fansi_1.0.3        GPfit_1.0-8        lifecycle_1.0.1   
+## [49] furrr_0.3.0        stringi_1.7.6      pROC_1.18.0        yaml_2.3.5        
+## [53] MASS_7.3-57        plyr_1.8.7         grid_4.2.0         parallel_4.2.0    
+## [57] listenv_0.8.0      crayon_1.5.1       lattice_0.20-45    splines_4.2.0     
+## [61] knitr_1.39         pillar_1.7.0       future.apply_1.9.0 codetools_0.2-18  
+## [65] glue_1.6.2         evaluate_0.15      blogdown_1.9       vctrs_0.4.1       
+## [69] foreach_1.5.2      gtable_0.3.0       future_1.25.0      assertthat_0.2.1  
+## [73] xfun_0.30          gower_1.0.0        prodlim_2019.11.13 viridisLite_0.4.0 
+## [77] class_7.3-20       survival_3.2-13    timeDate_3043.102  iterators_1.0.14  
+## [81] hardhat_0.2.0      lava_1.6.10        globals_0.14.0     ellipsis_0.3.2    
+## [85] ipred_0.9-12</code></pre>
+</div>

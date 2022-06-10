@@ -1,0 +1,327 @@
+---
+title: Log transformations in numerical prediction
+author: Jose M Sallan
+date: '2022-06-10'
+slug: log-transformations-in-numerical-prediction
+categories:
+  - R
+tags:
+  - machine learning
+  - R
+  - tidymodels
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+When we ned to predict a continuous variable, it is frequent to use a log transformation when it is right-skewed. Here I will discuss why and how should be doing so in the context of a prediction job with the `tidymodels` workflow, and how can we obtain a predicted value of the original variable.
+
+Apart from `tidymodels` I am using `corrplot` to display a correlation matrix, `patchwork` to present two plots together and `kableExtra` to present HTML tables.
+
+```{r}
+library(tidymodels)
+library(corrplot)
+library(patchwork)
+library(kableExtra)
+```
+
+I will use the `diamonds` dataset included with `ggplot2`, that contains the prices and other attributes of almost 54,000 diamonds:
+
+```{r}
+diamonds %>% glimpse()
+```
+
+Our job will be predicting the `price` of diamonds from their attributes.
+
+## Exploratory analysis
+
+Let's start examining the correlations between numerical variables.
+
+```{r}
+cor_diamonds <- diamonds %>% 
+  select(where(is.numeric)) %>% 
+  cor()
+```
+
+Let's use `corrplot` to examine the correlations:
+
+```{r,fig.align='center', out.width='70%'}
+corrplot.mixed(cor_diamonds, order = "hclust")
+```
+
+We observe that `carat`, `x`, `y` and `z` are highly correlated with `price` and among themselves. In line with other analysis, I have kept `carat` and discarded `x`, `y` and `z`.
+
+Let's go now to the distribution of `price`:
+
+```{r, fig.align='center', out.width='70%'}
+ggplot(diamonds, aes(price)) +
+  geom_histogram(bins = 30) +
+  theme_minimal() +
+  labs(title = "Distribution of price")
+```
+
+The histogram shows that price is a right skewed distribution, as has a long tail in the right hand side of the distribution. This means that some diamonds have a very large price, compared with the whole of the distribution. Something similar happens usually with variables housing price, income and other variables relevant in economics.
+
+Let's examine the distribution of the decimal logarithm of `price`.
+
+```{r, fig.align='center', out.width='70%'}
+ggplot(diamonds, aes(price)) +
+  geom_histogram(bins = 30) +
+  theme_minimal() +
+  scale_x_log10() +
+  labs(title = "Distribution of logarithm of price")
+```
+
+We observe a bimodal normal distribution. In general, the log of a right-skewed distribution looks similar to a normal distribution. This means that we will obtain better estimators in a regression model using the log transformation, as the residuals of the model will tend to be normal.
+
+Let's add a `log_price` variable to the dataset, that we will be using later in the prediction job.
+
+```{r}
+diamonds <- diamonds %>%
+  mutate(log_price = log10(price))
+```
+
+To end with the exploratory data analysis section, let's examine the relationship between `carat` and `log_price`.
+
+```{r, fig.align='center', out.width='70%'}
+ggplot(diamonds, aes(carat, price)) +
+  geom_point() +
+  geom_smooth() +
+  scale_x_log10() +
+  theme_minimal() +
+  labs(title = "Relationship between carat and price")
+```
+
+This relationship is nonlinear, so the model could benefit of the addition of a quadratic term.
+
+## Predicting the price
+
+To check the opportunity of using the log variable, I will predict using the original `price` variable. The workflow starts by splitting the data into train and test sets, stratifying by the target variable. I am doing this to get a similar distribution of `price` in the train and test sets.
+
+```{r}
+set.seed(1111)
+split_price <- initial_split(diamonds, prop = 0.9, strata = price)
+```
+
+The `rec_price` recipe includes the transformations for this model:
+
+* removing variables with `step_rm`.
+* adding a quadratic term to carat with `step_poly`.
+* transforming categorical variables to a set of dummies generated with one hot encoding with `step_dummy`.
+* removing near zero variance variables with `step_nzv`.
+
+```{r}
+rec_price <- training(split_price) %>%
+  recipe(price ~ .) %>%
+  step_rm(log_price, x, y, z) %>%
+  step_poly(carat, degree = 2) %>%
+  step_dummy(all_nominal(), one_hot = TRUE) %>%
+  step_nzv(all_predictors()) %>%
+  step_rm(color_1)
+```
+
+Here is the result of the recipe:
+
+```{r}
+rec_price %>% prep() %>% juice() %>% glimpse()
+```
+
+Let's define a straightforward linear model...
+
+```{r}
+lm <- linear_reg(mode = "regression") %>%
+  set_engine("lm")
+```
+
+... and fit the model and the recipe with a workflow:
+
+```{r}
+model_price <- workflow() %>%
+  add_recipe(rec_price) %>%
+  add_model(lm) %>%
+  fit(training(split_price))
+```
+
+We obtain the predicted values of price with `pred_price`...
+
+```{r}
+pred_price <- model_price %>%
+  predict(training(split_price)) %>%
+  bind_cols(training(split_price))
+```
+
+... And here it is the real versus predicted variables plot:
+
+```{r, fig.align='center', out.width='70%'}
+ggplot(pred_price, aes(price, .pred)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = "red") +
+  theme_minimal() +
+  labs(title = "Real versus predicted values (price model)", x = "price", y = "pred. price")
+```
+
+The result of this model is problematic, as it return negative prices for some observations. We can also avoid that with a log transformation. The logarithm can take any value, but it is only defined for positive values.
+
+Finally, let's define the metrics we will be using in this job:
+
+```{r}
+metric_prediction <- metric_set(rsq, mae, rmse)
+```
+
+The values of the metrics in the train test of this model are:
+
+```{r}
+metrics_price <- pred_price %>%
+  metric_prediction(truth = price, estimate = .pred) %>%
+  mutate(.model = "price") %>%
+  select(-.estimator)
+
+metrics_price
+```
+
+## Predicting with log
+
+Let's do the same job, but predicting the log of the target variable `log_price`. Let's start with a new split, now with `log_price` as the stratifying variable.
+
+```{r}
+set.seed(1111)
+split_log <- initial_split(diamonds, prop = 0.9, strata = log_price) 
+```
+
+The recipe is quite similar to the previous model:
+
+```{r}
+rec_log <- training(split_log) %>%
+  recipe(log_price ~ .) %>%
+  step_rm(price, x, y, z) %>%
+  step_poly(carat, degree = 2) %>%
+  step_dummy(all_nominal(), one_hot = TRUE) %>%
+  step_nzv(all_predictors()) %>%
+  step_rm(color_1)
+```
+
+I am fitting the same `lm` model, but with the `rec_log` recipe:
+
+```{r}
+model_log <- workflow() %>%
+  add_recipe(rec_log) %>%
+  add_model(lm) %>%
+  fit(training(split_log))
+```
+
+And then we can predict the train set. Note that we will obtain a prediction of the log of price in the `.pred` column.
+
+```{r}
+pred_log <- model_log %>%
+  predict(training(split_log)) %>%
+  bind_cols(training(split_log))
+```
+
+If we want a predicted value of price, we need to undo the log transformation in the predicted variable. We do that in `.pred_price`.
+
+```{r}
+pred_log <- pred_log %>%
+  mutate(.pred_price = 10^.pred)
+```
+
+Here is the result of plotting the real and predicted variables in the train set for price and its log. We observe now that we do not have negative values of price.
+
+```{r, out.width='100%'}
+log <- ggplot(pred_log, aes(log_price, .pred)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = "red") +
+  theme_minimal() +
+  labs(title = "Log real versus log predicted (log model)", x = "price (log)", y = "pred. price (log)")
+
+real <- ggplot(pred_log, aes(price, .pred_price)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = "red") +
+  theme_minimal() +
+  labs(title = "Real versus predicted (log model)", x = "price", y = "pred. price")
+
+log + real
+```
+
+Let's examine the metrics for the log of price:
+
+```{r}
+metrics_log <- pred_log %>%
+  metric_prediction(truth = log_price, estimate = .pred) %>%
+  mutate(.model = "log") %>%
+  select(-.estimator)
+
+metrics_log
+```
+
+And then with price itself.
+
+```{r}
+metrics_log_price <- pred_log %>%
+  metric_prediction(truth = price, estimate = .pred_price) %>%
+  mutate(.model = "price with log") %>%
+  select(-.estimator)
+
+metrics_log_price
+```
+
+## Comparing metrics
+
+Let's compare how well performs each model putting side to side the metrics of both models. We can do that because `tidymodels` offers us the metrics as data frames that can be put together easily.
+
+```{r}
+bind_rows(metrics_price, metrics_log_price) %>%
+  mutate(.estimate = format(.estimate, digits = 3)) %>%
+  pivot_wider(id_cols = ".metric", names_from = ".model", values_from = ".estimate") %>%
+  kbl(align = c("l", "r", "r")) %>%
+  kable_styling(bootstrap_options = c("striped", "condensed", "responsive", "hover"), full_width = FALSE)
+```
+
+For the training test, the log model performs better than the price model. Let's see how well each model performs in the test set.
+
+```{r}
+pred_price_test <- model_price %>%
+  predict(testing(split_price)) %>%
+  bind_cols(testing(split_price))
+
+pred_log_test <- model_log %>%
+  predict(testing(split_log)) %>%
+  bind_cols(testing(split_log)) %>%
+  mutate(.pred_price = 10^.pred)
+
+metrics_price_test <- pred_price_test %>%
+  metric_prediction(truth = price, estimate = .pred) %>%
+  mutate(.model = "price") %>%
+  select(-.estimator)
+
+metrics_log_test <- pred_log_test %>%
+  metric_prediction(truth = price, estimate = .pred_price) %>%
+  mutate(.model = "price with log") %>%
+  select(-.estimator)
+
+bind_rows(metrics_price_test, metrics_log_test) %>%
+  mutate(.estimate = format(.estimate, digits = 3)) %>%
+  pivot_wider(id_cols = ".metric", names_from = ".model", values_from = ".estimate") %>%
+  kbl(align = c("l", "r", "r")) %>%
+  kable_styling(bootstrap_options = c("striped", "condensed", "responsive", "hover"), full_width = FALSE)
+  
+```
+
+Again, the log transformation has better performance in the test set.
+
+
+## References
+
+* Cross validated. *What is the reason the log transformation is used with right-skewed distributions?* <https://stats.stackexchange.com/questions/107610/what-is-the-reason-the-log-transformation-is-used-with-right-skewed-distribution>
+* Wei, Taiyun; Simko, Viliam (2021). *An Introduction to corrplot Package.* <https://cran.r-project.org/web/packages/corrplot/vignettes/corrplot-intro.html>
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
