@@ -1,0 +1,218 @@
+---
+title: Regularized regression with glmnet
+author: Jose M Sallan
+date: '2022-06-27'
+slug: regularized-regression-with-glmnet
+categories:
+  - R
+  - statistics
+tags:
+  - machine learning
+  - linear regression
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>In this post, I will introduce regularized regression, and then use the <code>glmnet</code> package to evaluate a regularized regression model on the <code>InsuranceCharges</code> dataset.</p>
+<p><code>InsuranceCharges</code> contains several features of individuals such as age, physical/family condition and location, and their existing medical expense. We intend to predict future medical expenses of individuals that help medical insurance to make decision on charging the premium. Those expenses are in the <code>charges</code> variable.</p>
+<p>The data are embedded in the <code>BAdatasets</code> package. I’ll load also <code>recipes</code> for data preprocessing, <code>yardstick</code> for performance metrics and <code>glmnet</code> for regularized regression.</p>
+<pre class="r"><code>library(recipes)
+library(yardstick)
+library(BAdatasets)
+library(glmnet)</code></pre>
+<p>I have performed some transformations of the dataset using the <code>recipes</code> package:</p>
+<ul>
+<li>replace the continuous variable <code>bmi</code> by a <code>bmi30</code> dummy variable, splitting the data into individuals with BMI less or equal than 30 and larger than 30.</li>
+<li>adding a quadratic term to <code>age</code>.</li>
+<li>transform all factors (nominal variables) into dummies using one hot encoding and then remove one of the dummies for each category.</li>
+<li>add an interaction term between <code>bmi30</code> and <code>smoker_yes</code>.</li>
+</ul>
+<pre class="r"><code>rec &lt;- InsuranceCharges %&gt;%
+  recipe(charges ~ .) %&gt;%
+  step_mutate(bmi30 = ifelse(bmi &lt;= 30, 0 , 1)) %&gt;%
+  step_rm(bmi) %&gt;%
+  step_poly(age, degree = 2) %&gt;%
+  step_dummy(all_nominal(), one_hot = TRUE) %&gt;%
+  step_rm(sex_male, smoker_no, region_northeast) %&gt;%
+  step_interact(terms = ~ bmi30:smoker_yes)</code></pre>
+<p>The transformed data are in the <code>insurance</code> data frame:</p>
+<pre class="r"><code>insurance &lt;- rec %&gt;%
+  prep() %&gt;%
+  juice()</code></pre>
+<p>The result is a new dataset with 11 predictors:</p>
+<pre class="r"><code>insurance %&gt;%
+  glimpse()</code></pre>
+<pre><code>## Rows: 1,338
+## Columns: 11
+## $ children           &lt;int&gt; 0, 1, 3, 0, 0, 0, 1, 3, 2, 0, 0, 0, 0, 0, 0, 1, 1, …
+## $ charges            &lt;dbl&gt; 16884.924, 1725.552, 4449.462, 21984.471, 3866.855,…
+## $ bmi30              &lt;dbl&gt; 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, …
+## $ age_poly_1         &lt;dbl&gt; -0.039333409, -0.041279930, -0.021814716, -0.012082…
+## $ age_poly_2         &lt;dbl&gt; 0.036256381, 0.043000157, -0.010053464, -0.02459349…
+## $ sex_female         &lt;dbl&gt; 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, …
+## $ smoker_yes         &lt;dbl&gt; 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, …
+## $ region_northwest   &lt;dbl&gt; 0, 0, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, …
+## $ region_southeast   &lt;dbl&gt; 0, 1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, …
+## $ region_southwest   &lt;dbl&gt; 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, …
+## $ bmi30_x_smoker_yes &lt;dbl&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, …</code></pre>
+<div id="regularized-regression" class="section level2">
+<h2>Regularized regression</h2>
+<p>In datasets with many features, it can happen that using all of them leads to a worse performance than using only a subset. Selecting the features to introduce for better accuracy is the <strong>feature selection</strong> problem. There are two <em>classical</em> techniques of feature selection:</p>
+<ul>
+<li><strong>Best subsets</strong>, which examines the fit of all possible subsets of features to choose the best subset. This can be computationally expensive. Sometimes we use algorithms like simulated annealing to choose that subset.</li>
+<li><strong>Stepwise regression</strong>, consisting in adding or removing a feature in each step, until a satisfactory model is found.</li>
+</ul>
+<p>An alternative to these strategies is <strong>regularization</strong>, in which we limit the total value of regression coefficients, so the regression coefficients of some variables shrink or go to zero.</p>
+<p>The regression coefficients in the ordinary least squares (OLS) approach to linear regression are such that minimize the sum of squared errors:</p>
+<p><span class="math display">\[ \displaystyle\sum_{i=1}^n \left( y_i - \hat{y}_i \right)^2 \]</span></p>
+<p>Let’s examine two regularization approaches to OLS, lasso and ridge regression.</p>
+<p>The name <strong>lasso</strong> stands for <strong>least absolute shrinkage and selection operator</strong>.</p>
+<p>The approach of lasso is to force regression coefficients to shrink, forcing that the sum of absolute values or 1-norm to be smaller than a value <span class="math inline">\(t\)</span>:</p>
+<p><span class="math display">\[ \displaystyle\sum_{j=1}^p |\beta_j| = \lVert \beta \lVert_1 \leq t\]</span></p>
+<p>This is equivalent to minimizing:</p>
+<p><span class="math display">\[ \displaystyle\sum_{i=1}^n \left( y_i - \hat{y}_i \right)^2 + \lambda \lVert \beta \lVert_1 \]</span></p>
+<p>Lasso tends to set to zero some regression coefficients, so it works as an <strong>automated feature selection</strong> tool. As it uses the 1-norm of regression coefficients, lasso is also called <strong>L1 regularization</strong>.</p>
+<p><strong>Ridge regression</strong> uses a strategy analogous to lasso regression, but bounding the 2-norm (sum of squares) of the vector of regression coefficients to a value <span class="math inline">\(t\)</span>:</p>
+<p><span class="math display">\[ \sqrt{\displaystyle\sum_{j=1}^p \beta_j^2} = \lVert \beta \lVert_2 \leq t \]</span></p>
+<p>This is equivalent to minimizing:</p>
+<p><span class="math display">\[ \displaystyle\sum_{i=1}^n \left( y_i - \hat{y}_i \right)^2 + \lambda \lVert \beta \lVert_2 \]</span></p>
+<p>As ridge regression uses the 2-norm, we call it <strong>L2 regularization</strong>.</p>
+<p>Ridge regression improves prediction error by shrinking coefficients of some variables.</p>
+<p>We can mixt both regularizations in a mixed model introducing a mixture parameter which ranges from <span class="math inline">\(\alpha = 0\)</span> for ridge regression and to <span class="math inline">\(\alpha = 1\)</span> for lasso regression. <span class="math inline">\(\alpha\)</span> is sometimes called the <strong>mixture</strong> parameter. These models are sometimes called <strong>elastic nets</strong>.</p>
+<p><span class="math display">\[ \displaystyle\sum_{i=1}^n \left( y_i - \hat{y}_i \right)^2 + \lambda\left( \alpha \lVert \beta \lVert_2 + \left(1 - \alpha \right) \lVert \beta \lVert_1 \right)  \]</span></p>
+<p>The results of all these models depend on a <span class="math inline">\(\lambda\)</span> parameter. As regularized regression is used mainly for prediction, we choose the value of lambda that best fits a prediction metric, usually the mean squared error. Let’s see how we can do that using <code>glmnet</code>.</p>
+</div>
+<div id="a-ridge-regression-model" class="section level2">
+<h2>A ridge regression model</h2>
+<p><code>glmnet</code> requires entering variables in matrix format, that’s why I have generated dummies for categorical variables. I obtain the inputs to <code>glmnet</code> doing:</p>
+<pre class="r"><code>dep &lt;- insurance %&gt;%
+  pull(charges)
+
+vars &lt;- insurance %&gt;%
+  select(-charges) %&gt;%
+  as.matrix()</code></pre>
+<p>Let’s obtain the ridge model:</p>
+<pre class="r"><code>ridge &lt;- glmnet(x = vars, y = dep, alpha = 0)</code></pre>
+<p><code>glmnet</code> has picked a range of values of <span class="math inline">\(\lambda\)</span> and obtained the model for each. Let’s <code>plot</code> the evolution of coefficients with <span class="math inline">\(\lambda\)</span>:</p>
+<pre class="r"><code>plot(ridge, xvar = &quot;lambda&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>For high values of <span class="math inline">\(\lambda\)</span>, the coefficients of <em>all</em> variables are shrinking. Small values of <span class="math inline">\(\lambda\)</span> result in coefficients similar to OLS. We need to select the value of <span class="math inline">\(\lambda\)</span> for our prediction job as the one that minimizes a performance metric for prediction. <code>cv.glmnet</code> does that using cross validation.</p>
+<pre class="r"><code>cv_ridge &lt;- cv.glmnet(x = vars,
+                      y = dep,
+                      alpha = 0)</code></pre>
+<p>Here are the results as a function of <span class="math inline">\(\lambda\)</span>:</p>
+<pre class="r"><code>plot(cv_ridge)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>We get two values of <span class="math inline">\(\lambda\)</span>: the optimum <code>lambda.min</code> and <code>lambda.1se</code> which gives a similar fit with some more shrinking of coefficients. We obtain the values predicted with <code>lambda.min</code> doing:</p>
+<pre class="r"><code>pred_lambdamin_ridge &lt;- predict(cv_ridge, 
+                          s = cv_ridge$lambda.min, 
+                          newx = vars)[, 1]</code></pre>
+</div>
+<div id="lasso-regression" class="section level2">
+<h2>Lasso regression</h2>
+<p>To fit a lasso regression we set <code>alpha = 1</code>:</p>
+<pre class="r"><code>lasso &lt;- glmnet(x = vars, y = dep, alpha = 1)</code></pre>
+<p>Let’s plot the evolution of coefficients:</p>
+<pre class="r"><code>plot(lasso, xvar = &quot;lambda&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-12-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Lasso sets to zero coefficients of predictors as <span class="math inline">\(\lambda\)</span> increases, so it can be considered an <strong>automated feature selector</strong>. The number of variables selected for each <span class="math inline">\(\lambda\)</span> are presented in the scale above the plot. Let’s select <span class="math inline">\(\lambda\)</span> with cross validation and plot the result:</p>
+<pre class="r"><code>cv_lasso &lt;- cv.glmnet(x = vars,
+                      y = dep,
+                      alpha = 1,
+                      penalty.factor = rep(1, 10))
+plot(cv_lasso)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-13-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Finally, let’s do the prediction using <code>lambda.min</code> like in ridge regression.</p>
+<pre class="r"><code>pred_lambdamin_lasso &lt;- predict(cv_lasso, 
+                          s = cv_lasso$lambda.min, 
+                          newx = vars)[, 1]</code></pre>
+</div>
+<div id="model-performance" class="section level2">
+<h2>Model performance</h2>
+<p>I will use <code>yardstick</code> to evaluate performance of lasso and ridge regression. Let’s define a <code>metric_set</code> for numerical prediction.</p>
+<pre class="r"><code>np_metrics &lt;- metric_set(rmse, mae, rsq)</code></pre>
+<p>Let’s store observed values and predictions in a data frame.</p>
+<pre class="r"><code>np_metrics &lt;- metric_set(rmse, mae, rsq)
+predictions &lt;- tibble(real = dep,
+                      ridge = pred_lambdamin_ridge,
+                      lasso = pred_lambdamin_lasso) </code></pre>
+<p>The performance of ridge regression:</p>
+<pre class="r"><code>predictions %&gt;% 
+  np_metrics(truth = real, estimate = ridge)</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   .metric .estimator .estimate
+##   &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt;
+## 1 rmse    standard    4458.   
+## 2 mae     standard    2574.   
+## 3 rsq     standard       0.867</code></pre>
+<p>And the performance of lasso regression:</p>
+<pre class="r"><code>predictions %&gt;% 
+  np_metrics(truth = real, estimate = lasso)</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   .metric .estimator .estimate
+##   &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt;
+## 1 rmse    standard    4423.   
+## 2 mae     standard    2467.   
+## 3 rsq     standard       0.867</code></pre>
+<p>Both models have quite similar performance in this case.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Hastle, T., Qian, J., Tay, K. (2021). <em>An introduction to glmnet.</em> <a href="https://glmnet.stanford.edu/articles/glmnet.html" class="uri">https://glmnet.stanford.edu/articles/glmnet.html</a></li>
+<li>Kaggle. <em>Insurance premium prediction-</em> <a href="https://www.kaggle.com/noordeen/insurance-premium-prediction" class="uri">https://www.kaggle.com/noordeen/insurance-premium-prediction</a></li>
+<li>Silge, Julia (2021). <em>Add error for ridge regression with glmnet #431.</em> <a href="https://github.com/tidymodels/parsnip/issues/431" class="uri">https://github.com/tidymodels/parsnip/issues/431</a></li>
+<li>UC Business Analytics R Programming Guide. <em>Regularized regression.</em>
+<a href="https://uc-r.github.io/regularized_regression" class="uri">https://uc-r.github.io/regularized_regression</a></li>
+<li>Yang, Y. (2021). <em>Understand penalty.factor in glmnet</em>.
+<a href="https://yuyangyy.medium.com/understand-penalty-factor-in-glmnet-9fb873f9045b" class="uri">https://yuyangyy.medium.com/understand-penalty-factor-in-glmnet-9fb873f9045b</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre><code>## R version 4.2.0 (2022-04-22)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 19.2
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/openblas/libblas.so.3
+## LAPACK: /usr/lib/x86_64-linux-gnu/libopenblasp-r0.2.20.so
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] glmnet_4.1-4     Matrix_1.4-1     BAdatasets_0.1.0 yardstick_0.0.9 
+## [5] recipes_0.2.0    dplyr_1.0.9     
+## 
+## loaded via a namespace (and not attached):
+##  [1] Rcpp_1.0.8.3       lubridate_1.8.0    lattice_0.20-45    tidyr_1.2.0       
+##  [5] listenv_0.8.0      class_7.3-20       assertthat_0.2.1   digest_0.6.29     
+##  [9] ipred_0.9-12       foreach_1.5.2      utf8_1.2.2         parallelly_1.31.1 
+## [13] R6_2.5.1           plyr_1.8.7         hardhat_0.2.0      evaluate_0.15     
+## [17] highr_0.9          blogdown_1.9       pillar_1.7.0       rlang_1.0.2       
+## [21] rstudioapi_0.13    jquerylib_0.1.4    rpart_4.1.16       rmarkdown_2.14    
+## [25] splines_4.2.0      gower_1.0.0        stringr_1.4.0      compiler_4.2.0    
+## [29] xfun_0.30          pkgconfig_2.0.3    shape_1.4.6        globals_0.14.0    
+## [33] htmltools_0.5.2    nnet_7.3-17        tidyselect_1.1.2   tibble_3.1.6      
+## [37] prodlim_2019.11.13 bookdown_0.26      codetools_0.2-18   fansi_1.0.3       
+## [41] future_1.25.0      crayon_1.5.1       withr_2.5.0        MASS_7.3-57       
+## [45] grid_4.2.0         jsonlite_1.8.0     lifecycle_1.0.1    DBI_1.1.2         
+## [49] magrittr_2.0.3     pROC_1.18.0        future.apply_1.9.0 cli_3.3.0         
+## [53] stringi_1.7.6      timeDate_3043.102  bslib_0.3.1        ellipsis_0.3.2    
+## [57] generics_0.1.2     vctrs_0.4.1        lava_1.6.10        iterators_1.0.14  
+## [61] tools_4.2.0        glue_1.6.2         purrr_0.3.4        parallel_4.2.0    
+## [65] fastmap_1.1.0      survival_3.2-13    yaml_2.3.5         knitr_1.39        
+## [69] sass_0.4.1</code></pre>
+</div>

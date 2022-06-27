@@ -1,0 +1,241 @@
+---
+title: Regularized regression with glmnet
+author: Jose M Sallan
+date: '2022-06-27'
+slug: regularized-regression-with-glmnet
+categories:
+  - R
+  - statistics
+tags:
+  - machine learning
+  - linear regression
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post, I will introduce regularized regression, and then use the `glmnet` package to evaluate a regularized regression model on the `InsuranceCharges` dataset.
+
+`InsuranceCharges` contains several features of individuals such as age, physical/family condition and location, and their existing medical expense. We intend to predict future medical expenses of individuals that help medical insurance to make decision on charging the premium. Those expenses are in the `charges` variable.
+
+The data are embedded in the `BAdatasets` package. I'll load also `recipes` for data preprocessing, `yardstick` for performance metrics and `glmnet` for regularized regression.
+
+```{r}
+library(recipes)
+library(yardstick)
+library(BAdatasets)
+library(glmnet)
+```
+
+I have performed some transformations of the dataset using the `recipes` package:
+
+* replace the continuous variable `bmi` by a `bmi30` dummy variable, splitting the data into individuals with BMI less or equal than 30 and larger than 30. 
+* adding a quadratic term to `age`.
+* transform all factors (nominal variables) into dummies using one hot encoding and then remove one of the dummies for each category. 
+* add an interaction term between `bmi30` and `smoker_yes`.
+
+```{r}
+rec <- InsuranceCharges %>%
+  recipe(charges ~ .) %>%
+  step_mutate(bmi30 = ifelse(bmi <= 30, 0 , 1)) %>%
+  step_rm(bmi) %>%
+  step_poly(age, degree = 2) %>%
+  step_dummy(all_nominal(), one_hot = TRUE) %>%
+  step_rm(sex_male, smoker_no, region_northeast) %>%
+  step_interact(terms = ~ bmi30:smoker_yes)
+```
+
+The transformed data are in the `insurance` data frame:
+
+```{r}
+insurance <- rec %>%
+  prep() %>%
+  juice()
+```
+
+The result is a new dataset with 11 predictors:
+
+```{r}
+insurance %>%
+  glimpse()
+```
+
+## Regularized regression
+
+In datasets with many features, it can happen that using all of them leads to a worse performance than using only a subset. Selecting the features to introduce for better accuracy is the **feature selection** problem. There are two *classical* techniques of feature selection:
+
+* **Best subsets**, which examines the fit of all possible subsets of features to choose the best subset. This can be computationally expensive. Sometimes we use algorithms like simulated annealing to choose that subset.
+* **Stepwise regression**, consisting in adding or removing a feature in each step, until a satisfactory model is found.
+
+An alternative to these strategies is **regularization**, in which we limit the total value of regression coefficients, so the regression coefficients of some variables shrink or go to zero.
+
+The regression coefficients in the ordinary least squares (OLS) approach to linear regression are such that minimize the sum of squared errors:
+
+\[ \displaystyle\sum_{i=1}^n \left( y_i - \hat{y}_i \right)^2 \]
+
+Let's examine two regularization approaches to OLS, lasso and ridge regression.
+
+The name **lasso** stands for **least absolute shrinkage and selection operator**.
+
+The approach of lasso is to force regression coefficients to shrink, forcing that the sum of absolute values or 1-norm to be smaller than a value $t$:
+
+\[ \displaystyle\sum_{j=1}^p |\beta_j| = \lVert \beta \lVert_1 \leq t\]
+
+This is equivalent to minimizing:
+
+\[ \displaystyle\sum_{i=1}^n \left( y_i - \hat{y}_i \right)^2 + \lambda \lVert \beta \lVert_1 \]
+
+Lasso tends to set to zero some regression coefficients, so it works as an **automated feature selection** tool. As it uses the 1-norm of regression coefficients, lasso is also called **L1 regularization**.
+
+**Ridge regression** uses a strategy analogous to lasso regression, but bounding the 2-norm (sum of squares) of the vector of regression coefficients to a value $t$:
+
+\[ \sqrt{\displaystyle\sum_{j=1}^p \beta_j^2} = \lVert \beta \lVert_2 \leq t \]
+
+This is equivalent to minimizing:
+
+\[ \displaystyle\sum_{i=1}^n \left( y_i - \hat{y}_i \right)^2 + \lambda \lVert \beta \lVert_2 \]
+
+As ridge regression uses the 2-norm, we call it **L2 regularization**.
+
+Ridge regression improves prediction error by shrinking coefficients of some variables.
+
+We can mixt both regularizations in a mixed model introducing a mixture parameter which ranges from $\alpha = 0$ for ridge regression and to $\alpha = 1$ for lasso regression. $\alpha$ is sometimes called the **mixture** parameter. These models are sometimes called **elastic nets**.
+
+\[ \displaystyle\sum_{i=1}^n \left( y_i - \hat{y}_i \right)^2 + \lambda\left( \alpha \lVert \beta \lVert_2 + \left(1 - \alpha \right) \lVert \beta \lVert_1 \right)  \]
+
+The results of all these models depend on a $\lambda$ parameter. As regularized regression is used mainly for prediction, we choose the value of lambda that best fits a prediction metric, usually the mean squared error. Let's see how we can do that using `glmnet`.
+
+## A ridge regression model
+
+`glmnet` requires entering variables in matrix format, that's why I have generated dummies for categorical variables. I obtain the inputs to `glmnet` doing:
+
+```{r}
+dep <- insurance %>%
+  pull(charges)
+
+vars <- insurance %>%
+  select(-charges) %>%
+  as.matrix()
+```
+
+Let's obtain the ridge model:
+
+```{r}
+ridge <- glmnet(x = vars, y = dep, alpha = 0)
+```
+
+`glmnet` has picked a range of values of $\lambda$ and obtained the model for each. Let's `plot` the evolution of coefficients with $\lambda$:
+
+```{r, fig.align='center'}
+plot(ridge, xvar = "lambda")
+```
+
+For high values of $\lambda$, the coefficients of *all* variables are shrinking. Small values of $\lambda$ result in coefficients similar to OLS. We need to select the value of $\lambda$ for our prediction job as the one that minimizes a performance metric for prediction. `cv.glmnet` does that using cross validation.
+
+```{r}
+cv_ridge <- cv.glmnet(x = vars,
+                      y = dep,
+                      alpha = 0)
+```
+
+Here are the results as a function of $\lambda$:
+
+```{r, fig.align='center'}
+plot(cv_ridge)
+```
+
+We get two values of $\lambda$: the optimum `lambda.min` and `lambda.1se` which gives a similar fit with some more shrinking of coefficients. We obtain the values predicted with `lambda.min` doing:
+
+```{r}
+pred_lambdamin_ridge <- predict(cv_ridge, 
+                          s = cv_ridge$lambda.min, 
+                          newx = vars)[, 1]
+```
+
+## Lasso regression
+
+To fit a lasso regression we set `alpha = 1`:
+
+```{r}
+lasso <- glmnet(x = vars, y = dep, alpha = 1)
+```
+
+Let's plot the evolution of coefficients:
+
+```{r, fig.align='center'}
+plot(lasso, xvar = "lambda")
+```
+
+Lasso sets to zero coefficients of predictors as $\lambda$ increases, so it can be considered an **automated feature selector**. The number of variables selected for each $\lambda$ are presented in the scale above the plot. Let's select $\lambda$ with cross validation and plot the result:
+
+```{r, fig.align='center'}
+cv_lasso <- cv.glmnet(x = vars,
+                      y = dep,
+                      alpha = 1,
+                      penalty.factor = rep(1, 10))
+plot(cv_lasso)
+```
+
+Finally, let's do the prediction using `lambda.min` like in ridge regression.
+
+```{r}
+pred_lambdamin_lasso <- predict(cv_lasso, 
+                          s = cv_lasso$lambda.min, 
+                          newx = vars)[, 1]
+```
+
+## Model performance
+
+I will use `yardstick` to evaluate performance of lasso and ridge regression. Let's define a `metric_set` for numerical prediction.
+
+```{r}
+np_metrics <- metric_set(rmse, mae, rsq)
+```
+
+Let's store observed values and predictions in a data frame.
+
+```{r}
+np_metrics <- metric_set(rmse, mae, rsq)
+predictions <- tibble(real = dep,
+                      ridge = pred_lambdamin_ridge,
+                      lasso = pred_lambdamin_lasso) 
+```
+
+The performance of ridge regression:
+
+```{r}
+predictions %>% 
+  np_metrics(truth = real, estimate = ridge)
+```
+
+And the performance of lasso regression:
+
+```{r}
+predictions %>% 
+  np_metrics(truth = real, estimate = lasso)
+```
+
+Both models have quite similar performance in this case.
+
+## References
+
+* Hastle, T., Qian, J., Tay, K. (2021). *An introduction to glmnet.* <https://glmnet.stanford.edu/articles/glmnet.html>
+* Kaggle. *Insurance premium prediction-* <https://www.kaggle.com/noordeen/insurance-premium-prediction>
+* Silge, Julia (2021). *Add error for ridge regression with glmnet #431.* <https://github.com/tidymodels/parsnip/issues/431>
+* UC Business Analytics R Programming Guide. *Regularized regression.*
+<https://uc-r.github.io/regularized_regression>
+* Yang, Y. (2021). *Understand penalty.factor in glmnet*.
+ <https://yuyangyy.medium.com/understand-penalty-factor-in-glmnet-9fb873f9045b>
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
