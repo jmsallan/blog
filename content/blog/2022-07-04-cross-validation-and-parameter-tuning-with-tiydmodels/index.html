@@ -1,0 +1,192 @@
+---
+title: Cross validation and hyperparameter tuning with tiydmodels
+author: Jose M Sallan
+date: '2022-07-04'
+slug: cross-validation-and-parameter-tuning-with-tiydmodels
+categories:
+  - R
+tags:
+  - logistic regression
+  - machine learning
+  - R
+  - tidymodels
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>In this post, I will illustrate the basic workflow for <strong>cross validation</strong> and <strong>hyperparameter tuning</strong> using <code>tidymodels</code> for a classification problem on the <code>Sonar</code> dataset. I will evaluate logistic regression usign cross validation and perform hyperparameter tuning to elastic nets of regularized regression.</p>
+<p>The <code>Sonar</code> dataset is available from the <code>mlbench</code> package. Oir task is to discriminate between sonar signals bounced off a metal cylinder (a mine) and those bounced off a roughly cylindrical rock. Mines are labelled as <code>M</code> and rocks as <code>R</code> in the <code>Class</code> target variable. Each of the 208 observations is a set of 60 variables <code>V1</code> to <code>V60</code> in the range 0.0 to 1.0. Each number represents the energy within a particular frequency band, integrated over a certain period of time.</p>
+<p>This problem has a large number of features, and calls for some method of feature selection. Regularized regression includes the coefficients in the minimization function, so that it can reduce the coefficient of non-relevant variables.</p>
+<p>In addition to <code>tidymodels</code>, I will use <code>mlbench</code> to access the dataset and <code>glmnet</code> for regularized regression models.</p>
+<pre class="r"><code>library(tidymodels)
+library(mlbench)
+library(glmnet)
+data(&quot;Sonar&quot;)</code></pre>
+<p>As it is a binary classification problem, we need to be sure that the positive case, in this case <code>M</code>, is the first level of the factor:</p>
+<pre class="r"><code>levels(Sonar$Class)</code></pre>
+<pre><code>## [1] &quot;M&quot; &quot;R&quot;</code></pre>
+<p>Let’s define the elements of the <code>tidymodels</code> workflow. We start defining <strong>train and test sets</strong> with <code>initial_split</code>. We use <code>strata</code> to be sure that train and test have the same proportion of positives.</p>
+<pre class="r"><code>set.seed(1111)
+split &lt;- initial_split(Sonar, prop = 0.8, strata = Class)</code></pre>
+<p>The <code>recipe</code> for feature transformation does not play a large role in this job. I am just setting <code>Class</code> as target variable and looking for highly correlated pairs of features with <code>step_corr</code> and for features of low variance with <code>step_nzv</code>.</p>
+<pre class="r"><code>recipe &lt;- training(split) %&gt;%
+  recipe(Class ~ .) %&gt;%
+  step_corr() %&gt;%
+  step_nzv()</code></pre>
+<p>I am defining four <strong>folds</strong> with <code>vfold_cv</code> for cross validation. This means that we split train data into four subsets or folds. Then, we test with each of the four folds a model trained with the other three. The resulting metrics are averaged across the four folds.</p>
+<pre class="r"><code>set.seed(1111)
+folds &lt;- vfold_cv(training(split), v = 4, strata = Class)</code></pre>
+<p>Finally, I am defining a <strong>metric set</strong> containing <code>accuracy</code> (fraction of observations classified correcty), sensibility <code>sens</code> (fraction of positives classified correctly) and specificity <code>spec</code> (fraction of negatives correctly classified).</p>
+<pre class="r"><code>sonar_metrics &lt;- metric_set(accuracy, sens, spec)</code></pre>
+<div id="cross-validation-on-a-logistic-regression-model" class="section level2">
+<h2>Cross validation on a logistic regression model</h2>
+<p>Now we are ready to do cross validation on a logistic regression model <code>lr</code>:</p>
+<pre class="r"><code>lr &lt;- logistic_reg(mode = &quot;classification&quot;) %&gt;%
+  set_engine(&quot;glm&quot;)</code></pre>
+<p>Cross validation is performed with <code>fit_resamples</code>. We are performing four logistic regressions, each having a different fold as test set.</p>
+<pre class="r"><code>logistic_cv &lt;- fit_resamples(object = lr,
+                             preprocessor = recipe,
+                             resamples = folds,
+                             metrics = sonar_metrics)</code></pre>
+<p>The results (averaged across folds) are:</p>
+<pre class="r"><code>logistic_cv %&gt;%
+  collect_metrics()</code></pre>
+<pre><code>## # A tibble: 3 × 6
+##   .metric  .estimator  mean     n std_err .config             
+##   &lt;chr&gt;    &lt;chr&gt;      &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt; &lt;chr&gt;               
+## 1 accuracy binary     0.733     4  0.0228 Preprocessor1_Model1
+## 2 sens     binary     0.727     4  0.0186 Preprocessor1_Model1
+## 3 spec     binary     0.740     4  0.0374 Preprocessor1_Model1</code></pre>
+</div>
+<div id="parameter-tuning-on-a-regularized-logistic-regression-model" class="section level2">
+<h2>Parameter tuning on a regularized logistic regression model</h2>
+<p>There are several regularized regression models, defined with the mixture parameter:</p>
+<ul>
+<li><strong>ridge regression</strong>, which adds the sum of <strong>squared</strong> regressors times a <span class="math inline">\(\lambda\)</span> parameter to the sum of residuals. We access to regularized regression making <code>mixture = 0</code>.</li>
+<li><strong>lasso regression</strong>, which adds the sum of <strong>absolute value</strong> regressors times a <span class="math inline">\(\lambda\)</span> parameter to the sum of residuals. We do Lasso regression making <code>mixture = 1</code>.</li>
+<li><strong>elastic nets</strong>, a mix of ridge and lasso obtain setting values of <code>mixture</code> between zero and one.</li>
+</ul>
+<p>We use <code>logistic_reg</code> with the <code>glmnet</code> engine. We set <code>tune()</code> for paramters <code>penalty</code> and <code>mixture</code>.</p>
+<pre class="r"><code>rlr &lt;- logistic_reg(penalty = tune(), mixture = tune()) %&gt;%
+  set_engine(&quot;glmnet&quot;)</code></pre>
+<p>We need to specify the values of the parameters to tune with an <strong>tuning grid</strong>, entered as a data frame. It contains all the combinations of parameters ot be tested. In this case, <code>penalty</code> is fixed to one and we test eleven values of <code>mixture</code>.</p>
+<pre class="r"><code>rlr_grid &lt;- data.frame(mixture = seq(0, 1, 0.1),
+                       penalty = 1)</code></pre>
+<p>We use <code>tune_grid</code> to do the hyperparameter tuning. We are doing cross validation for each row of the tuning grid, so we are testing up to four times eleven regularized logistic regression models.</p>
+<pre class="r"><code>rlr_tune &lt;- tune_grid(object = rlr,
+                      preprocessor = recipe,
+                      resamples = folds,
+                      grid = rlr_grid,
+                      metrics = sonar_metrics)</code></pre>
+<p>Let’s plot the results:</p>
+<pre class="r"><code>rlr_tune %&gt;%
+  collect_metrics() %&gt;%
+  ggplot(aes(mixture, mean, color = .metric)) +
+  geom_errorbar(aes(ymin = mean - std_err,
+                    ymax = mean + std_err), 
+                alpha = 0.5,
+                width = 0.05) +
+  geom_line(size = 1.5) +
+  facet_wrap(. ~ .metric, ncol = 1) +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(0, 1, 0.2)) +
+  theme(legend.position = &quot;none&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-13-1.png" width="100%" /></p>
+<p>The best model is ridge regression with <code>mixture = 0</code>. The other values of <code>mixture</code> classify all observations as positive, so they are not informative. The fit of this model is better than logistic regression, so we will adopt it as final model.</p>
+</div>
+<div id="training-the-best-model" class="section level2">
+<h2>Training the best model</h2>
+<p>Let’s train the selected <code>ridge</code> model on the whole train set:</p>
+<pre class="r"><code>ridge &lt;- logistic_reg(penalty = 1, mixture = 0) %&gt;%
+  set_engine(&quot;glmnet&quot;)
+
+best_model &lt;- workflow() %&gt;%
+  add_recipe(recipe) %&gt;%
+  add_model(ridge) %&gt;%
+  fit(training(split))</code></pre>
+<p>Performance on the train set:</p>
+<pre class="r"><code>best_model %&gt;%
+  predict(training(split)) %&gt;%
+  bind_cols(training(split)) %&gt;%
+  sonar_metrics(truth = Class, estimate = .pred_class)</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   .metric  .estimator .estimate
+##   &lt;chr&gt;    &lt;chr&gt;          &lt;dbl&gt;
+## 1 accuracy binary         0.824
+## 2 sens     binary         0.852
+## 3 spec     binary         0.792</code></pre>
+<p>Performance on the test set:</p>
+<pre class="r"><code>best_model %&gt;%
+  predict(testing(split)) %&gt;%
+  bind_cols(testing(split)) %&gt;%
+  sonar_metrics(truth = Class, estimate = .pred_class)</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   .metric  .estimator .estimate
+##   &lt;chr&gt;    &lt;chr&gt;          &lt;dbl&gt;
+## 1 accuracy binary         0.791
+## 2 sens     binary         0.826
+## 3 spec     binary         0.75</code></pre>
+<p>The metrics on the test set are not much worse than in the train set, so we can assert that the model does not overfit to the train test.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Jun, Kang (2021), <em>tidymodels and glmnet</em>. <a href="https://www.jkangpathology.com/post/tidymodel-and-glmnet/" class="uri">https://www.jkangpathology.com/post/tidymodel-and-glmnet/</a></li>
+<li>Kuhn, M.; Vaughan, D. <em>Technical aspects of the glmnet model.</em> <a href="https://parsnip.tidymodels.org/reference/glmnet-details.html" class="uri">https://parsnip.tidymodels.org/reference/glmnet-details.html</a></li>
+<li>R documentation. <em>Sonar: Sonar, Mines vs. Rocks.</em> <a href="https://rdrr.io/cran/mlbench/man/Sonar.html" class="uri">https://rdrr.io/cran/mlbench/man/Sonar.html</a></li>
+<li>Silge, Julia (2021). <em>Add error for ridge regression with glmnet #431.</em> <a href="https://github.com/tidymodels/parsnip/issues/431" class="uri">https://github.com/tidymodels/parsnip/issues/431</a></li>
+<li>Silge, Julia (2020). <em>LASSO regression using tidymodels and #TidyTuesday data for The Office.</em> <a href="https://juliasilge.com/blog/lasso-the-office/" class="uri">https://juliasilge.com/blog/lasso-the-office/</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre><code>## R version 4.2.0 (2022-04-22)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 19.2
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/openblas/libblas.so.3
+## LAPACK: /usr/lib/x86_64-linux-gnu/libopenblasp-r0.2.20.so
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] glmnet_4.1-4       Matrix_1.4-1       mlbench_2.1-3      yardstick_0.0.9   
+##  [5] workflowsets_0.2.1 workflows_0.2.6    tune_0.2.0         tidyr_1.2.0       
+##  [9] tibble_3.1.6       rsample_0.1.1      recipes_0.2.0      purrr_0.3.4       
+## [13] parsnip_0.2.1      modeldata_0.1.1    infer_1.0.0        ggplot2_3.3.5     
+## [17] dplyr_1.0.9        dials_0.1.1        scales_1.2.0       broom_0.8.0       
+## [21] tidymodels_0.2.0  
+## 
+## loaded via a namespace (and not attached):
+##  [1] lubridate_1.8.0    DiceDesign_1.9     tools_4.2.0        backports_1.4.1   
+##  [5] bslib_0.3.1        utf8_1.2.2         R6_2.5.1           rpart_4.1.16      
+##  [9] DBI_1.1.2          colorspace_2.0-3   nnet_7.3-17        withr_2.5.0       
+## [13] tidyselect_1.1.2   compiler_4.2.0     cli_3.3.0          labeling_0.4.2    
+## [17] bookdown_0.26      sass_0.4.1         stringr_1.4.0      digest_0.6.29     
+## [21] rmarkdown_2.14     pkgconfig_2.0.3    htmltools_0.5.2    parallelly_1.31.1 
+## [25] lhs_1.1.5          highr_0.9          fastmap_1.1.0      rlang_1.0.2       
+## [29] rstudioapi_0.13    farver_2.1.0       shape_1.4.6        jquerylib_0.1.4   
+## [33] generics_0.1.2     jsonlite_1.8.0     magrittr_2.0.3     Rcpp_1.0.8.3      
+## [37] munsell_0.5.0      fansi_1.0.3        GPfit_1.0-8        lifecycle_1.0.1   
+## [41] furrr_0.3.0        stringi_1.7.6      pROC_1.18.0        yaml_2.3.5        
+## [45] MASS_7.3-57        plyr_1.8.7         grid_4.2.0         parallel_4.2.0    
+## [49] listenv_0.8.0      crayon_1.5.1       lattice_0.20-45    splines_4.2.0     
+## [53] knitr_1.39         pillar_1.7.0       future.apply_1.9.0 codetools_0.2-18  
+## [57] glue_1.6.2         evaluate_0.15      blogdown_1.9       vctrs_0.4.1       
+## [61] foreach_1.5.2      gtable_0.3.0       future_1.25.0      assertthat_0.2.1  
+## [65] xfun_0.30          gower_1.0.0        prodlim_2019.11.13 class_7.3-20      
+## [69] survival_3.2-13    timeDate_3043.102  iterators_1.0.14   hardhat_0.2.0     
+## [73] lava_1.6.10        globals_0.14.0     ellipsis_0.3.2     ipred_0.9-12</code></pre>
+</div>

@@ -1,0 +1,196 @@
+---
+title: Cross validation and hyperparameter tuning with tiydmodels
+author: Jose M Sallan
+date: '2022-07-04'
+slug: cross-validation-and-parameter-tuning-with-tiydmodels
+categories:
+  - R
+tags:
+  - logistic regression
+  - machine learning
+  - R
+  - tidymodels
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post, I will illustrate the basic workflow for **cross validation** and **hyperparameter tuning** using  `tidymodels` for a classification problem on the `Sonar` dataset. I will evaluate logistic regression usign cross validation and perform hyperparameter tuning to elastic nets of regularized regression.
+
+The `Sonar` dataset is available from the `mlbench` package. Oir task is to discriminate between sonar signals bounced off a metal cylinder (a mine) and those bounced off a roughly cylindrical rock. Mines are labelled as `M` and rocks as `R` in the `Class` target variable. Each of the 208 observations is a set of 60 variables `V1` to `V60` in the range 0.0 to 1.0. Each number represents the energy within a particular frequency band, integrated over a certain period of time.
+
+This problem has a large number of features, and calls for some method of feature selection. Regularized regression includes the coefficients in the minimization function, so that it can reduce the coefficient of non-relevant variables.
+
+In addition to `tidymodels`, I will use `mlbench` to access the dataset and `glmnet` for regularized regression models.
+
+```{r}
+library(tidymodels)
+library(mlbench)
+library(glmnet)
+data("Sonar")
+```
+
+As it is a binary classification problem, we need to be sure that the positive case, in this case `M`, is the first level of the factor:
+
+```{r}
+levels(Sonar$Class)
+```
+
+Let's define the elements of the `tidymodels` workflow. We start defining **train and test sets** with `initial_split`. We use `strata` to be sure that train and test have the same proportion of positives.
+
+```{r}
+set.seed(1111)
+split <- initial_split(Sonar, prop = 0.8, strata = Class)
+```
+
+The `recipe` for feature transformation does not play a large role in this job. I am just setting `Class` as target variable and looking for highly correlated pairs of features with `step_corr` and for features of low variance with `step_nzv`.
+
+```{r}
+recipe <- training(split) %>%
+  recipe(Class ~ .) %>%
+  step_corr() %>%
+  step_nzv()
+```
+
+I am defining four **folds** with `vfold_cv` for cross validation. This means that we split train data into four subsets or folds. Then, we test with each of the four folds a model trained with the other three. The resulting metrics are averaged across the four folds.
+
+```{r}
+set.seed(1111)
+folds <- vfold_cv(training(split), v = 4, strata = Class)
+```
+
+Finally, I am defining a **metric set** containing `accuracy` (fraction of observations classified correcty), sensibility `sens` (fraction of positives classified correctly) and specificity `spec` (fraction of negatives correctly classified).
+
+```{r}
+sonar_metrics <- metric_set(accuracy, sens, spec)
+```
+
+## Cross validation on a logistic regression model
+
+Now we are ready to do cross validation on a logistic regression model `lr`:
+
+```{r}
+lr <- logistic_reg(mode = "classification") %>%
+  set_engine("glm")
+```
+
+Cross validation is performed with `fit_resamples`. We are performing four logistic regressions, each having a different fold as test set.
+
+```{r}
+logistic_cv <- fit_resamples(object = lr,
+                             preprocessor = recipe,
+                             resamples = folds,
+                             metrics = sonar_metrics)
+```
+
+The results (averaged across folds) are:
+
+```{r}
+logistic_cv %>%
+  collect_metrics()
+```
+
+## Parameter tuning on a regularized logistic regression model
+
+There are several regularized regression models, defined with the mixture parameter:
+
+* **ridge regression**, which adds the sum of **squared** regressors times a $\lambda$ parameter to the sum of residuals. We access to regularized regression making `mixture = 0`.
+* **lasso regression**, which adds the sum of **absolute value** regressors times a $\lambda$ parameter to the sum of residuals. We do Lasso regression making `mixture = 1`.
+* **elastic nets**, a mix of ridge and lasso obtain setting values of `mixture` between zero and one.
+
+We use `logistic_reg` with the `glmnet` engine. We set `tune()` for paramters `penalty` and `mixture`.
+
+```{r}
+rlr <- logistic_reg(penalty = tune(), mixture = tune()) %>%
+  set_engine("glmnet")
+```
+
+We need to specify the values of the parameters to tune with an **tuning grid**, entered as a data frame. It contains all the combinations of parameters ot be tested. In this case, `penalty` is fixed to one and we test eleven values of `mixture`.
+
+```{r}
+rlr_grid <- data.frame(mixture = seq(0, 1, 0.1),
+                       penalty = 1)
+```
+
+We use `tune_grid` to do the hyperparameter tuning. We are doing cross validation for each row of the tuning grid, so we are testing up to four times eleven regularized logistic regression models.
+
+```{r}
+rlr_tune <- tune_grid(object = rlr,
+                      preprocessor = recipe,
+                      resamples = folds,
+                      grid = rlr_grid,
+                      metrics = sonar_metrics)
+```
+
+Let's plot the results:
+
+```{r, out.width='100%'}
+rlr_tune %>%
+  collect_metrics() %>%
+  ggplot(aes(mixture, mean, color = .metric)) +
+  geom_errorbar(aes(ymin = mean - std_err,
+                    ymax = mean + std_err), 
+                alpha = 0.5,
+                width = 0.05) +
+  geom_line(size = 1.5) +
+  facet_wrap(. ~ .metric, ncol = 1) +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(0, 1, 0.2)) +
+  theme(legend.position = "none")
+```
+
+The best model is ridge regression with `mixture = 0`. The other values of `mixture` classify all observations as positive, so they are not informative. The fit of this model is better than logistic regression, so we will adopt it as final model.
+
+## Training the best model
+
+Let's train the selected `ridge` model on the whole train set:
+
+```{r}
+ridge <- logistic_reg(penalty = 1, mixture = 0) %>%
+  set_engine("glmnet")
+
+best_model <- workflow() %>%
+  add_recipe(recipe) %>%
+  add_model(ridge) %>%
+  fit(training(split))
+```
+
+Performance on the train set:
+
+```{r}
+best_model %>%
+  predict(training(split)) %>%
+  bind_cols(training(split)) %>%
+  sonar_metrics(truth = Class, estimate = .pred_class)
+```
+
+Performance on the test set:
+
+```{r}
+best_model %>%
+  predict(testing(split)) %>%
+  bind_cols(testing(split)) %>%
+  sonar_metrics(truth = Class, estimate = .pred_class)
+```
+
+The metrics on the test set are not much worse than in the train set, so we can assert that the model does not overfit to the train test.
+
+## References
+
+* Jun, Kang (2021), *tidymodels and glmnet*. <https://www.jkangpathology.com/post/tidymodel-and-glmnet/>
+* Kuhn, M.; Vaughan, D. *Technical aspects of the glmnet model.* <https://parsnip.tidymodels.org/reference/glmnet-details.html>
+* R documentation. *Sonar: Sonar, Mines vs. Rocks.* <https://rdrr.io/cran/mlbench/man/Sonar.html>
+* Silge, Julia (2021). *Add error for ridge regression with glmnet #431.* <https://github.com/tidymodels/parsnip/issues/431>
+* Silge, Julia (2020). *LASSO regression using tidymodels and #TidyTuesday data for The Office.* <https://juliasilge.com/blog/lasso-the-office/>
+
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
