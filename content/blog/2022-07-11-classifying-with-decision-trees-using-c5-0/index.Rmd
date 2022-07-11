@@ -1,0 +1,241 @@
+---
+title: Classifying with decision trees using C5.0
+author: Jose M Sallan
+date: '2022-07-11'
+slug: classifying-with-decision-trees-using-c5-0
+categories:
+  - R
+tags:
+  - machine learning
+  - R
+  - decision trees
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post, I will make a short introduction to decision trees for classification problems with the `C50` package, a R wrapper for the C5.0 algorithm (Quinlan, 1993). I will also use the `dplyr` and `ggplot2` for data manipulation and visualization, `BAdatasets` to access the `WineQuality` dataset and `yardstick` to obtain classification metrics.
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(C50)
+library(BAdatasets)
+library(yardstick)
+```
+
+The approach of **decision trees** to prediction consists of using the features to divide data into smaller and smaller groups, so that in each group most of the observations belong to the same category of the target variable. We use features to build a decision tree through **recursive partitioning**. It starts including all training data in a root node, and splitting data into two subsets according to the values of a feature. This process is repeated for different nodes creating a tree-like structure, whose terminal nodes are called leaves. Elements falling in a leaf will be assigned the class of the majority of elements of the leaf. This process can have several stopping criteria:
+
+* the observations of each leaf have a majority of elements of the same class.
+* the number of elements in each leaf reaches a minimal value.
+* the tree has grown into a size limit.
+
+Decision trees can also be presented as sets of if-then statements called **decision rules**. The if term contains a logical operator based on a combination of feature values, and the then assigns elements for which the statement is true to a class.
+
+Let's start exploring `C50` with a set of synthetic data `s_data`:
+
+```{r, fig.align='center'}
+n <- 400
+set.seed(2020)
+x <- c(runif(n*0.5, 0, 10), runif(n*0.25, 4, 10), runif(n*0.25, 0, 6))
+y <- c(runif(n*0.5, 0, 5), runif(n*0.25, 4, 10), runif(n*0.25, 4, 10))
+class <- as.factor(c(rep("a", n*0.5), c(rep("b", n*0.25)), c(rep("c", n*0.25))))
+
+s_data <- tibble(x=x, y=y, class = class)
+
+s_data %>% 
+  ggplot(aes(x, y, col=class)) + 
+  geom_point() + 
+  theme_minimal()
+```
+
+The task is to predict the value of `class` based on the features `x` and `y`. I use the `C5.0` function with formula and data as arguments and setting `rules=FALSE` to obtain a decision tree.
+
+```{r}
+dt <- C5.0(class ~ ., data = s_data, rules=FALSE)
+summary(dt)
+```
+
+`C50` has a `plot` method for decision trees:
+
+```{r, fig.align='center'}
+plot(dt)
+```
+
+From this plot we learn how the algorithm works: first it splits node 1 into nodes 2 and 3 based on the value of `y`. Then, it splits node 3 based on the value of `x`. Observations in node 2 will be labelled with class `a`, observations in node 3 to class `c` and observations in node 5 to class `b`.
+
+The plot help us to interpret some information obtained in the summary:
+
+* The tree has classified incorrectly 54 out of 400 observations, the 13.5% of total. This means that the accuracy of this classification is equal to 100% - 13.5% = 86.50%.
+* All observations of class a have been classified correctly, while 11 observations of class `b` and 18 + 25 = 43 of `c` have been classified incorrectly. This can be seen in the `Evaluation of training data` section of the summary.
+* Feature `y` has been used to classify all observations, while `x` has been used only for observations in leaves 4 and 5. In the `Attribute usage` section of the summary we see that `y` has a **variable importance** of 100% and `x` only of 42.75%, the proportion of observations in leaves 4 and 5.
+
+Here is an alternative representation of the classification in the original scatter plot:
+
+```{r, fig.align='center', echo=FALSE}
+s_data %>% 
+  ggplot(aes(x, y, col=class)) + 
+  geom_point() + 
+  geom_segment(x = 0, y = 4.972004, xend = 10, yend = 4.972004, color = "black", size = 0.5, linetype = "dashed") +
+  geom_segment(x = 3.875929, y = 4.972004, xend = 3.875929, yend = 10, color = "black", size = 0.5, linetype = "dashed") +
+  theme_minimal()
+```
+
+If we set `rules=TRUE` we obtain the classification as a set of rules equivalent to the decision tree:
+
+```{r}
+dr <- C5.0(class ~ ., data = s_data, rules=TRUE)
+summary(dr)
+```
+
+## Classifying the Wine Quality data set with C50
+
+Let's test the algorithm with a more complex example, `WineQuality`. It consists of two datasets with chemical properties of red and white vinho verde samples from the north of Portugal. I will be merging both datasets into one adding a `type` variable to distinguish red and white wines.
+
+```{r}
+data("WineQuality")
+
+red <- WineQuality$red %>%
+  mutate(type = "red")
+white <- WineQuality$white %>%
+  mutate(type = "white")
+
+wines <- bind_rows(red, white) %>%
+  mutate(type = factor(type))
+```
+
+The target variable is `quality`, which has several categories:
+
+```{r, fig.align='center'}
+wines %>%
+  ggplot(aes(factor(quality))) +
+  geom_bar() +
+  theme_minimal()
+```
+
+We have a too small number of observations for values of quality equal to three and 9, so I will collapse quality 3 into 4 and quality 9 into 8, respectively.
+
+```{r}
+wines <- wines %>%
+  mutate(quality = case_when(quality == 3 ~ 4,
+                             quality == 9 ~ 8,
+                             !quality %in% c(3,9) ~ quality))
+wines <- wines %>%
+  mutate(quality = factor(quality))
+```
+
+Now we have values of quality from 4 to 8:
+
+```{r, fig.align='center'}
+wines %>%
+  ggplot(aes(quality)) +
+  geom_bar() +
+  theme_minimal()
+```
+
+Let's build a decision tree on the dataset.
+
+```{r}
+wine_dt <- C5.0(quality ~ ., data = wines)
+```
+
+## Winnowing and boosting
+
+The C5.0 algorithm has two additional features to improve classificaation performance:
+
+* select which features include in the analysis through **winnowing**.
+* **boosting** the weight of some observations.
+
+Winnowing consists of pre-selecting a subset of the attributes that will be used to construct the decision tree. According to the developers of the algorithm, it can be useful for situations where some of the attributes have at best marginal relevance to the classification task. We apply winnowing to the classifyer making `winnow=TRUE`.
+
+When using boosting, C5.0 produces several decision trees iteratively:
+
+1. We obtain an initial decision tree applying the C5.0 algorithm.
+2. The algorithm detects the observations that have not been classified correctly, and increases their weight to compute node purity. 
+3. A new decision tree is obtained using the weights obtained above.
+3. Boosting stops when the obtained classifier is highly accurate or too inaccurate, or when a number of trials is reached.
+
+We can use boosting in `C5.0` setting a value of `trials` larger than one.
+
+Let's obtain a new decision tree applying winnowing and boosting.
+
+```{r}
+wine_dt_winnow <- C5.0(quality ~ ., data = wines, 
+                       winnow = TRUE, 
+                       trials = 5)
+```
+
+## Comparing performance
+
+I will use the `yardstick` package from `tidymodels` to obtain performance parameters of the two classifiers:
+
+* I am using the `predict` method for each decision tree, and store real and predicted values into a `class_wines` tibble.
+* I am defining a metric set `class_metrics` including accuracy, precision and recall.
+
+Let's remember that:
+
+* **accuracy** is the fraction of observations classified correctly.
+* **precision** is the fraction of observations that have been assigned a category classified correctly. It is averaged across categories.
+* **recall** is the fraction of observations belonging to a category classified correctly. It is also averaged across categories.
+
+```{r}
+class_wines <- tibble(value = wines$quality, 
+                      predict = predict(wine_dt, wines),
+                      predict_w = predict(wine_dt_winnow, wines))
+
+class_metrics <- metric_set(accuracy, precision, recall)
+```
+
+Let's examine the confusion matrix for the two decision trees:
+
+```{r}
+conf_mat(class_wines, truth = value, estimate = predict)
+class_metrics(class_wines, truth = value, estimate = predict)
+```
+
+And the performance metrics:
+
+```{r}
+conf_mat(class_wines, truth = value, estimate = predict_w)
+class_metrics(class_wines, truth = value, estimate = predict_w)
+```
+
+The metrics of the model with winnowing and boosting are better than the ones of the baseline model. As I have not split the dataset into train and test, I cannot control if the obtained classifiers overfit to the train test.
+
+## Variable importance
+
+We can learn about which variables are more relevant in a decision tree with variable importance. In the `C50` package, the importance of a variable is equal to the proportion of observations that have been classified using that variable. For instance, the variable used in the first split has an importance of 100%.
+
+In the summary of a call to `C5.0`, the importance of variables is in the `Attribute usage` section. We can obtain these values with `C5imp`:
+
+```{r}
+C5imp(wine_dt)
+```
+
+The same values for the classification with winnowing and boosting.
+
+```{r}
+C5imp(wine_dt_winnow)
+```
+
+The `C50` implements in R the C5.0 classification model described in Quinlan (1993). It can be used only for classification problems, although it includes feature selection with winnowing and boosting of anomalous observations using cross validation. 
+
+## References 
+
+* *C5.0 Classification Models* <https://cran.r-project.org/web/packages/C50/vignettes/C5.0.html>
+* Kuhn, M., & Johnson, K. (2013). *Applied predictive modeling.* New York: Springer.
+Cortez, P *et al.* (2009). *Wine Quality Data Set*. <https://archive.ics.uci.edu/ml/datasets/wine+quality>
+* Quinlan, J. R. (1993). *C4. 5: programs for machine learning.* Elsevier.
+* Rulequest (2019). *C5.0: An Informal Tutorial.* <https://www.rulequest.com/see5-unix.html>
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+

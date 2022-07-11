@@ -1,0 +1,366 @@
+---
+title: Classifying with decision trees using C5.0
+author: Jose M Sallan
+date: '2022-07-11'
+slug: classifying-with-decision-trees-using-c5-0
+categories:
+  - R
+tags:
+  - machine learning
+  - R
+  - decision trees
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>In this post, I will make a short introduction to decision trees for classification problems with the <code>C50</code> package, a R wrapper for the C5.0 algorithm (Quinlan, 1993). I will also use the <code>dplyr</code> and <code>ggplot2</code> for data manipulation and visualization, <code>BAdatasets</code> to access the <code>WineQuality</code> dataset and <code>yardstick</code> to obtain classification metrics.</p>
+<pre class="r"><code>library(dplyr)
+library(ggplot2)
+library(C50)
+library(BAdatasets)
+library(yardstick)</code></pre>
+<p>The approach of <strong>decision trees</strong> to prediction consists of using the features to divide data into smaller and smaller groups, so that in each group most of the observations belong to the same category of the target variable. We use features to build a decision tree through <strong>recursive partitioning</strong>. It starts including all training data in a root node, and splitting data into two subsets according to the values of a feature. This process is repeated for different nodes creating a tree-like structure, whose terminal nodes are called leaves. Elements falling in a leaf will be assigned the class of the majority of elements of the leaf. This process can have several stopping criteria:</p>
+<ul>
+<li>the observations of each leaf have a majority of elements of the same class.</li>
+<li>the number of elements in each leaf reaches a minimal value.</li>
+<li>the tree has grown into a size limit.</li>
+</ul>
+<p>Decision trees can also be presented as sets of if-then statements called <strong>decision rules</strong>. The if term contains a logical operator based on a combination of feature values, and the then assigns elements for which the statement is true to a class.</p>
+<p>Let’s start exploring <code>C50</code> with a set of synthetic data <code>s_data</code>:</p>
+<pre class="r"><code>n &lt;- 400
+set.seed(2020)
+x &lt;- c(runif(n*0.5, 0, 10), runif(n*0.25, 4, 10), runif(n*0.25, 0, 6))
+y &lt;- c(runif(n*0.5, 0, 5), runif(n*0.25, 4, 10), runif(n*0.25, 4, 10))
+class &lt;- as.factor(c(rep(&quot;a&quot;, n*0.5), c(rep(&quot;b&quot;, n*0.25)), c(rep(&quot;c&quot;, n*0.25))))
+
+s_data &lt;- tibble(x=x, y=y, class = class)
+
+s_data %&gt;% 
+  ggplot(aes(x, y, col=class)) + 
+  geom_point() + 
+  theme_minimal()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>The task is to predict the value of <code>class</code> based on the features <code>x</code> and <code>y</code>. I use the <code>C5.0</code> function with formula and data as arguments and setting <code>rules=FALSE</code> to obtain a decision tree.</p>
+<pre class="r"><code>dt &lt;- C5.0(class ~ ., data = s_data, rules=FALSE)
+summary(dt)</code></pre>
+<pre><code>## 
+## Call:
+## C5.0.formula(formula = class ~ ., data = s_data, rules = FALSE)
+## 
+## 
+## C5.0 [Release 2.07 GPL Edition]      Mon Jul 11 11:53:23 2022
+## -------------------------------
+## 
+## Class specified by attribute `outcome&#39;
+## 
+## Read 400 cases (3 attributes) from undefined.data
+## 
+## Decision tree:
+## 
+## y &lt;= 4.972004: a (229/29)
+## y &gt; 4.972004:
+## :...x &lt;= 3.875929: c (57)
+##     x &gt; 3.875929: b (114/25)
+## 
+## 
+## Evaluation on training data (400 cases):
+## 
+##      Decision Tree   
+##    ----------------  
+##    Size      Errors  
+## 
+##       3   54(13.5%)   &lt;&lt;
+## 
+## 
+##     (a)   (b)   (c)    &lt;-classified as
+##    ----  ----  ----
+##     200                (a): class a
+##      11    89          (b): class b
+##      18    25    57    (c): class c
+## 
+## 
+##  Attribute usage:
+## 
+##  100.00% y
+##   42.75% x
+## 
+## 
+## Time: 0.0 secs</code></pre>
+<p><code>C50</code> has a <code>plot</code> method for decision trees:</p>
+<pre class="r"><code>plot(dt)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>From this plot we learn how the algorithm works: first it splits node 1 into nodes 2 and 3 based on the value of <code>y</code>. Then, it splits node 3 based on the value of <code>x</code>. Observations in node 2 will be labelled with class <code>a</code>, observations in node 3 to class <code>c</code> and observations in node 5 to class <code>b</code>.</p>
+<p>The plot help us to interpret some information obtained in the summary:</p>
+<ul>
+<li>The tree has classified incorrectly 54 out of 400 observations, the 13.5% of total. This means that the accuracy of this classification is equal to 100% - 13.5% = 86.50%.</li>
+<li>All observations of class a have been classified correctly, while 11 observations of class <code>b</code> and 18 + 25 = 43 of <code>c</code> have been classified incorrectly. This can be seen in the <code>Evaluation of training data</code> section of the summary.</li>
+<li>Feature <code>y</code> has been used to classify all observations, while <code>x</code> has been used only for observations in leaves 4 and 5. In the <code>Attribute usage</code> section of the summary we see that <code>y</code> has a <strong>variable importance</strong> of 100% and <code>x</code> only of 42.75%, the proportion of observations in leaves 4 and 5.</li>
+</ul>
+<p>Here is an alternative representation of the classification in the original scatter plot:</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>If we set <code>rules=TRUE</code> we obtain the classification as a set of rules equivalent to the decision tree:</p>
+<pre class="r"><code>dr &lt;- C5.0(class ~ ., data = s_data, rules=TRUE)
+summary(dr)</code></pre>
+<pre><code>## 
+## Call:
+## C5.0.formula(formula = class ~ ., data = s_data, rules = TRUE)
+## 
+## 
+## C5.0 [Release 2.07 GPL Edition]      Mon Jul 11 11:53:24 2022
+## -------------------------------
+## 
+## Class specified by attribute `outcome&#39;
+## 
+## Read 400 cases (3 attributes) from undefined.data
+## 
+## Rules:
+## 
+## Rule 1: (229/29, lift 1.7)
+##  y &lt;= 4.972004
+##  -&gt;  class a  [0.870]
+## 
+## Rule 2: (114/25, lift 3.1)
+##  x &gt; 3.875929
+##  y &gt; 4.972004
+##  -&gt;  class b  [0.776]
+## 
+## Rule 3: (57, lift 3.9)
+##  x &lt;= 3.875929
+##  y &gt; 4.972004
+##  -&gt;  class c  [0.983]
+## 
+## Default class: a
+## 
+## 
+## Evaluation on training data (400 cases):
+## 
+##          Rules     
+##    ----------------
+##      No      Errors
+## 
+##       3   54(13.5%)   &lt;&lt;
+## 
+## 
+##     (a)   (b)   (c)    &lt;-classified as
+##    ----  ----  ----
+##     200                (a): class a
+##      11    89          (b): class b
+##      18    25    57    (c): class c
+## 
+## 
+##  Attribute usage:
+## 
+##  100.00% y
+##   42.75% x
+## 
+## 
+## Time: 0.0 secs</code></pre>
+<div id="classifying-the-wine-quality-data-set-with-c50" class="section level2">
+<h2>Classifying the Wine Quality data set with C50</h2>
+<p>Let’s test the algorithm with a more complex example, <code>WineQuality</code>. It consists of two datasets with chemical properties of red and white vinho verde samples from the north of Portugal. I will be merging both datasets into one adding a <code>type</code> variable to distinguish red and white wines.</p>
+<pre class="r"><code>data(&quot;WineQuality&quot;)
+
+red &lt;- WineQuality$red %&gt;%
+  mutate(type = &quot;red&quot;)
+white &lt;- WineQuality$white %&gt;%
+  mutate(type = &quot;white&quot;)
+
+wines &lt;- bind_rows(red, white) %&gt;%
+  mutate(type = factor(type))</code></pre>
+<p>The target variable is <code>quality</code>, which has several categories:</p>
+<pre class="r"><code>wines %&gt;%
+  ggplot(aes(factor(quality))) +
+  geom_bar() +
+  theme_minimal()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>We have a too small number of observations for values of quality equal to three and 9, so I will collapse quality 3 into 4 and quality 9 into 8, respectively.</p>
+<pre class="r"><code>wines &lt;- wines %&gt;%
+  mutate(quality = case_when(quality == 3 ~ 4,
+                             quality == 9 ~ 8,
+                             !quality %in% c(3,9) ~ quality))
+wines &lt;- wines %&gt;%
+  mutate(quality = factor(quality))</code></pre>
+<p>Now we have values of quality from 4 to 8:</p>
+<pre class="r"><code>wines %&gt;%
+  ggplot(aes(quality)) +
+  geom_bar() +
+  theme_minimal()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Let’s build a decision tree on the dataset.</p>
+<pre class="r"><code>wine_dt &lt;- C5.0(quality ~ ., data = wines)</code></pre>
+</div>
+<div id="winnowing-and-boosting" class="section level2">
+<h2>Winnowing and boosting</h2>
+<p>The C5.0 algorithm has two additional features to improve classificaation performance:</p>
+<ul>
+<li>select which features include in the analysis through <strong>winnowing</strong>.</li>
+<li><strong>boosting</strong> the weight of some observations.</li>
+</ul>
+<p>Winnowing consists of pre-selecting a subset of the attributes that will be used to construct the decision tree. According to the developers of the algorithm, it can be useful for situations where some of the attributes have at best marginal relevance to the classification task. We apply winnowing to the classifyer making <code>winnow=TRUE</code>.</p>
+<p>When using boosting, C5.0 produces several decision trees iteratively:</p>
+<ol style="list-style-type: decimal">
+<li>We obtain an initial decision tree applying the C5.0 algorithm.</li>
+<li>The algorithm detects the observations that have not been classified correctly, and increases their weight to compute node purity.</li>
+<li>A new decision tree is obtained using the weights obtained above.</li>
+<li>Boosting stops when the obtained classifier is highly accurate or too inaccurate, or when a number of trials is reached.</li>
+</ol>
+<p>We can use boosting in <code>C5.0</code> setting a value of <code>trials</code> larger than one.</p>
+<p>Let’s obtain a new decision tree applying winnowing and boosting.</p>
+<pre class="r"><code>wine_dt_winnow &lt;- C5.0(quality ~ ., data = wines, 
+                       winnow = TRUE, 
+                       trials = 5)</code></pre>
+</div>
+<div id="comparing-performance" class="section level2">
+<h2>Comparing performance</h2>
+<p>I will use the <code>yardstick</code> package from <code>tidymodels</code> to obtain performance parameters of the two classifiers:</p>
+<ul>
+<li>I am using the <code>predict</code> method for each decision tree, and store real and predicted values into a <code>class_wines</code> tibble.</li>
+<li>I am defining a metric set <code>class_metrics</code> including accuracy, precision and recall.</li>
+</ul>
+<p>Let’s remember that:</p>
+<ul>
+<li><strong>accuracy</strong> is the fraction of observations classified correctly.</li>
+<li><strong>precision</strong> is the fraction of observations that have been assigned a category classified correctly. It is averaged across categories.</li>
+<li><strong>recall</strong> is the fraction of observations belonging to a category classified correctly. It is also averaged across categories.</li>
+</ul>
+<pre class="r"><code>class_wines &lt;- tibble(value = wines$quality, 
+                      predict = predict(wine_dt, wines),
+                      predict_w = predict(wine_dt_winnow, wines))
+
+class_metrics &lt;- metric_set(accuracy, precision, recall)</code></pre>
+<p>Let’s examine the confusion matrix for the two decision trees:</p>
+<pre class="r"><code>conf_mat(class_wines, truth = value, estimate = predict)</code></pre>
+<pre><code>##           Truth
+## Prediction    4    5    6    7    8
+##          4  152   12    5    4    1
+##          5   56 1719  232   26    6
+##          6   36  372 2415  180   25
+##          7    2   33  175  864   52
+##          8    0    2    9    5  114</code></pre>
+<pre class="r"><code>class_metrics(class_wines, truth = value, estimate = predict)</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   .metric   .estimator .estimate
+##   &lt;chr&gt;     &lt;chr&gt;          &lt;dbl&gt;
+## 1 accuracy  multiclass     0.810
+## 2 precision macro          0.832
+## 3 recall    macro          0.730</code></pre>
+<p>And the performance metrics:</p>
+<pre class="r"><code>conf_mat(class_wines, truth = value, estimate = predict_w)</code></pre>
+<pre><code>##           Truth
+## Prediction    4    5    6    7    8
+##          4  175    2    0    0    0
+##          5   50 2019  155   11    4
+##          6   20  108 2657  109   13
+##          7    1    8   21  957   12
+##          8    0    1    3    2  169</code></pre>
+<pre class="r"><code>class_metrics(class_wines, truth = value, estimate = predict_w)</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   .metric   .estimator .estimate
+##   &lt;chr&gt;     &lt;chr&gt;          &lt;dbl&gt;
+## 1 accuracy  multiclass     0.920
+## 2 precision macro          0.946
+## 3 recall    macro          0.867</code></pre>
+<p>The metrics of the model with winnowing and boosting are better than the ones of the baseline model. As I have not split the dataset into train and test, I cannot control if the obtained classifiers overfit to the train test.</p>
+</div>
+<div id="variable-importance" class="section level2">
+<h2>Variable importance</h2>
+<p>We can learn about which variables are more relevant in a decision tree with variable importance. In the <code>C50</code> package, the importance of a variable is equal to the proportion of observations that have been classified using that variable. For instance, the variable used in the first split has an importance of 100%.</p>
+<p>In the summary of a call to <code>C5.0</code>, the importance of variables is in the <code>Attribute usage</code> section. We can obtain these values with <code>C5imp</code>:</p>
+<pre class="r"><code>C5imp(wine_dt)</code></pre>
+<pre><code>##                      Overall
+## volatileacidity       100.00
+## alcohol               100.00
+## freesulfurdioxide      83.45
+## fixedacidity           72.66
+## sulphates              67.18
+## citricacid             60.63
+## pH                     51.44
+## residualsugar          49.87
+## totalsulfurdioxide     47.05
+## chlorides              44.13
+## density                41.34
+## type                   37.31
+## fixed acidity           0.00
+## volatile acidity        0.00
+## citric acid             0.00
+## residual sugar          0.00
+## free sulfur dioxide     0.00
+## total sulfur dioxide    0.00</code></pre>
+<p>The same values for the classification with winnowing and boosting.</p>
+<pre class="r"><code>C5imp(wine_dt_winnow)</code></pre>
+<pre><code>##                      Overall
+## volatileacidity       100.00
+## alcohol               100.00
+## freesulfurdioxide      99.80
+## sulphates              99.03
+## fixedacidity           99.00
+## citricacid             97.44
+## pH                     95.74
+## totalsulfurdioxide     94.95
+## chlorides              93.58
+## residualsugar          93.47
+## density                83.01
+## type                   78.93
+## fixed acidity           0.00
+## volatile acidity        0.00
+## citric acid             0.00
+## residual sugar          0.00
+## free sulfur dioxide     0.00
+## total sulfur dioxide    0.00</code></pre>
+<p>The <code>C50</code> implements in R the C5.0 classification model described in Quinlan (1993). It can be used only for classification problems, although it includes feature selection with winnowing and boosting of anomalous observations using cross validation.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li><em>C5.0 Classification Models</em> <a href="https://cran.r-project.org/web/packages/C50/vignettes/C5.0.html" class="uri">https://cran.r-project.org/web/packages/C50/vignettes/C5.0.html</a></li>
+<li>Kuhn, M., &amp; Johnson, K. (2013). <em>Applied predictive modeling.</em> New York: Springer.
+Cortez, P <em>et al.</em> (2009). <em>Wine Quality Data Set</em>. <a href="https://archive.ics.uci.edu/ml/datasets/wine+quality" class="uri">https://archive.ics.uci.edu/ml/datasets/wine+quality</a></li>
+<li>Quinlan, J. R. (1993). <em>C4. 5: programs for machine learning.</em> Elsevier.</li>
+<li>Rulequest (2019). <em>C5.0: An Informal Tutorial.</em> <a href="https://www.rulequest.com/see5-unix.html" class="uri">https://www.rulequest.com/see5-unix.html</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre><code>## R version 4.2.0 (2022-04-22)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 19.2
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/openblas/libblas.so.3
+## LAPACK: /usr/lib/x86_64-linux-gnu/libopenblasp-r0.2.20.so
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] yardstick_0.0.9  BAdatasets_0.1.0 C50_0.1.6        ggplot2_3.3.5   
+## [5] dplyr_1.0.9     
+## 
+## loaded via a namespace (and not attached):
+##  [1] tidyselect_1.1.2 xfun_0.30        bslib_0.3.1      inum_1.0-4      
+##  [5] purrr_0.3.4      reshape2_1.4.4   splines_4.2.0    lattice_0.20-45 
+##  [9] Cubist_0.4.0     colorspace_2.0-3 vctrs_0.4.1      generics_0.1.2  
+## [13] htmltools_0.5.2  yaml_2.3.5       utf8_1.2.2       survival_3.2-13 
+## [17] rlang_1.0.2      jquerylib_0.1.4  pillar_1.7.0     glue_1.6.2      
+## [21] withr_2.5.0      DBI_1.1.2        lifecycle_1.0.1  plyr_1.8.7      
+## [25] stringr_1.4.0    munsell_0.5.0    blogdown_1.9     gtable_0.3.0    
+## [29] mvtnorm_1.1-3    evaluate_0.15    labeling_0.4.2   knitr_1.39      
+## [33] fastmap_1.1.0    fansi_1.0.3      highr_0.9        Rcpp_1.0.8.3    
+## [37] scales_1.2.0     jsonlite_1.8.0   farver_2.1.0     digest_0.6.29   
+## [41] stringi_1.7.6    bookdown_0.26    grid_4.2.0       cli_3.3.0       
+## [45] tools_4.2.0      magrittr_2.0.3   sass_0.4.1       tibble_3.1.6    
+## [49] Formula_1.2-4    crayon_1.5.1     pkgconfig_2.0.3  partykit_1.2-16 
+## [53] ellipsis_0.3.2   libcoin_1.0-9    Matrix_1.4-1     pROC_1.18.0     
+## [57] assertthat_0.2.1 rmarkdown_2.14   rstudioapi_0.13  rpart_4.1.16    
+## [61] R6_2.5.1         compiler_4.2.0</code></pre>
+</div>
