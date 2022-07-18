@@ -1,0 +1,202 @@
+---
+title: Predicting with decision tress using rpart
+author: Jose M Sallan
+date: '2022-07-18'
+slug: predicting-with-decision-tress-using-rpart
+categories:
+  - R
+tags:
+  - decision trees
+  - machine learning
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>In this post, I will make a short introduction to decision trees with the <code>rpart</code> package. This package implements the ideas about classification and regression trees presented in Breiman <em>et al</em>. (1983). I will present how <code>rpart</code> can be used for classification and numerical prediction, and how to plot the outcome of <code>rpart</code> using the <code>rpart.plot</code> package.</p>
+<p>I will also use the <code>dplyr</code> and <code>ggplot2</code> for data manipulation and visualization, <code>BAdatasets</code> to access the <code>WineQuality</code> dataset, <code>mlbench</code> to access the <code>BostonHousing</code> dataset and <code>yardstick</code> to obtain classification metrics.</p>
+<pre class="r"><code>library(dplyr)
+library(ggplot2)
+library(rpart)
+library(rpart.plot)
+library(BAdatasets)
+library(mlbench)
+library(yardstick)</code></pre>
+<p>Let’s start with the same set of synthetic data we used for <code>C50</code>:</p>
+<pre class="r"><code>n &lt;- 400
+set.seed(2020)
+x &lt;- c(runif(n*0.5, 0, 10), runif(n*0.25, 4, 10), runif(n*0.25, 0, 6))
+y &lt;- c(runif(n*0.5, 0, 5), runif(n*0.25, 4, 10), runif(n*0.25, 4, 10))
+class &lt;- as.factor(c(rep(&quot;a&quot;, n*0.5), c(rep(&quot;b&quot;, n*0.25)), c(rep(&quot;c&quot;, n*0.25))))
+
+s_data &lt;- tibble(x=x, y=y, class = class)</code></pre>
+<p>The <code>rpart</code> function uses the formula and data syntax. We can use <code>rpart.plot</code> to see the result:</p>
+<pre class="r"><code>dt01 &lt;- rpart(class ~  ., s_data)
+rpart.plot(dt01)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>This classification is very precise and complex, but also prone to overfitting. We can control how precise and therefore prone to overfitting a <code>rpart</code> tree is with the <strong>complexity parameter</strong> <code>cp</code>. Any split that does not decrease the overall lack of fit by a factor of <code>cp</code> is not attempted. Small values of <code>cp</code> will create large trees and large values may not produce any tree. The default value of <code>cp</code> is of 0.01. Let’s see the result to increase <code>cp</code> by an order of magnitude:</p>
+<pre class="r"><code>dt02 &lt;- rpart(class ~  ., s_data, cp = 0.1)
+rpart.plot(dt02)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>The outcome is similar to the obtained with <code>C50</code> and can represent a good balance between bias and variance. Other ways of controlling tree size can be found at <code>rpart.control</code>.</p>
+<div id="classifying-with-rpart" class="section level2">
+<h2>Classifying with rpart</h2>
+<p>Let’s build the <code>wines</code> table of features predicting quality of red and white Portugese wines from data of <code>WineQuality</code>:</p>
+<pre class="r"><code>data(&quot;WineQuality&quot;)
+
+red &lt;- WineQuality$red %&gt;%
+  mutate(type = &quot;red&quot;)
+white &lt;- WineQuality$white %&gt;%
+  mutate(type = &quot;white&quot;)
+
+wines &lt;- bind_rows(red, white)
+wines &lt;- wines %&gt;%
+  mutate(quality = case_when(quality == 3 ~ 4,
+                             quality == 9 ~ 8,
+                             !quality %in% c(3,9) ~ quality))
+wines &lt;- wines %&gt;%
+  mutate(quality = factor(quality))</code></pre>
+<p>Let’s see the tree we obtain with <code>rpart</code> defaults:</p>
+<pre class="r"><code>dt_wines01 &lt;- rpart(quality ~ ., wines)
+rpart.plot(dt_wines01)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>This classification looks too simplistic, as it has not been able to predict extreme values of quality. Let’s try a much smaller value of <code>cp</code>:</p>
+<pre class="r"><code>dt_wines02 &lt;- rpart(quality ~ ., wines, cp = 0.0001)</code></pre>
+<p>The resulting tree is too large to be plot. Let’s use the <code>predict</code> function with <code>type = "class"</code> to obtain the predicted values for each element of the sample.</p>
+<pre class="r"><code>table_wines &lt;- data.frame(value = wines$quality, pred = predict(dt_wines02, wines, type = &quot;class&quot;))</code></pre>
+<p>Here is the confusion matrix:</p>
+<pre class="r"><code>conf_mat(table_wines, truth = value, estimate = pred)</code></pre>
+<pre><code>##           Truth
+## Prediction    4    5    6    7    8
+##          4   59   29   23   10    0
+##          5  103 1693  323   97   15
+##          6   72  350 2332  275   60
+##          7   11   58  143  685   59
+##          8    1    8   15   12   64</code></pre>
+<p>And here some classification metrics:</p>
+<pre class="r"><code>class_metrics &lt;- metric_set(accuracy, precision, recall)
+class_metrics(table_wines, truth = value, estimate = pred)</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   .metric   .estimator .estimate
+##   &lt;chr&gt;     &lt;chr&gt;          &lt;dbl&gt;
+## 1 accuracy  multiclass     0.744
+## 2 precision macro          0.672
+## 3 recall    macro          0.562</code></pre>
+<p>The classification metrics are not as good as with <code>C50</code>, as rpart does not implement winnowing and boosting. But maybe this classification is less prone to overfitting.</p>
+<p><code>rpart</code> offers a measure of <strong>variable importance</strong> equal to the sum of the goodness of split measures for each split for which it was the primary variable:</p>
+<pre class="r"><code>dt_wines02$variable.importance</code></pre>
+<pre><code>##              alcohol              density total sulfur dioxide 
+##            524.12183            495.09604            417.53959 
+##       residual sugar            chlorides     volatile acidity 
+##            367.55782            344.47974            338.19316 
+##  free sulfur dioxide        fixed acidity                   pH 
+##            333.89703            270.91568            255.05421 
+##            sulphates          citric acid                 type 
+##            249.26864            242.07769             76.33693</code></pre>
+<p>The variables used in early splits tend to have higher variable importance.</p>
+</div>
+<div id="prediction-of-house-prices-in-boston-housing-with-rpart" class="section level2">
+<h2>Prediction of house prices in Boston Housing with rpart</h2>
+<p>Let’s see now how can we use <code>rpart</code> for numerical prediction. I will be using the <code>BostonHousing</code> dataset presented by Harrison and Rubinfeld (1978). The target variable is <code>medv</code>, the median value of owner-occupied homes for each Boston census tract.</p>
+<pre class="r"><code>data(&quot;BostonHousing&quot;)
+BostonHousing %&gt;%
+  glimpse()</code></pre>
+<pre><code>## Rows: 506
+## Columns: 14
+## $ crim    &lt;dbl&gt; 0.00632, 0.02731, 0.02729, 0.03237, 0.06905, 0.02985, 0.08829,…
+## $ zn      &lt;dbl&gt; 18.0, 0.0, 0.0, 0.0, 0.0, 0.0, 12.5, 12.5, 12.5, 12.5, 12.5, 1…
+## $ indus   &lt;dbl&gt; 2.31, 7.07, 7.07, 2.18, 2.18, 2.18, 7.87, 7.87, 7.87, 7.87, 7.…
+## $ chas    &lt;fct&gt; 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,…
+## $ nox     &lt;dbl&gt; 0.538, 0.469, 0.469, 0.458, 0.458, 0.458, 0.524, 0.524, 0.524,…
+## $ rm      &lt;dbl&gt; 6.575, 6.421, 7.185, 6.998, 7.147, 6.430, 6.012, 6.172, 5.631,…
+## $ age     &lt;dbl&gt; 65.2, 78.9, 61.1, 45.8, 54.2, 58.7, 66.6, 96.1, 100.0, 85.9, 9…
+## $ dis     &lt;dbl&gt; 4.0900, 4.9671, 4.9671, 6.0622, 6.0622, 6.0622, 5.5605, 5.9505…
+## $ rad     &lt;dbl&gt; 1, 2, 2, 3, 3, 3, 5, 5, 5, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4,…
+## $ tax     &lt;dbl&gt; 296, 242, 242, 222, 222, 222, 311, 311, 311, 311, 311, 311, 31…
+## $ ptratio &lt;dbl&gt; 15.3, 17.8, 17.8, 18.7, 18.7, 18.7, 15.2, 15.2, 15.2, 15.2, 15…
+## $ b       &lt;dbl&gt; 396.90, 396.90, 392.83, 394.63, 396.90, 394.12, 395.60, 396.90…
+## $ lstat   &lt;dbl&gt; 4.98, 9.14, 4.03, 2.94, 5.33, 5.21, 12.43, 19.15, 29.93, 17.10…
+## $ medv    &lt;dbl&gt; 24.0, 21.6, 34.7, 33.4, 36.2, 28.7, 22.9, 27.1, 16.5, 18.9, 15…</code></pre>
+<p>The syntax for numerical prediction is similar to classification: <code>rpart</code> knows the type of problem by the class of target variable. The predicted value for the observations in a leaf is the average value of the target variable for those observations.</p>
+<pre class="r"><code>dt_bh &lt;- rpart(medv ~ ., BostonHousing)
+rpart.plot(dt_bh)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-13-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>I have used the default <code>cp = 0.01</code>, obtaining a tree with a reasonable fit. Let’s examine variable importance:</p>
+<pre class="r"><code>dt_bh$variable.importance</code></pre>
+<pre><code>##         rm      lstat        dis      indus        tax    ptratio        nox 
+## 23825.9224 15047.9426  5385.2076  5313.9748  4205.2067  4202.2984  4166.1230 
+##        age       crim         zn        rad          b 
+##  3969.2913  2753.2843  1604.5566  1007.6588   408.1277</code></pre>
+<p>To use the <code>yardstick</code> capabilities for numerical prediction, I am storing the real and predicted values of the target variable in a data frame.</p>
+<pre class="r"><code>table_bh &lt;- data.frame(value = BostonHousing$medv, 
+                       pred = predict(dt_bh, BostonHousing))</code></pre>
+<p>Here I am obtaining the metrics, which show a reasonable fit.</p>
+<pre class="r"><code>np_metrics &lt;- metric_set(rsq, rmse, mae)
+np_metrics(table_bh, truth = value, estimate = pred)</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   .metric .estimator .estimate
+##   &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt;
+## 1 rsq     standard       0.808
+## 2 rmse    standard       4.03 
+## 3 mae     standard       2.91</code></pre>
+<p>Here is the plot of real versus predicted values. The algorithm provides as many predicted values as terminal nodes of the tree.</p>
+<pre class="r"><code>ggplot(table_bh, aes(value, pred)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, color = &quot;red&quot;) +
+  theme_minimal() +
+  labs(x = &quot;real values&quot;, y = &quot;predicted values&quot;, title = &quot;Prediction of Boston Housing with rpart&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-17-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>The <code>rpart</code> package implements in R the decision tree techniques presented in the CART book by Breiman <em>et al.</em> (1983). The package can be used for classification and numerical prediction. An effective implementation calls for tuning of some of the parameters of <code>rpart.control</code>, for instance the complexity parameter <code>cp</code>.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Atkinson, E. J. The <code>rpart</code> package. <a href="https://github.com/bethatkinson/rpart" class="uri">https://github.com/bethatkinson/rpart</a></li>
+<li>Breiman, L., Friedman, J. H., Olshen, R. A., &amp; Stone, C. J. (1983). <em>Classification and regression trees.</em> Wadsworth, Belmont, CA.</li>
+<li>Harrison, D. and Rubinfeld, D.L. (1978). Hedonic prices and the demand for clean air. <em>Journal of Environmental Economics and Management</em>, 5, 81–102.</li>
+<li>Milborrow, S. (2021). <em>Plotting <code>rpart</code> trees with the <code>rpart.plot</code> package.</em> <a href="http://www.milbo.org/rpart-plot/prp.pdf" class="uri">http://www.milbo.org/rpart-plot/prp.pdf</a></li>
+<li>Therneau, T. M.; Atkinson, E. J. (2022). <em>An Introduction to Recursive Partitioning Using the RPART Routines.</em> <a href="https://cran.r-project.org/web/packages/rpart/vignettes/longintro.pdf" class="uri">https://cran.r-project.org/web/packages/rpart/vignettes/longintro.pdf</a> Mayo Foundation.</li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre><code>## R version 4.2.0 (2022-04-22)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 19.2
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/openblas/libblas.so.3
+## LAPACK: /usr/lib/x86_64-linux-gnu/libopenblasp-r0.2.20.so
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] yardstick_0.0.9  mlbench_2.1-3    BAdatasets_0.1.0 rpart.plot_3.1.0
+## [5] rpart_4.1.16     ggplot2_3.3.5    dplyr_1.0.9     
+## 
+## loaded via a namespace (and not attached):
+##  [1] Rcpp_1.0.8.3     highr_0.9        plyr_1.8.7       pillar_1.7.0    
+##  [5] bslib_0.3.1      compiler_4.2.0   jquerylib_0.1.4  tools_4.2.0     
+##  [9] digest_0.6.29    gtable_0.3.0     jsonlite_1.8.0   evaluate_0.15   
+## [13] lifecycle_1.0.1  tibble_3.1.6     pkgconfig_2.0.3  rlang_1.0.2     
+## [17] cli_3.3.0        DBI_1.1.2        rstudioapi_0.13  yaml_2.3.5      
+## [21] blogdown_1.9     xfun_0.30        fastmap_1.1.0    withr_2.5.0     
+## [25] stringr_1.4.0    knitr_1.39       pROC_1.18.0      generics_0.1.2  
+## [29] vctrs_0.4.1      sass_0.4.1       grid_4.2.0       tidyselect_1.1.2
+## [33] glue_1.6.2       R6_2.5.1         fansi_1.0.3      rmarkdown_2.14  
+## [37] bookdown_0.26    farver_2.1.0     purrr_0.3.4      magrittr_2.0.3  
+## [41] scales_1.2.0     htmltools_0.5.2  ellipsis_0.3.2   assertthat_0.2.1
+## [45] colorspace_2.0-3 labeling_0.4.2   utf8_1.2.2       stringi_1.7.6   
+## [49] munsell_0.5.0    crayon_1.5.1</code></pre>
+</div>

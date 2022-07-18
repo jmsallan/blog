@@ -1,0 +1,189 @@
+---
+title: Predicting with decision tress using rpart
+author: Jose M Sallan
+date: '2022-07-18'
+slug: predicting-with-decision-tress-using-rpart
+categories:
+  - R
+tags:
+  - decision trees
+  - machine learning
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post, I will make a short introduction to decision trees with the `rpart` package. This package implements the ideas about classification and regression trees presented in Breiman *et al*. (1983). I will present how `rpart` can be used for classification and numerical prediction, and how to plot the outcome of `rpart` using the `rpart.plot` package.
+
+I will also use the `dplyr` and `ggplot2` for data manipulation and visualization, `BAdatasets` to access the `WineQuality` dataset, `mlbench` to access the `BostonHousing` dataset and `yardstick` to obtain classification metrics.
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(rpart)
+library(rpart.plot)
+library(BAdatasets)
+library(mlbench)
+library(yardstick)
+```
+
+Let's start with the same set of synthetic data we used for `C50`:
+
+```{r}
+n <- 400
+set.seed(2020)
+x <- c(runif(n*0.5, 0, 10), runif(n*0.25, 4, 10), runif(n*0.25, 0, 6))
+y <- c(runif(n*0.5, 0, 5), runif(n*0.25, 4, 10), runif(n*0.25, 4, 10))
+class <- as.factor(c(rep("a", n*0.5), c(rep("b", n*0.25)), c(rep("c", n*0.25))))
+
+s_data <- tibble(x=x, y=y, class = class)
+```
+
+The `rpart` function uses the formula and data syntax. We can use `rpart.plot` to see the result:
+
+```{r, fig.align='center'}
+dt01 <- rpart(class ~  ., s_data)
+rpart.plot(dt01)
+```
+
+This classification is very precise and complex, but also prone to overfitting. We can control how precise and therefore prone to overfitting a `rpart` tree is with the **complexity parameter** `cp`.  Any split that does not decrease the overall lack of fit by a factor of `cp` is not attempted. Small values of `cp` will create large trees and large values may not produce any tree. The default value of `cp` is of 0.01. Let's see the result to increase `cp` by an order of magnitude:
+
+```{r, fig.align='center'}
+dt02 <- rpart(class ~  ., s_data, cp = 0.1)
+rpart.plot(dt02)
+```
+
+The outcome is similar to the obtained with `C50` and can represent a good balance between bias and variance. Other ways of controlling tree size can be found at `rpart.control`.
+
+## Classifying with rpart
+
+Let's build the `wines` table of features predicting quality of red and white Portugese wines from data of `WineQuality`:
+
+```{r}
+data("WineQuality")
+
+red <- WineQuality$red %>%
+  mutate(type = "red")
+white <- WineQuality$white %>%
+  mutate(type = "white")
+
+wines <- bind_rows(red, white)
+wines <- wines %>%
+  mutate(quality = case_when(quality == 3 ~ 4,
+                             quality == 9 ~ 8,
+                             !quality %in% c(3,9) ~ quality))
+wines <- wines %>%
+  mutate(quality = factor(quality))
+```
+
+Let's see the tree we obtain with `rpart` defaults:
+
+```{r, fig.align='center'}
+dt_wines01 <- rpart(quality ~ ., wines)
+rpart.plot(dt_wines01)
+```
+
+This classification looks too simplistic, as it has not been able to predict extreme values of quality. Let's try a much smaller value of `cp`:
+
+```{r}
+dt_wines02 <- rpart(quality ~ ., wines, cp = 0.0001)
+```
+
+The resulting tree is too large to be plot. Let's use the `predict` function with `type = "class"` to obtain the predicted values for each element of the sample.
+
+```{r}
+table_wines <- data.frame(value = wines$quality, pred = predict(dt_wines02, wines, type = "class"))
+```
+
+Here is the confusion matrix:
+
+```{r}
+conf_mat(table_wines, truth = value, estimate = pred)
+```
+
+And here some classification metrics:
+
+```{r}
+class_metrics <- metric_set(accuracy, precision, recall)
+class_metrics(table_wines, truth = value, estimate = pred)
+```
+
+The classification metrics are not as good as with `C50`, as rpart does not implement winnowing and boosting. But maybe this classification is less prone to overfitting.
+
+`rpart` offers a measure of **variable importance** equal to the sum of the goodness of split measures for each split for which it was the primary variable:
+
+```{r}
+dt_wines02$variable.importance
+```
+
+The variables used in early splits tend to have higher variable importance.
+
+## Prediction of house prices in Boston Housing with rpart
+
+Let's see now how can we use `rpart` for numerical prediction. I will be using the `BostonHousing` dataset presented by Harrison and Rubinfeld (1978). The target variable is `medv`, the median value of owner-occupied homes for each Boston census tract.
+ 
+```{r}
+data("BostonHousing")
+BostonHousing %>%
+  glimpse()
+```
+
+The syntax for numerical prediction is similar to classification: `rpart` knows the type of problem by the class of target variable. The predicted value for the observations in a leaf is the average value of the target variable for those observations.
+
+```{r, fig.align='center'}
+dt_bh <- rpart(medv ~ ., BostonHousing)
+rpart.plot(dt_bh)
+```
+
+I have used the default `cp = 0.01`, obtaining a tree with a reasonable fit. Let's examine variable importance:
+
+```{r}
+dt_bh$variable.importance
+```
+
+To use the `yardstick` capabilities for numerical prediction, I am storing the real and predicted values of the target variable in a data frame.
+
+```{r}
+table_bh <- data.frame(value = BostonHousing$medv, 
+                       pred = predict(dt_bh, BostonHousing))
+```
+
+Here I am obtaining the metrics, which show a reasonable fit.
+
+```{r}
+np_metrics <- metric_set(rsq, rmse, mae)
+np_metrics(table_bh, truth = value, estimate = pred)
+```
+
+Here is the plot of real versus predicted values. The algorithm provides as many predicted values as terminal nodes of the tree.
+
+```{r, fig.align='center'}
+ggplot(table_bh, aes(value, pred)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, color = "red") +
+  theme_minimal() +
+  labs(x = "real values", y = "predicted values", title = "Prediction of Boston Housing with rpart")
+```
+
+The `rpart` package implements in R the decision tree techniques presented in the CART book by Breiman *et al.* (1983). The package can be used for classification and numerical prediction. An effective implementation calls for tuning of some of the parameters of `rpart.control`, for instance the complexity parameter `cp`.
+
+## References
+
+* Atkinson, E. J. The `rpart` package. <https://github.com/bethatkinson/rpart>
+* Breiman, L., Friedman, J. H., Olshen, R. A., & Stone, C. J. (1983). *Classification and regression trees.* Wadsworth, Belmont, CA.
+* Harrison, D. and Rubinfeld, D.L. (1978). Hedonic prices and the demand for clean air. *Journal of Environmental Economics and Management*, 5, 81–102.
+* Milborrow, S. (2021). *Plotting `rpart` trees with the `rpart.plot` package.* <http://www.milbo.org/rpart-plot/prp.pdf>
+* Therneau, T. M.; Atkinson, E. J. (2022). *An Introduction to Recursive Partitioning Using the RPART Routines.* <https://cran.r-project.org/web/packages/rpart/vignettes/longintro.pdf> Mayo Foundation.
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
