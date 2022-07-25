@@ -1,0 +1,252 @@
+---
+title: Introducing random forests in R
+author: Jose M Sallan
+date: '2022-07-25'
+slug: introducing-random-forests-in-r
+categories:
+  - R
+tags:
+  - decision trees
+  - random forests
+  - machine learning
+  - R
+  - tidymodels
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>In this post, I will present how to use random forests in classification, a prediction technique consisting in generating a set of trees (hence, a forest) bootstrapping the features used in each tree. We do this to obtain trees that are not necessarily using the strongest predictors at the beginning. I will test this technique in a <code>LoanDefaults</code> dataset to predict which customers will default the paying of a loan in a specific month. This dataset has two interesting features: the number of positive cases is much smaller than the negatives and requires some preprocessing of the existing features.</p>
+<p>I will be using the <code>ranger</code> (RANdom forest GEneRator) package, <code>skimr</code> to get a summary of data, <code>rpart</code> and <code>rpart.plot</code> to generate an alternative decision tree model, <code>BAdatasets</code> to access the dataset, <code>tidymodels</code> for prediction workflow facilities and <code>forcats</code> for the variable importance plot.</p>
+<pre class="r"><code>library(ranger)
+library(tidymodels)
+library(forcats)
+library(BAdatasets)
+library(rpart)
+library(rpart.plot)</code></pre>
+<p>We start picking <code>LoanDefaults</code>. The dependent variable is <code>default</code>, encoded in zero / one format.</p>
+<pre class="r"><code>data(&quot;LoanDefaults&quot;)</code></pre>
+<p>Let’s examine the number of positives and negatives of each class. Note the tweak in <code>geom_bar</code> and <code>scale_y_continuous</code> to present percent of cases rather than total cases.</p>
+<pre class="r"><code>LoanDefaults %&gt;%
+  ggplot(aes(factor(default))) + 
+  geom_bar(aes(y = (..count..)/sum(..count..))) +
+  scale_y_continuous(labels=percent) +
+  labs(x = &quot;default&quot;, y = &quot;% of cases&quot;) +
+  theme_minimal()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Note that less than 25% of cases are positive. This is a dataset with <strong>class imbalance</strong>, where the vast majority of observations belong to a category, usually the negative. Datasets with class imbalance are hard to predict, as algorithms can reach high values of accuracy predicting most observations as negative. In problems like loan default of fraud prediction we are interested in detecting all positive cases, as the cost of a false negative is much higher than a false positive. Therefore, sensitivity is more important than global accuracy.</p>
+<p>Let’s set the target variable as factor, being the first level the one of the positive class.</p>
+<pre class="r"><code>LoanDefaults &lt;- LoanDefaults %&gt;%
+  mutate(default = factor(default, levels = c(&quot;1&quot;, &quot;0&quot;)))</code></pre>
+<p>We use <code>initial_split</code> to generate train and test sets. Here it is important that both sets have the same proportion of positives, so we use <code>strata = "default"</code>.</p>
+<pre class="r"><code>set.seed(1313)
+split &lt;- initial_split(LoanDefaults, prop = 0.9, strata = &quot;default&quot;)</code></pre>
+<p>The preprocessing of features is established with a recipe. The features transformations of this recipe are:</p>
+<ul>
+<li>Removing the <code>ID</code> variable.</li>
+<li>Create a <code>payment_status</code> variable equal to 0 if <code>PAY_0</code> is zero or negative and 1 otherwise.</li>
+<li>Removing variables <code>PAY_0</code> to <code>PAY_6</code>.</li>
+<li>Transform <code>SEX</code> into a factor with descriptive labels.</li>
+<li>Setting to <code>NA</code> values of <code>MARRIAGE</code> and <code>EDUCATION</code> do not considered in the dataset description, and transform them into factors with descriptive labels.</li>
+<li>Imputing <code>NA</code> values of <code>MARRIAGE</code> and <code>EDUCATION</code> using <em>k</em> nearest neighbors.</li>
+</ul>
+<pre class="r"><code>recipe &lt;- training(split) %&gt;%
+  recipe(default ~ .) %&gt;%
+  step_rm(ID) %&gt;%
+  step_mutate(payment_status = ifelse(PAY_0 &lt; 1, 0, PAY_0)) %&gt;%
+  step_rm(PAY_0:PAY_6) %&gt;%
+  step_num2factor(SEX, levels = c(&quot;male&quot;, &quot;female&quot;)) %&gt;%
+  step_mutate(MARRIAGE = ifelse(!MARRIAGE %in% 1:3, NA, MARRIAGE)) %&gt;%
+  step_mutate(EDUCATION = ifelse(!EDUCATION %in% 1:4, NA, EDUCATION)) %&gt;%
+  step_num2factor(MARRIAGE, levels = c(&quot;marriage&quot;, &quot;single&quot;, &quot;others&quot;)) %&gt;% 
+  step_num2factor(EDUCATION, levels = c(&quot;graduate&quot;, &quot;university&quot;, &quot;high_school&quot;, &quot;others&quot;)) %&gt;%
+  step_impute_knn(all_predictors(), neighbors = 3)</code></pre>
+<p>Now I can obtain train and test sets using the recipe.</p>
+<pre class="r"><code>train &lt;- recipe %&gt;% prep() %&gt;% juice()
+test &lt;- recipe %&gt;% prep() %&gt;% bake(new_data = testing(split))</code></pre>
+<div id="predicting-with-decision-trees" class="section level2">
+<h2>Predicting with decision trees</h2>
+<p>To have a benchmark for random forest performance, I am training a decision tree using <code>rpart</code> with a value small enough of <code>cp</code>.</p>
+<pre class="r"><code>dt &lt;- rpart(default ~ . , train, cp = 0.001)
+rpart.plot(dt)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="predicting-with-random-forests" class="section level2">
+<h2>Predicting with random forests</h2>
+<p>The training of random forests is performed with the ranger function. Its main arguments are:</p>
+<ul>
+<li>a formula specifying the target and predictors.</li>
+<li>the dataset to train the model.</li>
+<li><code>num.trees</code>, the number of trees to train.</li>
+<li><code>mtry</code>, the number of variables to possibly split at in each node. I am using the default, equal to the rounded down square root of the number of variables.</li>
+<li><code>importance</code>, the variable importance mode.</li>
+</ul>
+<pre class="r"><code>rf &lt;- ranger(default ~ ., train, 
+             num.trees = 50, 
+             importance = &quot;impurity&quot;)</code></pre>
+<p>Here is some information of the resulting model:</p>
+<pre class="r"><code>rf</code></pre>
+<pre><code>## Ranger result
+## 
+## Call:
+##  ranger(default ~ ., train, num.trees = 50, importance = &quot;impurity&quot;) 
+## 
+## Type:                             Classification 
+## Number of trees:                  50 
+## Sample size:                      26999 
+## Number of independent variables:  18 
+## Mtry:                             4 
+## Target node size:                 1 
+## Variable importance mode:         impurity 
+## Splitrule:                        gini 
+## OOB prediction error:             18.69 %</code></pre>
+</div>
+<div id="prediction-of-train-and-test-sets" class="section level2">
+<h2>Prediction of train and test sets</h2>
+<p>Let’s store in a <code>pred_train</code> data frame the actual <code>value</code> of the target variable in the train set, together with the prediction with decision tress <code>dt</code> and the prediction of random forests <code>rf</code> for the train set.</p>
+<pre class="r"><code>pred_train &lt;- tibble(value = train$default, 
+                  dt = predict(dt, train, type = &quot;class&quot;),
+                  rf =  predict(rf, train)$predictions)</code></pre>
+<p>The confusion matrix for decision tree:</p>
+<pre class="r"><code>pred_train %&gt;%
+  conf_mat(truth = value, estimate = dt)</code></pre>
+<pre><code>##           Truth
+## Prediction     1     0
+##          1  2248   984
+##          0  3724 20043</code></pre>
+<p>The confusion matrix for the random forest:</p>
+<pre class="r"><code>pred_train %&gt;%
+  conf_mat(truth = value, estimate = rf)</code></pre>
+<pre><code>##           Truth
+## Prediction     1     0
+##          1  5818    18
+##          0   154 21009</code></pre>
+<p>Let’s obtain the predictions on the test set…</p>
+<pre class="r"><code>pred_test &lt;- tibble(value = factor(test$default), 
+                  dt = predict(dt, test, type = &quot;class&quot;),
+                  rf = predict(rf, test)$predictions)</code></pre>
+<p>… and examine the confusion matrix.</p>
+<pre class="r"><code>pred_test %&gt;%
+  conf_mat(truth = value, estimate = dt)</code></pre>
+<pre><code>##           Truth
+## Prediction    1    0
+##          1  234  131
+##          0  430 2206</code></pre>
+<pre class="r"><code>pred_test %&gt;%
+  conf_mat(truth = value, estimate = rf)</code></pre>
+<pre><code>##           Truth
+## Prediction    1    0
+##          1  236  119
+##          0  428 2218</code></pre>
+<p>We can see that there is some overfitting to the train set. Let’s compute accuracy, sensitivity and specificity for the two measures and sets. As we obtain a tidy data frame of measures for each combination, we can merge them and present it in a single plot.</p>
+<pre class="r"><code>m &lt;- metric_set(accuracy, sens, spec)
+
+train_dt &lt;- 
+  pred_train %&gt;% m(truth = value, estimate = dt) %&gt;%
+  mutate(set = &quot;train&quot;, method = &quot;dt&quot;) %&gt;%
+  select(set, method, .metric, .estimate)
+
+test_dt &lt;- 
+  pred_test %&gt;% m(truth = value, estimate = dt) %&gt;%
+  mutate(set = &quot;test&quot;, method = &quot;dt&quot;) %&gt;%
+  select(set, method, .metric, .estimate)
+
+train_rf &lt;- 
+  pred_train %&gt;% m(truth = value, estimate = rf) %&gt;%
+  mutate(set = &quot;train&quot;, method = &quot;rf&quot;) %&gt;%
+  select(set, method, .metric, .estimate)
+
+test_rf &lt;- 
+  pred_test %&gt;% m(truth = value, estimate = rf) %&gt;%
+  mutate(set = &quot;test&quot;, method = &quot;rf&quot;) %&gt;%
+  select(set, method, .metric, .estimate)
+
+bind_rows(train_dt, test_dt, train_rf, test_rf) %&gt;%
+  ggplot(aes(.metric, .estimate, fill = set)) +
+  geom_col(position = &quot;dodge&quot;) +
+  facet_grid(. ~ method) +
+  scale_fill_manual(name = &quot;set&quot;, values = c(&quot;#66CC00&quot;, &quot;#0066CC&quot;)) +
+  theme_minimal()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-17-1.png" width="672" /></p>
+<p>We observe that random forests have high sensitivity (accurate prediction of the positive case), but both methods perform simlilary (and poorly) on the test set.</p>
+</div>
+<div id="variable-importance" class="section level2">
+<h2>Variable importance</h2>
+<p>Being a method based on decision trees, we can obtain values of variabe importance. Here I am obtaining variable importance for decision trees and random forests and presenting them together in a chart. I am using <code>fct_reorder</code> from <code>forcats</code> to arrange variables by order of importance.</p>
+<pre class="r"><code>vi_dt &lt;- tibble(var = names(dt$variable.importance), vi = dt$variable.importance, t = &quot;dt&quot;)
+vi_rf &lt;- tibble(var = names(rf$variable.importance), vi = rf$variable.importance, t = &quot;rf&quot;)
+vi &lt;- bind_rows(vi_dt, vi_rf)
+vi &lt;- vi %&gt;% arrange(vi)
+vi %&gt;%
+  mutate(var = fct_reorder(var, vi)) %&gt;%
+ggplot(aes(var, vi, fill = t)) +
+  geom_col(position = &quot;dodge&quot;) +
+  coord_flip() +
+  theme_minimal() +
+  scale_fill_manual(name = &quot;method&quot;, values = c(&quot;#CC0000&quot;, &quot;#FF8000&quot;)) +
+  labs(title = &quot;comparing variable importance&quot;, x = &quot;variable importance&quot;, y = &quot;variable&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-18-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>We observe that, while the decision tree is using a subset of the features, random forests is using all variables. The variables not used in the decision tree have low variable importance in the random forest.</p>
+</div>
+<div id="how-to-improve-this-prediction" class="section level2">
+<h2>How to improve this prediction</h2>
+<p>Although random forests had better results than the single decision on the train set, this advantage has vanished in the test set. We can undertake two measures to try to improve this result:</p>
+<ul>
+<li>Prediction in datasets with class imbalance can be using balanced train sets. We can achieve this through undersampling (reducing the number of negative cases) or oversampling (adding artificial positive cases).</li>
+<li>Random forests tend to overfit to the train test. We can remedy this doing hyperparameter tuning to both models using cross validation.</li>
+</ul>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<p>Kuhn, M. &amp; Vaughan, D. (2022). <em>Random forests via ranger.</em> <a href="https://parsnip.tidymodels.org/reference/details_rand_forest_ranger.html" class="uri">https://parsnip.tidymodels.org/reference/details_rand_forest_ranger.html</a>
+* Wright, M. N. &amp; Ziegler, A. (2017). <code>ranger</code>: a fast implementation of random forests for high dimensional data in C++ and R. <em>Journal of Statistical Software</em>, 77(1). <a href="http://dx.doi.org/10.18637/jss.v077.i01" class="uri">http://dx.doi.org/10.18637/jss.v077.i01</a>
+* Wunderbald, B. (2019). <em>Introduction to Random Forests in R.</em> <a href="https://brunaw.com/slides/rladies-dublin/RF/intro-to-rf.html#1" class="uri">https://brunaw.com/slides/rladies-dublin/RF/intro-to-rf.html#1</a>. Presented in the R Ladies Meetup (Dublin).</p>
+<pre><code>## R version 4.2.0 (2022-04-22)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 19.2
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/openblas/libblas.so.3
+## LAPACK: /usr/lib/x86_64-linux-gnu/libopenblasp-r0.2.20.so
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] rpart.plot_3.1.0   rpart_4.1.16       BAdatasets_0.1.0   forcats_0.5.1     
+##  [5] yardstick_0.0.9    workflowsets_0.2.1 workflows_0.2.6    tune_0.2.0        
+##  [9] tidyr_1.2.0        tibble_3.1.6       rsample_0.1.1      recipes_0.2.0     
+## [13] purrr_0.3.4        parsnip_0.2.1      modeldata_0.1.1    infer_1.0.0       
+## [17] ggplot2_3.3.5      dplyr_1.0.9        dials_0.1.1        scales_1.2.0      
+## [21] broom_0.8.0        tidymodels_0.2.0   ranger_0.13.1     
+## 
+## loaded via a namespace (and not attached):
+##  [1] lubridate_1.8.0    DiceDesign_1.9     tools_4.2.0        backports_1.4.1   
+##  [5] bslib_0.3.1        utf8_1.2.2         R6_2.5.1           DBI_1.1.2         
+##  [9] colorspace_2.0-3   nnet_7.3-17        withr_2.5.0        tidyselect_1.1.2  
+## [13] compiler_4.2.0     cli_3.3.0          labeling_0.4.2     bookdown_0.26     
+## [17] sass_0.4.1         stringr_1.4.0      digest_0.6.29      rmarkdown_2.14    
+## [21] pkgconfig_2.0.3    htmltools_0.5.2    parallelly_1.31.1  lhs_1.1.5         
+## [25] highr_0.9          fastmap_1.1.0      rlang_1.0.2        rstudioapi_0.13   
+## [29] farver_2.1.0       jquerylib_0.1.4    generics_0.1.2     jsonlite_1.8.0    
+## [33] magrittr_2.0.3     Matrix_1.4-1       Rcpp_1.0.8.3       munsell_0.5.0     
+## [37] fansi_1.0.3        GPfit_1.0-8        lifecycle_1.0.1    furrr_0.3.0       
+## [41] stringi_1.7.6      pROC_1.18.0        yaml_2.3.5         MASS_7.3-58       
+## [45] plyr_1.8.7         grid_4.2.0         parallel_4.2.0     listenv_0.8.0     
+## [49] crayon_1.5.1       lattice_0.20-45    splines_4.2.0      knitr_1.39        
+## [53] pillar_1.7.0       future.apply_1.9.0 codetools_0.2-18   glue_1.6.2        
+## [57] evaluate_0.15      blogdown_1.9       vctrs_0.4.1        foreach_1.5.2     
+## [61] gtable_0.3.0       future_1.25.0      assertthat_0.2.1   xfun_0.30         
+## [65] gower_1.0.0        prodlim_2019.11.13 class_7.3-20       survival_3.2-13   
+## [69] timeDate_3043.102  iterators_1.0.14   hardhat_0.2.0      lava_1.6.10       
+## [73] globals_0.14.0     ellipsis_0.3.2     ipred_0.9-12</code></pre>
+</div>

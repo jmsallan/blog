@@ -1,0 +1,249 @@
+---
+title: Introducing random forests in R
+author: Jose M Sallan
+date: '2022-07-25'
+slug: introducing-random-forests-in-r
+categories:
+  - R
+tags:
+  - decision trees
+  - random forests
+  - machine learning
+  - R
+  - tidymodels
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post, I will present how to use random forests in classification, a prediction technique consisting in generating a set of trees (hence, a forest) bootstrapping the features used in each tree. We do this to obtain trees that are not necessarily using the strongest predictors at the beginning. I will test this technique in a `LoanDefaults` dataset to predict which customers will default the paying of a loan in a specific month. This dataset has two interesting features: the number of positive cases is much smaller than the negatives and requires some preprocessing of the existing features.
+
+I will be using the `ranger` (RANdom forest GEneRator) package, `skimr` to get a summary of data, `rpart` and `rpart.plot` to generate an alternative decision tree model, `BAdatasets` to access the dataset, `tidymodels` for prediction workflow facilities and `forcats` for the variable importance plot.
+
+```{r}
+library(ranger)
+library(tidymodels)
+library(forcats)
+library(BAdatasets)
+library(rpart)
+library(rpart.plot)
+```
+
+We start picking `LoanDefaults`. The dependent variable is `default`, encoded in zero / one format.
+
+```{r}
+data("LoanDefaults")
+```
+
+Let's examine the number of positives and negatives of each class. Note the tweak in `geom_bar` and `scale_y_continuous` to present percent of cases rather than total cases.
+
+```{r, fig.align='center'}
+LoanDefaults %>%
+  ggplot(aes(factor(default))) + 
+  geom_bar(aes(y = (..count..)/sum(..count..))) +
+  scale_y_continuous(labels=percent) +
+  labs(x = "default", y = "% of cases") +
+  theme_minimal()
+```
+
+Note that less than 25% of cases are positive. This is a dataset with **class imbalance**, where the vast majority of observations belong to a category, usually the negative. Datasets with class imbalance are hard to predict, as algorithms can reach high values of accuracy predicting most observations as negative. In problems like loan default of fraud prediction we are interested in detecting all positive cases, as the cost of a false negative is much higher than a false positive. Therefore, sensitivity is more important than global accuracy.
+
+Let's set the target variable as factor, being the first level the one of the positive class.
+
+```{r}
+LoanDefaults <- LoanDefaults %>%
+  mutate(default = factor(default, levels = c("1", "0")))
+```
+
+We use `initial_split` to generate train and test sets. Here it is important that both sets have the same proportion of positives, so we use `strata = "default"`.
+
+```{r}
+set.seed(1313)
+split <- initial_split(LoanDefaults, prop = 0.9, strata = "default")
+```
+
+The preprocessing of features is established with a recipe. The features transformations of this recipe are:
+
+* Removing the `ID` variable.
+* Create a `payment_status` variable equal to 0 if `PAY_0` is zero or negative and 1 otherwise.
+* Removing variables `PAY_0` to `PAY_6`.
+* Transform `SEX` into a factor with descriptive labels.
+* Setting to `NA` values of `MARRIAGE` and `EDUCATION` do not considered in the dataset description, and transform them into factors with descriptive labels.
+* Imputing `NA` values of `MARRIAGE` and `EDUCATION` using *k* nearest neighbors.
+
+```{r}
+recipe <- training(split) %>%
+  recipe(default ~ .) %>%
+  step_rm(ID) %>%
+  step_mutate(payment_status = ifelse(PAY_0 < 1, 0, PAY_0)) %>%
+  step_rm(PAY_0:PAY_6) %>%
+  step_num2factor(SEX, levels = c("male", "female")) %>%
+  step_mutate(MARRIAGE = ifelse(!MARRIAGE %in% 1:3, NA, MARRIAGE)) %>%
+  step_mutate(EDUCATION = ifelse(!EDUCATION %in% 1:4, NA, EDUCATION)) %>%
+  step_num2factor(MARRIAGE, levels = c("marriage", "single", "others")) %>% 
+  step_num2factor(EDUCATION, levels = c("graduate", "university", "high_school", "others")) %>%
+  step_impute_knn(all_predictors(), neighbors = 3)
+```
+
+Now I can obtain train and test sets using the recipe. 
+
+```{r}
+train <- recipe %>% prep() %>% juice()
+test <- recipe %>% prep() %>% bake(new_data = testing(split))
+```
+
+## Predicting with decision trees
+
+To have a benchmark for random forest performance, I am training a decision tree using `rpart` with a value small enough of `cp`.
+
+
+```{r, fig.align='center'}
+dt <- rpart(default ~ . , train, cp = 0.001)
+rpart.plot(dt)
+```
+
+## Predicting with random forests
+
+The training of random forests is performed with the ranger function. Its main arguments are:
+
+* a formula specifying the target and predictors.
+* the dataset to train the model.
+* `num.trees`, the number of trees to train.
+* `mtry`, the number of variables to possibly split at in each node. I am using the default, equal to the rounded down square root of the number of variables. 
+* `importance`, the variable importance mode.
+
+```{r}
+rf <- ranger(default ~ ., train, 
+             num.trees = 50, 
+             importance = "impurity")
+```
+
+Here is some information of the resulting model:
+
+```{r}
+rf
+```
+
+## Prediction of train and test sets
+
+Let's store in a `pred_train` data frame the actual `value` of the target variable in the train set, together with the prediction with decision tress `dt` and the prediction of random forests `rf` for the train set.
+
+```{r}
+pred_train <- tibble(value = train$default, 
+                  dt = predict(dt, train, type = "class"),
+                  rf =  predict(rf, train)$predictions)
+```
+
+The confusion matrix for decision tree:
+
+```{r}
+pred_train %>%
+  conf_mat(truth = value, estimate = dt)
+```
+
+The confusion matrix for the random forest:
+
+```{r}
+pred_train %>%
+  conf_mat(truth = value, estimate = rf)
+```
+
+Let's obtain the predictions on the test set...
+
+```{r}
+pred_test <- tibble(value = factor(test$default), 
+                  dt = predict(dt, test, type = "class"),
+                  rf = predict(rf, test)$predictions)
+```
+
+... and examine the confusion matrix.
+
+```{r}
+pred_test %>%
+  conf_mat(truth = value, estimate = dt)
+```
+
+```{r}
+pred_test %>%
+  conf_mat(truth = value, estimate = rf)
+```
+
+We can see that there is some overfitting to the train set. Let's compute accuracy, sensitivity and specificity for the two measures and sets. As we obtain a tidy data frame of measures for each combination, we can merge them and present it in a single plot.
+
+```{r}
+m <- metric_set(accuracy, sens, spec)
+
+train_dt <- 
+  pred_train %>% m(truth = value, estimate = dt) %>%
+  mutate(set = "train", method = "dt") %>%
+  select(set, method, .metric, .estimate)
+
+test_dt <- 
+  pred_test %>% m(truth = value, estimate = dt) %>%
+  mutate(set = "test", method = "dt") %>%
+  select(set, method, .metric, .estimate)
+
+train_rf <- 
+  pred_train %>% m(truth = value, estimate = rf) %>%
+  mutate(set = "train", method = "rf") %>%
+  select(set, method, .metric, .estimate)
+
+test_rf <- 
+  pred_test %>% m(truth = value, estimate = rf) %>%
+  mutate(set = "test", method = "rf") %>%
+  select(set, method, .metric, .estimate)
+
+bind_rows(train_dt, test_dt, train_rf, test_rf) %>%
+  ggplot(aes(.metric, .estimate, fill = set)) +
+  geom_col(position = "dodge") +
+  facet_grid(. ~ method) +
+  scale_fill_manual(name = "set", values = c("#66CC00", "#0066CC")) +
+  theme_minimal()
+
+```
+
+We observe that random forests have high sensitivity (accurate prediction of the positive case), but both methods perform simlilary (and poorly) on the test set.
+
+## Variable importance
+
+Being a method based on decision trees, we can obtain values of variabe importance. Here I am obtaining variable importance for decision trees and random forests and presenting them together in a chart. I am using `fct_reorder` from `forcats` to arrange variables by order of importance. 
+
+```{r, fig.align='center'}
+vi_dt <- tibble(var = names(dt$variable.importance), vi = dt$variable.importance, t = "dt")
+vi_rf <- tibble(var = names(rf$variable.importance), vi = rf$variable.importance, t = "rf")
+vi <- bind_rows(vi_dt, vi_rf)
+vi <- vi %>% arrange(vi)
+vi %>%
+  mutate(var = fct_reorder(var, vi)) %>%
+ggplot(aes(var, vi, fill = t)) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  theme_minimal() +
+  scale_fill_manual(name = "method", values = c("#CC0000", "#FF8000")) +
+  labs(title = "comparing variable importance", x = "variable importance", y = "variable")
+```
+
+We observe that, while the decision tree is using a subset of the features, random forests is using all variables. The variables not used in the decision tree have low variable importance in the random forest.
+
+## How to improve this prediction
+
+Although random forests had better results than the single decision on the train set, this advantage has vanished in the test set. We can undertake two measures to try to improve this result:
+
+* Prediction in datasets with class imbalance can be using balanced train sets. We can achieve this through undersampling (reducing the number of negative cases) or oversampling (adding artificial positive cases).
+* Random forests tend to overfit to the train test. We can remedy this doing hyperparameter tuning to both models using cross validation.
+
+## References
+
+Kuhn, M. & Vaughan, D. (2022). *Random forests via ranger.* <https://parsnip.tidymodels.org/reference/details_rand_forest_ranger.html>
+* Wright, M. N. & Ziegler, A. (2017). `ranger`: a fast implementation of random forests for high dimensional data in C++ and R. *Journal of Statistical Software*, 77(1). <http://dx.doi.org/10.18637/jss.v077.i01>
+* Wunderbald, B. (2019). *Introduction to Random Forests in R.* <https://brunaw.com/slides/rladies-dublin/RF/intro-to-rf.html#1>. Presented in the R Ladies Meetup (Dublin).
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
