@@ -1,0 +1,295 @@
+---
+title: Using undersampling with decision trees and random forests
+author: Jose M Sallan
+date: '2022-09-23'
+slug: using-undersampling-with-decision-trees-and-random-forests
+categories:
+  - R
+tags:
+  - decision trees
+  - machine learning
+  - random forests
+  - R
+  - tidymodels
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+comp <- TRUE
+```
+
+In this post, I will present a classification job on an unbalanced dataset. In an unbalanced dataset, the target variable has an uneven distribution of observations. I will be using `tidymodels` for the prediction workflow, `BAdatasets` to retrieve the data and `themis` to perform undersampling.
+
+```{r}
+library(tidymodels)
+library(themis)
+library(BAdatasets)
+```
+
+We will be using the LoanDefaults dataset. It is a dataset of defaults payments in Taiwan, presented in Yeh & Lien (2009).
+
+```{r}
+data("LoanDefaults")
+```
+
+When plotting the proportion of observations for each case, we observe that the number of negative cases (not defaulted) is much larger than the positive cases (defaulted).
+
+```{r, fig.align='center'}
+LoanDefaults %>%
+  ggplot(aes(factor(default))) + 
+  geom_bar(aes(y = (..count..)/sum(..count..))) +
+  scale_y_continuous(labels=percent) +
+  labs(x = "default", y = "% of cases") +
+  theme_minimal()
+```
+
+## Setting workflow elements
+
+Let's define the elements of the `tidymodels` workflow. We start transforming the target `default` variable into a factor, setting the level of positive cases first.
+
+```{r}
+LoanDefaults <- LoanDefaults %>%
+  mutate(default = factor(default, levels = c("1", "0")))
+```
+
+Then, we need to split the data into train and test. As the dataset is large, I have selected a large `prop` value. Being the dataset unbalanced, it is important to set `strata = default`, so that the distribution of target variable in train and test sets will be similar to the original dataset. I have applied a similar logic to split the training set into four `folds` to apply cross validation.
+
+```{r}
+set.seed(1313)
+split <- initial_split(LoanDefaults, prop = 0.9, strata = "default")
+
+folds <- vfold_cv(training(split), v = 10, strata = default)
+```
+
+To evaluate model performance, I have chosen the following metrics:
+
+* `accuracy`: fraction of observations correctly classified.
+* sensitivity `sens`: the fraction of positive elements correctly classified.
+* specificity `spec`: the fraction of negative elements correctly classified.
+* area under the ROC curve `roc_auc`: a parameter assessing the tradeoff between `sens` and `spec`.
+
+```{r}
+class_metrics <- metric_set(accuracy, sens, spec, roc_auc)
+```
+
+I will be using two models to train: a decision tree `dt` and a random forest `rf`. I will set standard values of parameter for each model. Hyperparameter tuning (not presented here) yields little influence of these parameters in model results.
+
+```{r}
+dt <- decision_tree(mode = "classification", cost_complexity = 0.1, min_n = 10) %>%
+  set_engine("rpart")
+
+rf <- rand_forest(mode = "classification", trees = 50, mtry = 5, min_n = 10) %>%
+  set_engine("ranger")
+```
+
+The preprocessing recipe is quite complex in this case:
+
+* the variable `ID` is removed.
+* variables `PAY0` to `PAY6` are removed.
+* variables `payment_status`, `MARRIAGE` and `EDUCATION` are transformed so that abormal values are set to `NA`.
+* `NA` values of predictors are imputed usign *k* nearest neighbors.
+* `SEX`,  `MARRIAGE` and `EDUCATION` are transformed into factors.
+
+```{r}
+rec_unb <- training(split) %>%
+  recipe(default ~ .) %>%
+  step_rm(ID) %>%
+  step_mutate(payment_status = ifelse(PAY_0 < 1, 0, PAY_0)) %>%
+  step_rm(PAY_0:PAY_6) %>%
+  step_num2factor(SEX, levels = c("male", "female")) %>%
+  step_mutate(MARRIAGE = ifelse(!MARRIAGE %in% 1:3, NA, MARRIAGE)) %>%
+  step_mutate(EDUCATION = ifelse(!EDUCATION %in% 1:4, NA, EDUCATION)) %>%
+  step_num2factor(MARRIAGE, levels = c("marriage", "single", "others")) %>% 
+  step_num2factor(EDUCATION, levels = c("graduate", "university", "high_school", "others")) %>%
+  step_impute_knn(all_predictors(), neighbors = 3)
+```
+
+Now we can test the two models using cross validation. We start with the decision tree:
+
+```{r}
+dt_cv_unb <- fit_resamples(object = dt,
+                       preprocessor = rec_unb,
+                       resamples = folds,
+                       metrics = class_metrics)
+
+rf_cv_unb <- fit_resamples(object = rf,
+                       preprocessor = rec_unb,
+                       resamples = folds,
+                       metrics = class_metrics)
+```
+
+The metrics for the decision tree are:
+
+```{r}
+dt_cv_unb %>%
+  collect_metrics()
+```
+
+And the metrics for cross validation:
+
+```{r}
+rf_cv_unb %>%
+  collect_metrics()
+```
+
+The sensitivity of the two models is quite low. This is not good, because it means that a default will be undetected using these models.
+
+## Model with undersampling
+
+A commonly used technique to improve classification of unbalanced data is to modify the training set so that it has the same number of positives and negatives. There are two ways of doing this:
+
+* **oversampling:** creating additional artificial observations for the less frequent case.
+* **undersampling:** removing observations of the most frequent case.
+
+In tidymodels, those recipes are implemented with the `themis` package.
+
+For this dataset, I have decided to undersample the training set using the `step_downsample`. The use of oversampling has lead to unsatisfactory results.
+
+```{r}
+rec_us <- training(split) %>%
+  recipe(default ~ .) %>%
+  step_rm(ID) %>%
+  step_mutate(payment_status = ifelse(PAY_0 < 1, 0, PAY_0)) %>%
+  step_rm(PAY_0:PAY_6) %>%
+  step_num2factor(SEX, levels = c("male", "female")) %>%
+  step_mutate(MARRIAGE = ifelse(!MARRIAGE %in% 1:3, NA, MARRIAGE)) %>%
+  step_mutate(EDUCATION = ifelse(!EDUCATION %in% 1:4, NA, EDUCATION)) %>%
+  step_num2factor(MARRIAGE, levels = c("marriage", "single", "others")) %>% 
+  step_num2factor(EDUCATION, levels = c("graduate", "university", "high_school", "others")) %>%
+  step_impute_knn(all_predictors(), neighbors = 3) %>%
+  step_downsample(default, under_ratio = 1)
+```
+
+Let's examine the distribution of the target variable after downsampling:
+
+```{r}
+rec_us %>%
+  prep() %>%
+  juice() %>%
+    ggplot(aes(factor(default))) + 
+  geom_bar(aes(y = (..count..)/sum(..count..))) +
+  scale_y_continuous(labels=percent) +
+  labs(x = "default", y = "% of cases") +
+  theme_minimal()
+```
+
+We observe that all the dataset for which is trained the model is balanced. Let's proceed to train the models with the undersampled recipe:
+
+```{r}
+dt_cv_us <- fit_resamples(object = dt,
+                       preprocessor = rec_us,
+                       resamples = folds,
+                       metrics = class_metrics)
+
+rf_cv_us <- fit_resamples(object = rf,
+                       preprocessor = rec_us,
+                       resamples = folds,
+                       metrics = class_metrics)
+```
+
+As the metrics are presented in data frames, we can put them all together and examine the performance of the four models at once. As variability of metrics can be an issue when balancing data, I have added errorbars for each parameter.
+
+```{r, fig.align='center', out.width='100%'}
+
+t1 <- dt_cv_unb %>%
+  collect_metrics() %>%
+  mutate(model = "tree", train = "unbalanced")
+
+t2 <- rf_cv_unb %>%
+  collect_metrics() %>%
+  mutate(model = "forest", train = "unbalanced")
+
+t3 <- dt_cv_us %>%
+  collect_metrics() %>%
+  mutate(model = "tree", train = "balanced")
+
+t4 <- rf_cv_us %>%
+  collect_metrics() %>%
+  mutate(model = "forest", train = "balanced")
+
+bind_rows(t1, t2, t3, t4) %>%
+  ggplot(aes(x =.metric, y = mean, ymin = mean - std_err, ymax = mean + std_err, fill = train)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_errorbar(position=position_dodge(width=1), width = 0.5) +
+  scale_fill_manual(values = c("#990000", "#FF8000")) +
+  facet_grid(. ~ model) +
+  labs(x = "metric", y = "value")
+```
+
+We can observe that undersampling increases values of sensitivity at the cost of reducing specificity. Undersampling leads to slightly worse values of accuracy, and slightly better values of AUC.
+
+## Prediction for the undersampled model
+
+Let's choose the undersampled model trained with the random forest model. We can test this model on both the test and train set.
+
+We start defining the model using a workflow:
+
+```{r}
+rf_us <- workflow() %>%
+  add_recipe(rec_us) %>%
+  add_model(rf) %>%
+  fit(training(split))
+```
+
+Let's obtain the predicted values for train and test sets. Note that the prediction on the train set is with the original data, not with the undersampled ones. Undersampling only takes place to fit the model.
+
+```{r}
+pred_train <- rf_us %>%
+  predict(training(split)) %>%
+  bind_cols(training(split) %>% select(default))
+
+pred_test <- rf_us %>%
+  predict(testing(split)) %>%
+  bind_cols(testing(split) %>% select(default))
+```
+
+The confusion matrices show that the model tends to inflate false positives to obtain a decent value of specifity:
+
+```{r}
+class_metrics2 <- metric_set(accuracy, sens, spec)
+
+pred_train %>%
+  conf_mat(truth = default, estimate = .pred_class)
+pred_test %>%
+  conf_mat(truth = default, estimate = .pred_class)
+```
+
+Let's compare accuracy, sensitivity and specificity for train and test sets:
+
+```{r, fig.align='center'}
+class_metrics2 <- metric_set(accuracy, sens, spec)
+
+t_train <- pred_train %>%
+  class_metrics2(truth = default, estimate = .pred_class) %>%
+  mutate(set = "train")
+t_test <- pred_test %>%
+  class_metrics2(truth = default, estimate = .pred_class) %>% 
+  mutate(set = "test")
+
+bind_rows(t_train, t_test) %>%
+  ggplot(aes(.metric, .estimate, fill = set)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_manual(values = c("#990000", "#FF8000")) +
+  labs(x = "metric", y = "value") +
+  theme_minimal()
+```
+
+We observe that undersampling has improved sensitivity at the price of worsening accuracy and specificity. In this case, undersampling has somewhat improved our model, but this is not always the case. Specially when we use oversampling, where we introduce artificial observations to train the model. Some alternative approaches to deal with unbalanced datasets can be found at the StackExchange question cited below.
+
+## References
+
+https://github.com/jmsallan/BAdatasets
+* `themis` package website: <https://themis.tidymodels.org/>
+* StackExchange question: *Are unbalanced datasets problematic, and (how) does oversampling (purport to) help?* <https://stats.stackexchange.com/questions/357466/are-unbalanced-datasets-problematic-and-how-does-oversampling-purport-to-he>
+* Yeh, I. C., & Lien, C. H. (2009). The comparisons of data mining techniques for the predictive accuracy of probability of default of credit card clients. *Expert Systems with Applications*, 36(2), 2473-2480. <https://doi.org/10.1016/j.eswa.2007.12.020>
+
+## Session info
+
+```{r, echo = TRUE}
+sessionInfo()
+```
+
+
