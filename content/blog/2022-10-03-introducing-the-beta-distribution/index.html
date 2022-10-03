@@ -1,0 +1,194 @@
+---
+title: Introducing the beta probability distribution
+author: Jose M Sallan
+date: '2022-10-03'
+slug: introducing-the-beta-distribution
+categories:
+  - R
+  - statistics
+tags:
+  - ggplot
+  - R
+  - distributions
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>In this post, I will present the beta distribution of probability, and illustrate how to use the <code>tidiyverse</code> to represent probability distributions. Beta distribution functions are included in the R base, so I will only be using the <code>tidyverse</code>, complemented with the <code>patchwork</code> package.</p>
+<pre class="r"><code>library(tidyverse)
+library(patchwork)</code></pre>
+<p>In probability theory and statistics, the <strong>beta distribution</strong> is a family of continuous probability distributions defined on the interval <span class="math inline">\(\left[0, 1\right]\)</span>. It is used to model distribution of the probability of a specific success.</p>
+<p>The shape of the beta distribution is defined with two parameters <span class="math inline">\(\alpha \geq 0\)</span> and <span class="math inline">\(\beta \geq 0\)</span>. The formula of the beta probability distribution is:</p>
+<p><span class="math display">\[ d = \frac{x^{\alpha-1}\left(1-x\right)^{\beta-1}}{B\left(\alpha, \beta\right)} \]</span></p>
+<p>The <span class="math inline">\(B\left(\alpha, \beta\right)\)</span> is a fixed term to scale the area under the function to one, and it is defined using the gamma function:</p>
+<p><span class="math display">\[B\left(\alpha, \beta\right) = \frac{\Gamma\left(\alpha\right)\Gamma\left(\beta\right)}{\Gamma\left(\alpha+\beta\right)}\]</span></p>
+<p>With the tidyverse, we can use the <code>dbeta</code> function in stat_function to plot a probability distribution function. Parameters <code>shape1</code> and <code>shape2</code> of dbeta correspond with <span class="math inline">\(\alpha\)</span> and <span class="math inline">\(\beta\)</span>.</p>
+<pre class="r"><code>  ggplot() +
+  stat_function(fun = dbeta, args = list(shape1 = 10, shape2 = 40)) +
+  theme_minimal()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="672" style="display: block; margin: auto;" /></p>
+<div id="interpretation-of-the-beta-distribution" class="section level2">
+<h2>Interpretation of the beta distribution</h2>
+<p>The beta distribution:</p>
+<p><span class="math display">\[ \frac{1}{B\left(\alpha, \beta\right)} x^{\alpha-1}\left(1-x\right)^{\beta-1}\]</span></p>
+<p>is similar to the binomial distribution:</p>
+<p><span class="math display">\[{n\choose x}  p^{x}\left(1-p\right)^{n-x}\]</span></p>
+<p>While the binomial gives the distribution of number of successes given a probability, the beta gives the distribution of probability of success given the number of successes and failures. Then, <span class="math inline">\(\alpha - 1\)</span> is the number of successes and <span class="math inline">\(\beta - 1\)</span> is the number of failures. This interpretation of beta is valid for integer values of <span class="math inline">\(\alpha0\)</span> and <span class="math inline">\(\beta0\)</span>.</p>
+<p>Let’s represent some beta distributions to illustrate this interpretation. First I am creating the <code>table_beta</code> function, that draws a the beta distribution for a number of sucesses <code>s</code> and failures <code>f</code>. The other parameter is a label <code>l</code>. I am using To draw the probability distribution, I create the variable <code>x</code> as a sequence of 100 values between 0 and 1, and then apply the <code>dbeta</code> function to obtain the value of density of probability <code>d</code>.</p>
+<pre class="r"><code>table_beta &lt;- function(s, f, l){
+  t &lt;- tibble(x = seq(0, 1, length.out = 100),
+              s = s,
+              f = f,
+              sample = l) %&gt;%
+    mutate(d = dbeta(x, shape1 = s + 1, shape2 = f + 1))
+  return(t)
+}</code></pre>
+<p>The <code>table_plot</code> function plots a set of beta distributions. The value of <code>s</code>, <code>f</code> and <code>l</code> for each distribution is stored in a table <code>t</code>. Each element of the set needs a different value of the label <code>l</code>. <code>l</code> is passed as <code>color</code> in the <code>aes</code> of the plot, so that we obtain one line for each value of <code>l</code>.</p>
+<pre class="r"><code>table_plot &lt;- function(t){
+  
+  l &lt;- lapply(1:nrow(t), \(i) table_beta(t$s[i], t$f[i], t$l[i]))
+  
+  df &lt;- bind_rows(l)
+  
+  ggplot(df, aes(x, d, color = sample)) +
+    geom_line() +
+    theme_minimal() +
+    scale_color_brewer(palette = &quot;Reds&quot;, direction = -1)
+}</code></pre>
+<p>Let’s generate two sets of distributions. <code>t1</code> is a set of distribution with 20% of successes with a growing number of observations. <code>t2</code> is similar, but with a 80% of successes.</p>
+<pre class="r"><code>t1 &lt;- tibble(s = c(10, 50, 100, 200),
+             f = c(40, 200, 400, 800),
+             l = factor(s + f))
+
+t2 &lt;- tibble(s = c(40, 200, 400, 800),
+             f = c(10, 50, 100, 200),
+             l = factor(s + f))</code></pre>
+<p>Here I am presenting the plots of both families of distributions, <code>t1</code> on the left and <code>t2</code> on the right. They are put together thanks to the <code>patchwork</code> package.</p>
+<pre class="r"><code>p1a &lt;- table_plot(t = t1) + 
+  geom_vline(xintercept = 0.2, color = &quot;#004C99&quot;) +
+  ggtitle(&quot;Samples with 20% of success&quot;)
+
+p1b &lt;- table_plot(t = t2) + 
+  geom_vline(xintercept = 0.8, color = &quot;#004C99&quot;) +
+  ggtitle(&quot;Samples with 80% of success&quot;)
+
+p1a + p1b</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="100%" /></p>
+<p>In both cases, the variability of the probability distribution decreases with the number of observations. This is an example of increase of statistical power with larger sample sizes.</p>
+<p>We can see the effect of sample size on power calculating ranges of probabilities using <code>pbeta</code>. When we have 10 successes and 40 failures, the probability that the probability of success ranges between 0.21 and 0.19 is:</p>
+<pre class="r"><code>pbeta(0.21, 11, 41) - pbeta(0.19, 11, 41)</code></pre>
+<pre><code>## [1] 0.1418756</code></pre>
+<p>But when we have 1000 successes and 4000 failures, the probability is:</p>
+<pre class="r"><code>pbeta(0.21, 1001, 4001) - pbeta(0.19, 1001, 4001)</code></pre>
+<pre><code>## [1] 0.9228958</code></pre>
+<p>For additional clarification, I will examine a set of beta distributions with one hundred observations, but with different proportions of success and failure:</p>
+<pre class="r"><code>t3 &lt;- tibble(s = c(10, 20, 50, 80, 90),
+             f = c(90, 80, 50, 20, 10),
+             l = as.factor(c(0.1, 0.2, 0.5, 0.8, 0.9)))
+
+table_plot(t = t3) +
+  ggtitle(&quot;Several samples of 100 observations&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>As the number of successes increases, the density of probability distribution leans to the right.</p>
+</div>
+<div id="beta-distribution-with-alpha-or-beta-smaller-than-one" class="section level2">
+<h2>Beta distribution with alpha or beta smaller than one</h2>
+<p>The formula of the beta distribution also admits values of shape parameters <span class="math inline">\(\alpha\)</span> and <span class="math inline">\(\beta\)</span> between one and zero. To examine these distributions, I will create a new <code>table_beta2</code> function taking <code>alpha</code> and <code>beta</code> as arguments…</p>
+<pre class="r"><code>table_beta2 &lt;- function(alpha, beta, l){
+  t &lt;- tibble(x = seq(0, 1, length.out = 100),
+              alpha = alpha,
+              beta = beta,
+              sample = l) %&gt;%
+    mutate(d = dbeta(x, shape1 = alpha, shape2 = beta))
+  return(t)
+}</code></pre>
+<p>.. and its corresponding <code>table_plot2</code> function:</p>
+<pre class="r"><code>table_plot2 &lt;- function(t){
+  
+  l &lt;- lapply(1:nrow(t), \(i) table_beta2(t$alpha[i], t$beta[i], t$l[i]))
+  
+  df &lt;- bind_rows(l)
+  
+  ggplot(df, aes(x, d, color = sample)) +
+    geom_line() +
+    theme_minimal() +
+    scale_color_brewer(palette = &quot;Reds&quot;, direction = -1)
+}</code></pre>
+<p>Let’s examine first a <code>t4</code> set with a combination of fractional <code>alpha</code> and integer <code>beta</code> and a symmetrical <code>t5</code> set.</p>
+<pre class="r"><code>t4 &lt;- tibble(alpha = seq(0.1, 0.8, 0.2),
+             beta = 2,
+             l = as.factor(alpha))
+
+t5 &lt;- tibble(alpha = 2,
+             beta = seq(0.1, 0.8, 0.2),
+             l = as.factor(beta))
+
+
+table_plot2(t4) + table_plot2(t5)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-12-1.png" width="100%" /></p>
+<p>Being <span class="math inline">\(\alpha\)</span> much smaller than <span class="math inline">\(\beta\)</span>, the probability distribution is skewed to the left. The swap of values of shape parameters would lead to a symmetrical distribution.</p>
+<p>Let’s examine now two set of <span class="math inline">\(\alpha\)</span> and <span class="math inline">\(beta\)</span> smaller than one. In the <code>t6</code> set (left plot), both shape parameters add one, while in the <code>t7</code> set (right plot) are equal. In both plots, labels are the values of <span class="math inline">\(\alpha\)</span>.</p>
+<pre class="r"><code>t6 &lt;- tibble(alpha = seq(0.1, 0.8, 0.2),
+             beta = 1 - alpha,
+             l = as.factor(alpha))
+
+t7 &lt;- tibble(alpha = seq(0.1, 0.8, 0.2),
+             beta = alpha,
+             l = as.factor(alpha))
+
+table_plot2(t6) + table_plot2(t7)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-13-1.png" width="100%" /></p>
+<p>We observe U-shaped distributions, meaning that the distribution is skewed to extreme values of probability. In the StackExchange question listed in the references, one respondent provides an interpretation of this distribution based on a extrapolation of Polya urns to fractional values.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Kim, Aerin (2020). <em>Beta Distribution — Intuition, Examples, and Derivation.</em> <a href="https://towardsdatascience.com/beta-distribution-intuition-examples-and-derivation-cf00f4db57af" class="uri">https://towardsdatascience.com/beta-distribution-intuition-examples-and-derivation-cf00f4db57af</a></li>
+<li>StackExchange. <em>Why does the beta distribution become U shaped when <span class="math inline">\(\alpha\)</span> and <span class="math inline">\(\beta\)</span> &lt;1?</em> <a href="https://math.stackexchange.com/questions/3494530/why-does-the-beta-distribution-become-u-shaped-when-alpha-and-beta-1" class="uri">https://math.stackexchange.com/questions/3494530/why-does-the-beta-distribution-become-u-shaped-when-alpha-and-beta-1</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre><code>## R version 4.2.1 (2022-06-23)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 19.2
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/openblas/libblas.so.3
+## LAPACK: /usr/lib/x86_64-linux-gnu/libopenblasp-r0.2.20.so
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] patchwork_1.1.1 forcats_0.5.1   stringr_1.4.0   dplyr_1.0.9    
+##  [5] purrr_0.3.4     readr_2.1.2     tidyr_1.2.0     tibble_3.1.6   
+##  [9] ggplot2_3.3.5   tidyverse_1.3.1
+## 
+## loaded via a namespace (and not attached):
+##  [1] lubridate_1.8.0    assertthat_0.2.1   digest_0.6.29      utf8_1.2.2        
+##  [5] R6_2.5.1           cellranger_1.1.0   backports_1.4.1    reprex_2.0.1      
+##  [9] evaluate_0.15      httr_1.4.2         highr_0.9          blogdown_1.9      
+## [13] pillar_1.7.0       rlang_1.0.2        readxl_1.4.0       rstudioapi_0.13   
+## [17] jquerylib_0.1.4    rmarkdown_2.14     labeling_0.4.2     munsell_0.5.0     
+## [21] broom_0.8.0        compiler_4.2.1     modelr_0.1.8       xfun_0.30         
+## [25] pkgconfig_2.0.3    htmltools_0.5.2    tidyselect_1.1.2   bookdown_0.26     
+## [29] fansi_1.0.3        crayon_1.5.1       tzdb_0.3.0         dbplyr_2.1.1      
+## [33] withr_2.5.0        grid_4.2.1         jsonlite_1.8.0     gtable_0.3.0      
+## [37] lifecycle_1.0.1    DBI_1.1.2          magrittr_2.0.3     scales_1.2.0      
+## [41] cli_3.3.0          stringi_1.7.6      farver_2.1.0       fs_1.5.2          
+## [45] xml2_1.3.3         bslib_0.3.1        ellipsis_0.3.2     generics_0.1.2    
+## [49] vctrs_0.4.1        RColorBrewer_1.1-3 tools_4.2.1        glue_1.6.2        
+## [53] hms_1.1.1          fastmap_1.1.0      yaml_2.3.5         colorspace_2.0-3  
+## [57] rvest_1.0.2        knitr_1.39         haven_2.5.0        sass_0.4.1</code></pre>
+</div>
