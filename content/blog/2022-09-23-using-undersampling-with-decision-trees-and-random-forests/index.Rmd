@@ -29,7 +29,7 @@ library(themis)
 library(BAdatasets)
 ```
 
-We will be using the LoanDefaults dataset. It is a dataset of defaults payments in Taiwan, presented in Yeh & Lien (2009).
+We will be using the `LoanDefaults` dataset. It is a dataset of defaults payments in Taiwan, presented in Yeh & Lien (2009).
 
 ```{r}
 data("LoanDefaults")
@@ -61,7 +61,7 @@ Then, we need to split the data into train and test. As the dataset is large, I 
 set.seed(1313)
 split <- initial_split(LoanDefaults, prop = 0.9, strata = "default")
 
-folds <- vfold_cv(training(split), v = 10, strata = default)
+folds <- vfold_cv(training(split), v = 10, strata = "default")
 ```
 
 To evaluate model performance, I have chosen the following metrics:
@@ -88,7 +88,7 @@ rf <- rand_forest(mode = "classification", trees = 50, mtry = 5, min_n = 10) %>%
 The preprocessing recipe is quite complex in this case:
 
 * the variable `ID` is removed.
-* variables `PAY0` to `PAY6` are removed.
+* variables `PAY0` to `PAY6` are removed. Before that, a `payment_status` variable is defined from `PAY_0`.
 * variables `payment_status`, `MARRIAGE` and `EDUCATION` are transformed so that abormal values are set to `NA`.
 * `NA` values of predictors are imputed usign *k* nearest neighbors.
 * `SEX`,  `MARRIAGE` and `EDUCATION` are transformed into factors.
@@ -149,17 +149,7 @@ In tidymodels, those recipes are implemented with the `themis` package.
 For this dataset, I have decided to undersample the training set using the `step_downsample`. The use of oversampling has lead to unsatisfactory results.
 
 ```{r}
-rec_us <- training(split) %>%
-  recipe(default ~ .) %>%
-  step_rm(ID) %>%
-  step_mutate(payment_status = ifelse(PAY_0 < 1, 0, PAY_0)) %>%
-  step_rm(PAY_0:PAY_6) %>%
-  step_num2factor(SEX, levels = c("male", "female")) %>%
-  step_mutate(MARRIAGE = ifelse(!MARRIAGE %in% 1:3, NA, MARRIAGE)) %>%
-  step_mutate(EDUCATION = ifelse(!EDUCATION %in% 1:4, NA, EDUCATION)) %>%
-  step_num2factor(MARRIAGE, levels = c("marriage", "single", "others")) %>% 
-  step_num2factor(EDUCATION, levels = c("graduate", "university", "high_school", "others")) %>%
-  step_impute_knn(all_predictors(), neighbors = 3) %>%
+rec_us <- rec_unb %>%
   step_downsample(default, under_ratio = 1)
 ```
 
@@ -281,7 +271,7 @@ We observe that undersampling has improved sensitivity at the price of worsening
 
 ## References
 
-https://github.com/jmsallan/BAdatasets
+* BAdatasets page: <https://github.com/jmsallan/BAdatasets>
 * `themis` package website: <https://themis.tidymodels.org/>
 * StackExchange question: *Are unbalanced datasets problematic, and (how) does oversampling (purport to) help?* <https://stats.stackexchange.com/questions/357466/are-unbalanced-datasets-problematic-and-how-does-oversampling-purport-to-he>
 * Yeh, I. C., & Lien, C. H. (2009). The comparisons of data mining techniques for the predictive accuracy of probability of default of credit card clients. *Expert Systems with Applications*, 36(2), 2473-2480. <https://doi.org/10.1016/j.eswa.2007.12.020>

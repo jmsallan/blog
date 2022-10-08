@@ -1,5 +1,5 @@
 ---
-title: Predicting with decision tress using rpart
+title: Predicting with decision trees using rpart
 author: Jose M Sallan
 date: '2022-07-18'
 slug: predicting-with-decision-tress-using-rpart
@@ -96,7 +96,7 @@ This classification looks too simplistic, as it has not been able to predict ext
 dt_wines02 <- rpart(quality ~ ., wines, cp = 0.0001)
 ```
 
-The resulting tree is too large to be plot. Let's use the `predict` function with `type = "class"` to obtain the predicted values for each element of the sample.
+The resulting tree is too large to plot. Let's use the `predict` function with `type = "class"` to obtain the predicted values for each element of the sample.
 
 ```{r}
 table_wines <- data.frame(value = wines$quality, pred = predict(dt_wines02, wines, type = "class"))
@@ -135,7 +135,7 @@ BostonHousing %>%
   glimpse()
 ```
 
-The syntax for numerical prediction is similar to classification: `rpart` knows the type of problem by the class of target variable. The predicted value for the observations in a leaf is the average value of the target variable for those observations.
+The syntax for numerical prediction is similar to classification: `rpart` knows the type of problem by the class of target variable. The predicted value for the observations in a leaf is the average value of the target variable for the observations included in it.
 
 ```{r, fig.align='center'}
 dt_bh <- rpart(medv ~ ., BostonHousing)
@@ -176,6 +176,7 @@ The `rpart` package implements in R the decision tree techniques presented in th
 
 ## References
 
+* BAdatasets web: <https://github.com/jmsallan/BAdatasets>
 * Atkinson, E. J. The `rpart` package. <https://github.com/bethatkinson/rpart>
 * Breiman, L., Friedman, J. H., Olshen, R. A., & Stone, C. J. (1983). *Classification and regression trees.* Wadsworth, Belmont, CA.
 * Harrison, D. and Rubinfeld, D.L. (1978). Hedonic prices and the demand for clean air. *Journal of Environmental Economics and Management*, 5, 81–102.
