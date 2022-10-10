@@ -1,0 +1,214 @@
+---
+title: Undersampling and oversampling with tidymodels
+author: Jose M Sallan
+date: '2022-10-10'
+slug: undersampling-and-oversampling-with-tidymodels
+categories:
+  - R
+tags:
+  - decision trees
+  - machine learning
+  - tidymodels
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>In this post, I will present how oversampling and undersampling can help us in a classification job on an unbalanced dataset. In unbalanced datasets, the target variable has an uneven distribution, with salient majority and minority classes. Undersampling and oversampling try to improve model performance training the model with a balanced dataset. When using <strong>undersampling</strong>, we train the model with a set removing observations of the majority class. With **oversampling*, we train the model with a dataset with additional artificial elements of the minority class.</p>
+<p>I will be using <code>tidymodels</code> for the prediction workflow, <code>BAdatasets</code> to access the dataset and <code>themis</code> to perform undersampling and oversampling.</p>
+<pre class="r"><code>library(tidymodels)
+library(themis)
+library(BAdatasets)</code></pre>
+<p>I will be using the <code>LoanDefaults</code> dataset. It is a dataset of defaults payments in Taiwan, presented in Yeh &amp; Lien (2009).</p>
+<pre class="r"><code>data(&quot;LoanDefaults&quot;)</code></pre>
+<p>When plotting the proportion of observations for each case, we observe that the number of negative cases (not defaulted) is much larger than the positive cases (defaulted). Therefore, the set of positive cases is the minority class. This is a frequent situation in contexts like loan defaults or credit card fraud.</p>
+<pre class="r"><code>LoanDefaults %&gt;%
+  ggplot(aes(factor(default))) + 
+  geom_bar(aes(y = (..count..)/sum(..count..))) +
+  scale_y_continuous(labels=percent) +
+  labs(x = &quot;default&quot;, y = &quot;% of cases&quot;) +
+  theme_minimal()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Let’s define the elements of the <code>tidymodels</code> workflow. We start transforming the target <code>default</code> variable into a factor, setting the level of positive cases first.</p>
+<pre class="r"><code>LoanDefaults &lt;- LoanDefaults %&gt;%
+  mutate(default = factor(default, levels = c(&quot;1&quot;, &quot;0&quot;)))</code></pre>
+<p>Then, we need to split the data into train and test. As the dataset is large, I have selected a large <code>prop</code> value. Being the dataset unbalanced, it is important to set <code>strata = default</code>, so that the distribution of target variable in train and test sets will be similar to the original dataset. I have applied a similar logic to split the training set into five <code>folds</code> to apply cross validation.</p>
+<pre class="r"><code>set.seed(1313)
+split &lt;- initial_split(LoanDefaults, prop = 0.9, strata = &quot;default&quot;)
+
+folds &lt;- vfold_cv(training(split), v = 5, strata = &quot;default&quot;)</code></pre>
+<p>To evaluate model performance, I have chosen the following metrics:</p>
+<ul>
+<li><code>accuracy</code>: fraction of observations correctly classified.</li>
+<li>sensitivity <code>sens</code>: the fraction of positive elements correctly classified.</li>
+<li>specificity <code>spec</code>: the fraction of negative elements correctly classified.</li>
+<li>area under the ROC curve <code>roc_auc</code>: a parameter assessing the tradeoff between <code>sens</code> and <code>spec</code>.</li>
+</ul>
+<pre class="r"><code>class_metrics &lt;- metric_set(accuracy, sens, spec, roc_auc)</code></pre>
+<p>In unbalanced datasets, accuracy can be a bad metric of performance. If 90% of observations, we obtain an accuracy of 0.9 simply classifying all observations as negative. In that context, usually sensitivity is a more adequate metric. Additionnally, in jobs like loan defaults or credit card fraud, the cost of a false negative is much higher than of a false positive.</p>
+<p>I will use a decision tree <code>dt</code> model, setting standard parameters.</p>
+<pre class="r"><code>dt &lt;- decision_tree(mode = &quot;classification&quot;, cost_complexity = 0.1, min_n = 10) %&gt;%
+  set_engine(&quot;rpart&quot;)</code></pre>
+<p>The preprocessing recipe has the following steps:</p>
+<ul>
+<li>variables <code>ID</code> and <code>PAY0</code> to <code>PAY6</code> are removed. Before that, I am replacing <code>PAY_0</code> with payment_status.</li>
+<li>variables <code>payment_status</code>, <code>MARRIAGE</code> and <code>EDUCATION</code> are transformed so that abormal values are set to <code>NA</code>.</li>
+<li><code>NA</code> values of predictors are imputed usign <em>k</em> nearest neighbors.</li>
+<li><code>SEX</code>, <code>MARRIAGE</code> and <code>EDUCATION</code> are transformed into factors.</li>
+</ul>
+<pre class="r"><code>rec_base &lt;- training(split) %&gt;%
+  recipe(default ~ .) %&gt;%
+  step_rm(ID) %&gt;%
+  step_mutate(payment_status = ifelse(PAY_0 &lt; 1, 0, PAY_0)) %&gt;%
+  step_rm(PAY_0:PAY_6) %&gt;%
+  step_mutate(MARRIAGE = ifelse(!MARRIAGE %in% 1:3, NA, MARRIAGE)) %&gt;%
+  step_mutate(EDUCATION = ifelse(!EDUCATION %in% 1:4, NA, EDUCATION)) %&gt;%
+  step_impute_knn(all_predictors(), neighbors = 3) %&gt;%
+  step_num2factor(SEX, levels = c(&quot;male&quot;, &quot;female&quot;)) %&gt;%
+  step_num2factor(MARRIAGE, levels = c(&quot;marriage&quot;, &quot;single&quot;, &quot;others&quot;)) %&gt;% 
+  step_num2factor(EDUCATION, levels = c(&quot;graduate&quot;, &quot;university&quot;, &quot;high_school&quot;, &quot;others&quot;))</code></pre>
+<p>The steps to perform undersampling and oversampling are provided by <code>themis</code> package. Here I am using the following methods:</p>
+<ul>
+<li><code>step_downsample</code> performs random majority under-sampling with replacement.</li>
+<li><code>step_upsample</code> performs random minority over-sampling with replacement.</li>
+</ul>
+<p>These steps are added to the <code>rec_base</code> recipe to obtain new recipes <code>rec_us</code> and <code>rec_os</code> for under and oversampling, respectively.</p>
+<pre class="r"><code>rec_us &lt;- rec_base %&gt;%
+  step_downsample(default, under_ratio = 1)
+
+rec_os &lt;- rec_base %&gt;%
+  step_upsample(default, over_ratio = 1)</code></pre>
+<div id="testing-under--and-oversampling-with-cross-validation" class="section level2">
+<h2>Testing under- and oversampling with cross validation</h2>
+<p>Now we are ready to test each of the three models with cross validation. ´cv_unb<code>,</code>cv_us<code>and</code>cv_os` train the model with the original dataset, undersampling and oversampling respectively.</p>
+<pre class="r"><code>cv_unb &lt;- fit_resamples(object = dt,
+                        preprocessor = rec_base,
+                        resamples = folds,
+                        metrics = class_metrics)
+
+cv_us &lt;- fit_resamples(object = dt,
+                        preprocessor = rec_us,
+                        resamples = folds,
+                        metrics = class_metrics)
+
+cv_os &lt;- fit_resamples(object = dt,
+                        preprocessor = rec_os,
+                        resamples = folds,
+                        metrics = class_metrics)</code></pre>
+<p>Now we can extract the metrics for each of the cross-validations. We can stack them all in a single data frame <code>m</code>.</p>
+<pre class="r"><code>m_unb &lt;- collect_metrics(cv_unb) %&gt;%
+  mutate(train = &quot;unbalanced&quot;)
+
+m_us &lt;- collect_metrics(cv_us) %&gt;%
+  mutate(train = &quot;undersampling&quot;)
+
+m_os &lt;- collect_metrics(cv_os) %&gt;%
+  mutate(train = &quot;oversampling&quot;)
+
+m &lt;- bind_rows(m_unb, m_us, m_os) %&gt;%
+  mutate(train = factor(train, levels = c(&quot;unbalanced&quot;, &quot;undersampling&quot;, &quot;oversampling&quot;)))</code></pre>
+<p>Let’s see the results:</p>
+<pre class="r"><code>ggplot(m, aes(.metric, mean, fill = train)) +
+  geom_bar(stat = &quot;identity&quot;, position = &quot;dodge&quot;) +
+  theme_minimal() +
+  labs(title = &quot;Performance of cross validation&quot;, x = &quot;metric&quot;, y = &quot;value&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-12-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>In this case, oversampling and undersampling obtain similar results. Both allow improving sensitivity significantly (although the obtained value is quite poor), paying the price of worsening specificity. Global parameters like accuracy and AUC are not signficantly affected.</p>
+</div>
+<div id="evaluating-the-model-in-the-test-set" class="section level2">
+<h2>Evaluating the model in the test set</h2>
+<p>Now I will fit the model on the train set and examine its performance in the test set. In <code>class_metrics2</code> I am excluding <code>roc_auc</code> because I will obtain the class predicted only.</p>
+<pre class="r"><code>class_metrics2 &lt;- metric_set(accuracy, sens, spec)</code></pre>
+<p>Objects <code>unb_model</code>, <code>us_model</code> and <code>os_model</code> contain the model trained in the original, undersampled and oversampled recipes respectively.</p>
+<pre class="r"><code>unb_model &lt;- workflow() %&gt;%
+  add_recipe(rec_base) %&gt;%
+  add_model(dt) %&gt;%
+  fit(training(split))
+
+us_model &lt;- workflow() %&gt;%
+  add_recipe(rec_us) %&gt;%
+  add_model(dt) %&gt;%
+  fit(training(split))
+
+os_model &lt;- workflow() %&gt;%
+  add_recipe(rec_os) %&gt;%
+  add_model(dt) %&gt;%
+  fit(training(split))</code></pre>
+<p>Next, I am storing in <code>df_test</code> the results of evaluating each of the models in the test set. Note that we evaluate the model in the original dataset. Under- and oversampling are only performed to train the model. The datasets where the model is evaluated are not modified.</p>
+<pre class="r"><code>m_test &lt;- lapply(list(unb_model, us_model, os_model), function(x) x %&gt;%
+         predict(testing(split)) %&gt;%
+         bind_cols(testing(split)) %&gt;%
+         class_metrics2(truth = default, estimate = .pred_class))
+df_test &lt;- bind_rows(m_test) %&gt;%
+  mutate(train = rep(c(&quot;unbalanced&quot;, &quot;undersampling&quot;, &quot;oversampling&quot;), each = 3)) %&gt;%
+  mutate(train = factor(train, levels = c(&quot;unbalanced&quot;, &quot;undersampling&quot;, &quot;oversampling&quot;)))</code></pre>
+<p>Here are the results of the evaluation. They are quite similar to the obtained with cross validation.</p>
+<pre class="r"><code>ggplot(df_test, aes(.metric, .estimate, fill = train)) +
+  geom_bar(stat = &quot;identity&quot;, position = &quot;dodge&quot;) +
+  theme_minimal() +
+  labs(title = &quot;Performance of test set&quot;, x = &quot;metric&quot;, y = &quot;value&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-16-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Under- and oversampling can be useful techniques to improve the ratio of true evaluations of the minority class in unbalanced datasets. So these techniques tend to increase sensitivity at the price of worse values of specificity. This can be a good compromise in classification jobs where the cost of a false negative is much higher than of a false positive.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li><code>BAdatasets</code> package <a href="https://github.com/jmsallan/BAdatasets" class="uri">https://github.com/jmsallan/BAdatasets</a></li>
+<li><code>themis</code> package website: <a href="https://themis.tidymodels.org/" class="uri">https://themis.tidymodels.org/</a></li>
+<li>Yeh, I. C., &amp; Lien, C. H. (2009). The comparisons of data mining techniques for the predictive accuracy of probability of default of credit card clients. <em>Expert Systems with Applications</em>, 36(2), 2473-2480. <a href="https://doi.org/10.1016/j.eswa.2007.12.020" class="uri">https://doi.org/10.1016/j.eswa.2007.12.020</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre><code>## R version 4.2.1 (2022-06-23)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 19.2
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/openblas/libblas.so.3
+## LAPACK: /usr/lib/x86_64-linux-gnu/libopenblasp-r0.2.20.so
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] rpart_4.1.16       BAdatasets_0.1.0   themis_0.2.1       yardstick_0.0.9   
+##  [5] workflowsets_0.2.1 workflows_0.2.6    tune_0.2.0         tidyr_1.2.0       
+##  [9] tibble_3.1.6       rsample_0.1.1      recipes_0.2.0      purrr_0.3.4       
+## [13] parsnip_0.2.1      modeldata_0.1.1    infer_1.0.0        ggplot2_3.3.5     
+## [17] dplyr_1.0.9        dials_0.1.1        scales_1.2.0       broom_0.8.0       
+## [21] tidymodels_0.2.0  
+## 
+## loaded via a namespace (and not attached):
+##  [1] lubridate_1.8.0    doParallel_1.0.17  DiceDesign_1.9     tools_4.2.1       
+##  [5] backports_1.4.1    bslib_0.3.1        utf8_1.2.2         R6_2.5.1          
+##  [9] DBI_1.1.2          colorspace_2.0-3   nnet_7.3-17        withr_2.5.0       
+## [13] tidyselect_1.1.2   parallelMap_1.5.1  compiler_4.2.1     cli_3.3.0         
+## [17] labeling_0.4.2     bookdown_0.26      sass_0.4.1         checkmate_2.1.0   
+## [21] stringr_1.4.0      digest_0.6.29      rmarkdown_2.14     unbalanced_2.0    
+## [25] pkgconfig_2.0.3    htmltools_0.5.2    parallelly_1.31.1  lhs_1.1.5         
+## [29] highr_0.9          fastmap_1.1.0      rlang_1.0.2        rstudioapi_0.13   
+## [33] BBmisc_1.12        FNN_1.1.3          farver_2.1.0       jquerylib_0.1.4   
+## [37] generics_0.1.2     jsonlite_1.8.0     magrittr_2.0.3     ROSE_0.0-4        
+## [41] Matrix_1.5-1       Rcpp_1.0.8.3       munsell_0.5.0      fansi_1.0.3       
+## [45] GPfit_1.0-8        lifecycle_1.0.1    furrr_0.3.0        stringi_1.7.6     
+## [49] pROC_1.18.0        yaml_2.3.5         MASS_7.3-58        plyr_1.8.7        
+## [53] grid_4.2.1         parallel_4.2.1     listenv_0.8.0      crayon_1.5.1      
+## [57] lattice_0.20-45    splines_4.2.1      mlr_2.19.0         knitr_1.39        
+## [61] pillar_1.7.0       future.apply_1.9.0 codetools_0.2-18   fastmatch_1.1-3   
+## [65] glue_1.6.2         evaluate_0.15      ParamHelpers_1.14  blogdown_1.9      
+## [69] data.table_1.14.2  vctrs_0.4.1        foreach_1.5.2      RANN_2.6.1        
+## [73] gtable_0.3.0       future_1.25.0      assertthat_0.2.1   xfun_0.30         
+## [77] gower_1.0.0        prodlim_2019.11.13 class_7.3-20       survival_3.4-0    
+## [81] timeDate_3043.102  iterators_1.0.14   hardhat_0.2.0      lava_1.6.10       
+## [85] globals_0.14.0     ellipsis_0.3.2     ipred_0.9-12</code></pre>
+</div>
