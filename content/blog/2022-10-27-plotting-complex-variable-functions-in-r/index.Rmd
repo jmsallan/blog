@@ -1,0 +1,170 @@
+---
+title: Plotting complex variable functions in R
+author: Jose M Sallan
+date: '2022-10-27'
+slug: plotting-complex-variable-functions-in-r
+categories:
+  - R
+tags:
+  - ggplot
+  - plotly
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+In this post, I will present how to plot complex variable functions. To do so, I will plot the gamma function, as it allows illustrating how to plot asymptotic functions. I will plot the function in its real domain first, and then produce 2D and 3D plots of the complex domain. I will use `ggplot2` for two dimensional plots, and `plotly` for the 3D surface plot. To calculate the gamma function for complex numbers with imaginary component I will use the `pracma` package.
+
+```{r}
+library(tidyverse)
+library(pracma)
+library(plotly)
+```
+
+The **gamma function** is defined for any complex number $z$ as:
+
+\[ \Gamma \left(z\right) = \int_0^\infty t^{z-1}e^{-t} dt \]
+
+For every positive integer we have:
+
+\[ \Gamma \left(n\right) = \left(n-1\right)! \]
+
+That's why the gamma function is considered as a one of the possible extensions of the factorial for complex numbers.
+
+We can plot any function straight away with ggplot using the `stat_function` geom. Let's see a straight away example:
+
+```{r, fig.align='center', out.width='60%'}
+ggplot() +
+  stat_function(fun = \(x) x^2,
+                xlim = c(-2, 2)) +
+  theme_minimal()
+```
+
+In `stat_function`, the function to plot is entered in `fun`, and the function domain to plot as `xlim`.
+
+## The gamma function for real values
+
+Let's do something similar with the gamma function, using the R base function `gamma`, for a range of positive and negative numbers. Here I am adding more arguments to `stat_function`:
+
+*  `n`, the number of points to use to draw the curve.
+* `size` for line width. 
+
+I have also added a `scale_x_continuous` to define the `breaks` of the x axis.
+
+```{r, fig.align='center', out.width='80%'}
+ggplot() +
+  stat_function(fun = gamma, 
+                xlim = c(-7, 7), 
+                n = 1001,  
+                size = 1.2) +
+  scale_x_continuous(breaks = -4:2) +  
+  theme_minimal()
+```
+
+The resulting plot is not satisfactory, as the behavior for non-negative numbers is quite different from the rest of the domain. There seems to be vertical asymptotes for nonpositive integer numbers, and the function grows factorially for positive values. Therefore, I have opted to present two plots for the gamma function:
+
+* a plot for positive real values, showing the relationship between gamma and factorial.
+* a plot for non-positive real values, showing the asymptotic behaviour of the function.
+
+This is the plot for positive values:
+
+```{r, fig.align='center', out.width='80%'}
+df1 <- tibble(x = 1:8,
+             y = factorial(x-1))
+
+ggplot(df1, aes(x, y)) +
+  geom_point(size = 2) +
+  stat_function(fun = gamma, size = 0.8, color = "#A0A0A0") +
+  theme_minimal() +
+  scale_x_continuous(breaks = 1:8) +
+  ggtitle("gamma function (positive values)")
+```
+
+The dots in the plot represent $\left(n-1\right)!$ for integer values. Its values come from table `df1`, and are plotted with `geom_point`. The gamma function is plotted with `stat_function`, adding a `color` argument. I have also added a title with `ggtitle`.
+
+This is the plot for non-positive values.
+
+```{r, fig.align='center', out.width='80%'}
+df2 <- tibble(x = seq(-4, 2, length.out = 1000),
+             y = gamma(x)) %>%
+  mutate(y = ifelse(abs(y) < 20, y, NA))
+
+ggplot(df2, aes(x, y)) +
+  geom_line(size = 1.2) +
+  geom_vline(xintercept = -4:0, size = 0.5, linetype = "dashed") +
+  scale_x_continuous(breaks = -4:2) +
+  theme_minimal() +
+  ggtitle("gamma function (negative values)")
+```
+
+For the negative values, I do not use `stat_function`. Instead I defining values for the two axis in the `df2` table. When the absolute value of the function is greater than 20 I turn it no `NA`, so the `geom_line` is interrupted. Finally, I am adding asymptotes for non-positive integers using `geom_vline`. Note that the value of `xintercept` is a vector, so all asymptotes are plotted in a single instruction.
+
+## The gamma function for complex values
+
+Let's see now how we can learn how is behaving the gamma function for the whole complex domain, including values with nonzero imaginary component. R has a `cplx` class for complex numbers, with `real` and `imaginary` components. The polar components can be obtained with the `Mod` and `Arg` functions.
+
+The gamma function for the whole complex domain can be obtained with the `gammaz` function of the `pracma` package. To represent the function graphically, I have chosen to assign the real and imaginary component to axis `x` and `y`, and the module of the gamma function to axis `z`. I nave used the expand_grid function to define a grid of points, so we have 10,000 points in a 100x100 grid.
+
+```{r}
+values <- expand_grid(r = seq(-2.5, 2.5, length.out = 100),
+                      i = seq(-2.5, 2.5, length.out = 100)) %>%
+  mutate(z = complex(real = r, imaginary = i),
+         gamma = gammaz(z),
+         mod = Mod(gamma),
+         mod = ifelse(mod < 10, mod, 10))
+```
+
+We have two possibilities to represent a 3D function in 2D:
+
+* **Countour lines:** we can do that with the `geom_contour()` with the function values in a `z` argument in `aes`.
+* **Heatmap:** heatmaps are plot with `geom_tile()` with the function value in the `fill` argument in `aes`.
+
+This plot presents a contour and a heatmap. I am plotting the tiles before the contour to present both, and I have added also a `alpha` value in the tile plot.
+
+```{r, fig.align='center', out.width='80%'}
+ggplot(values, aes(r, i)) +
+  geom_tile(aes(fill = mod), alpha = 0.5) +
+  scale_fill_gradient(name = "z",
+                      low = "#FFFFCC",
+                      high = "#FF0000") + 
+  geom_contour(aes(z = mod), color = "black", bins = 50) +
+  theme_minimal()
+```
+
+In the plot appear asymptotes in the integer negative values of the real axis.
+
+To present a real 3D plot, the best option is to generate a surface in `plotly`.
+
+```{r, fig.align='center', out.width='100%'}
+n <- 100
+
+x <- seq(-2.5, 2.5, length.out = n)
+y <- seq(-3.5, 2.5, length.out = n)
+
+t <- expand.grid(x = x, y = y)
+
+t$mod <- Mod(gammaz(complex(real = t$x, imaginary = t$y)))
+t$mod <- ifelse(t$mod < 5, t$mod, 5)
+
+z <- matrix(t$mod, n, n)
+
+plot_ly(x = x, 
+        y = y, 
+        z = z) |>
+  layout(scene = list(xaxis = list(title = "r"),
+                      yaxis = list(title = "i"),
+                      zaxis = list(title = "mod"))) |>
+  add_surface(colorscale = "Reds")
+```
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
