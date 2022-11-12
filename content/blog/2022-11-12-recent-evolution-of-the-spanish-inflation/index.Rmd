@@ -1,0 +1,182 @@
+---
+title: Recent evolution of the Spanish inflation
+author: Jose M Sallan
+date: '2022-11-12'
+slug: recent-evolution-of-the-spanish-inflation
+categories:
+  - R
+tags:
+  - ggplot
+  - dplyr
+  - R
+  - ESdata
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this plots, I will use information from **Instituto Nacional de Estadística (INE)**, the Spanish official statistical agency, to examine the recent evolution of Spanish inflation. I will use the `dplyr` functionalities for tabular data handling, and present some functionalities of `ggplot2` for presenting plots.
+
+I will be using the `tidyverse`, `lubridate` for date handling and `kableExtra` to present tabular information. I have compiled INE information in the `ESdata` package.
+
+```{r}
+library(tidyverse)
+library(ESdata)
+library(lubridate)
+library(kableExtra)
+```
+
+INE ellaborates a **Consumer Price Index (CPI)** on a monthly basis. The inflation between two periods of time is the variation of this index in the reference period. This index has large relevance, as housing rents must be updated yearly according to this index. CPI is calculated using a basket of prices of goods. Those prices are classified in a tree of groups and subgroups. The weight of each group in the CPI is revised yearly.
+
+The `ipc_clasif` table presents CPI information in tidy format:
+
+```{r}
+ipc_clasif %>% 
+  slice(1:5) %>%
+  kbl() %>%
+  kable_styling(full_width = FALSE)
+```
+
+The variables of this table are:
+
+* `periodo`: The month where data is collected.
+* `nivel`: The aggregation level of the group for each row. See `ipc_clas_grupos` for the actual meaning of each group.
+* grupo: The labeo of each group. The label 'general' is for the generic inflation data.
+* `dato`: The type of datum: 'index' is the Consumer Price Index, 'mensual' is the monthly inflation rate, 'anual' the inter-annual inflation rate and 'acumulada' the cumulative inflation rate for the year.
+* `valor`: The Consumer Price Index For rows with dato equal to 'indice', inflation rate in percentage for the rest of values.
+
+## Evolution of Spanish inflation
+
+Let's examine the value of inflation in Spain since 2018. To filter the required data, I am using the `year` function from `lubridate`.
+
+Here are some ggplot2 functionalities I have used in this plot:
+
+* The red band covering the COVID lockdown period is made with `geom_rect`. I have set some value of `alpha` After this geom, I have added text with `annotate`.
+* The evolution of inflation is presented with `geom_line`. I have changed width with `size` and also the `color`. This line is plotted after `geom_rect` to make it visible during the COVID lockdown.
+* The start of the Ukraine conflict is presented with `geom_vline`. I have used `linetype = "dashed"` to present a dashed line. Again, I have used `annotate` to add text. If I wanted the line to start at zero, I would have used `geom_segment` instead of `geom_vline`.
+* With `scale_y_continuous` I am presenting the inflation as percentage. That's why I have divided inflation `value` by 100 with `mutate` at the beginning. I have also set y axis breaks. With `scale_x_date`, I am setting a scale break for each year.
+* With `theme_minimal` I set the plot theme, place the legend with `legend.position = "bottom"` an annotate the plot with `labs`.
+
+```{r, out.width='100%'}
+ipc_clasif %>%
+  filter(year(periodo) >= 2018, grupo == "general", dato == "anual") %>%
+  mutate(valor = valor / 100) %>%
+  ggplot(aes(periodo, valor)) +
+  geom_rect(aes(xmin = as.Date("2020-03-14"), xmax = as.Date("2020-06-21"), ymin = -0.02, ymax = 0.12), fill = "#FF9999", alpha = 0.05) +
+  annotate("text", x= as.Date("2019-07-01"), y = 0.06, label = "COVID lockdown", size = 5) +
+  geom_line(size = 1, color = "#606060") +
+  geom_vline(xintercept = as.Date("2022-02-24"), color = "red", linetype = "dashed", size = 1) +
+  annotate("text", x = as.Date("2021-07-01"), y = 0.1, label = "war on Ukraine", size = 5) +
+  scale_y_continuous(labels = scales::percent, breaks = seq(-0.02, 0.12, 0.01)) +
+  scale_x_date(breaks = scales::date_breaks("1 year"), date_labels = "%Y") +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(title = "Evolution of Spanish inflation", x = "time", y = "yearly inflation", caption = "Source: INE")
+```
+
+We observe that inflation starts to ramp up at the beginning 2021, some months after the COVID lockdown. The events of Ukraine did not apparently affect inflation. Although yet in high values, it is decreasing since the beginning of 2022.
+
+## Evolution of prices of selected groups
+
+Let's see the groups with largest inflation in the reference period. To do so, I have calculated the maximum value of yearly inflation for each group, and ordered by decreasing value of this maximum:
+
+```{r}
+ipc_ccaa %>%
+  filter(region == "ES", year(periodo) >= 2018) %>%
+  group_by(grupo) %>%
+  summarise(max_value = max(valor)) %>%
+  arrange(desc(max_value)) %>%
+  slice(1:5) %>%
+  kbl() %>%
+  kable_styling(full_width = FALSE)
+```
+
+We can see which groups are `G04` and `G07` with ipc_clas groups:
+
+```{r}
+ipc_clas_grupos %>%
+  filter(codigo %in% c("G04", "G07")) %>%
+  select(codigo, nombre) %>%
+  kbl() %>%
+  kable_styling(full_width = FALSE)
+```
+
+Here is the plot of housing and energy `G04`, transportation `G07` and `general` index for the same period.
+
+The tricks used here are similar to the plot above, with some differences:
+
+* To make `geom_rect` to work correctly, I have set the color parameter. I have chosen the same value as `fill`.
+* The ranges of the y axis need to be changed, as prices of groups have more variability than general inflation.
+* Color lines and legend values are set with scale_color_manual.
+
+```{r, out.width='100%'}
+ipc_clasif %>%
+  filter(year(periodo) >= 2018, grupo %in% c("general", "G04", "G07"), dato == "anual") %>%
+  mutate(valor = valor/100) %>%
+  ggplot(aes(periodo, valor, color = grupo)) +
+   geom_rect(aes(xmin = as.Date("2020-03-14"), xmax = as.Date("2020-06-21"), ymin = -0.1, ymax = 0.35), fill = "#FF9999", color = "#FF9999", alpha = 0.05) +
+  annotate("text", x= as.Date("2019-07-01"), y = 0.15, label = "COVID lockdown", size = 5) +
+  geom_line(size = 1) +
+  geom_vline(xintercept = as.Date("2022-02-24"), color = "red", linetype = "dashed", size = 1) +
+  annotate("text", x = as.Date("2021-07-01"), y = 0.3, label = "war on Ukraine", size = 5) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_date(breaks = scales::date_breaks("1 year"), date_labels = "%Y") +
+  scale_color_manual(values = c("#66CC00", "#0080FF", "#606060"), labels = c("energy", "transport", "general"), name = "group") +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(title = "Evolution of Spanish inflation (groups)", x = "time", y = "yearly inflation", caption = "Source: INE")
+```
+
+Energy and transportation prices started growing in the middle of the lockdonn, at a higher rate than the global inflation index.
+
+## Evolution of prices of electricity and gas
+
+We may be interested in the evolution of gas and electricity. We know that they are in `GO45`, so we look for these groups with a regular expression using `grepl`.
+
+```{r}
+ipc_clas_grupos %>%
+  filter(grepl("^G045", codigo)) %>%
+  select(codigo, nombre) %>%
+  kbl() %>%
+  kable_styling(full_width = FALSE)
+```
+
+Here is the evolution of prices of gas `G04521` and electricity `G04510`:
+
+```{r, out.width='100%'}
+ipc_clasif %>%
+  filter(year(periodo) >= 2018, grupo %in% c("general", "G04510", "G04521"), dato == "anual") %>%
+  mutate(valor = valor/100) %>%
+  ggplot(aes(periodo, valor, color = grupo)) +
+  geom_rect(aes(xmin = as.Date("2020-03-14"), xmax = as.Date("2020-06-21"), ymin = -0.2, ymax = 1.2), fill = "#FF9999", color = "#FF9999", alpha = 0.05) +
+  annotate("text", x= as.Date("2019-07-01"), y = 0.4, label = "COVID lockdown", size = 5) +
+  geom_line(size=1) +
+  geom_vline(xintercept = as.Date("2022-02-24"), color = "red", linetype = "dashed", size = 1) +
+  annotate("text", x = as.Date("2021-07-01"), y = 0.8, label = "war on Ukraine", size = 5) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_date(breaks = scales::date_breaks("1 year"), date_labels = "%Y") +
+  scale_color_manual(values = c("#66CC00", "#0080FF", "#606060"), labels = c("electricity", "gas", "general"), name = "group") +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(title = "Evolution of Spanish inflation (gas and electricity)", x = "time", y = "yearly inflation", caption = "Source: INE")
+```
+
+Although the recent events in Ukraine would suggest a rise in the price of gas, it has grown more than electricity prices. Gas and electricity prices started growing earlier than the war in Ukraine. Some people argue, though, that INE considers the evolution of prices or regulated market only. This could reduce the impact of electricity prices in inflation.
+
+## References
+
+* The `ESdata` package. <https://github.com/jmsallan/ESdata>
+* Instituto Nacional de Estadística. *INEbase. Lista completa de operaciones.* <https://www.ine.es/dyngs/INEbase/listaoperaciones.htm> Accessed 2022-11-12.
+* Rodriguez Asensio, D. (2022). Qué está pasando (y qué no) con la inflación en España. <https://www.libremercado.com/2022-11-06/daniel-rodriguez-asensio-que-esta-pasando-y-que-no-con-la-inflacion-en-espana-6950646/> Accessed 2022-11-06
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+

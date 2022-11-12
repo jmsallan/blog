@@ -1,0 +1,459 @@
+---
+title: Recent evolution of the Spanish inflation
+author: Jose M Sallan
+date: '2022-11-12'
+slug: recent-evolution-of-the-spanish-inflation
+categories:
+  - R
+tags:
+  - ggplot
+  - dplyr
+  - R
+  - ESdata
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>In this plots, I will use information from <strong>Instituto Nacional de Estadística (INE)</strong>, the Spanish official statistical agency, to examine the recent evolution of Spanish inflation. I will use the <code>dplyr</code> functionalities for tabular data handling, and present some functionalities of <code>ggplot2</code> for presenting plots.</p>
+<p>I will be using the <code>tidyverse</code>, <code>lubridate</code> for date handling and <code>kableExtra</code> to present tabular information. I have compiled INE information in the <code>ESdata</code> package.</p>
+<pre class="r"><code>library(tidyverse)
+library(ESdata)
+library(lubridate)
+library(kableExtra)</code></pre>
+<p>INE ellaborates a <strong>Consumer Price Index (CPI)</strong> on a monthly basis. The inflation between two periods of time is the variation of this index in the reference period. This index has large relevance, as housing rents must be updated yearly according to this index. CPI is calculated using a basket of prices of goods. Those prices are classified in a tree of groups and subgroups. The weight of each group in the CPI is revised yearly.</p>
+<p>The <code>ipc_clasif</code> table presents CPI information in tidy format:</p>
+<pre class="r"><code>ipc_clasif %&gt;% 
+  slice(1:5) %&gt;%
+  kbl() %&gt;%
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+periodo
+</th>
+<th style="text-align:left;">
+nivel
+</th>
+<th style="text-align:left;">
+grupo
+</th>
+<th style="text-align:left;">
+dato
+</th>
+<th style="text-align:right;">
+valor
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+2022-09-30
+</td>
+<td style="text-align:left;">
+grupos
+</td>
+<td style="text-align:left;">
+general
+</td>
+<td style="text-align:left;">
+indice
+</td>
+<td style="text-align:right;">
+109.498
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2022-08-31
+</td>
+<td style="text-align:left;">
+grupos
+</td>
+<td style="text-align:left;">
+general
+</td>
+<td style="text-align:left;">
+indice
+</td>
+<td style="text-align:right;">
+110.265
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2022-07-31
+</td>
+<td style="text-align:left;">
+grupos
+</td>
+<td style="text-align:left;">
+general
+</td>
+<td style="text-align:left;">
+indice
+</td>
+<td style="text-align:right;">
+109.986
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2022-06-30
+</td>
+<td style="text-align:left;">
+grupos
+</td>
+<td style="text-align:left;">
+general
+</td>
+<td style="text-align:left;">
+indice
+</td>
+<td style="text-align:right;">
+110.267
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2022-05-31
+</td>
+<td style="text-align:left;">
+grupos
+</td>
+<td style="text-align:left;">
+general
+</td>
+<td style="text-align:left;">
+indice
+</td>
+<td style="text-align:right;">
+108.262
+</td>
+</tr>
+</tbody>
+</table>
+<p>The variables of this table are:</p>
+<ul>
+<li><code>periodo</code>: The month where data is collected.</li>
+<li><code>nivel</code>: The aggregation level of the group for each row. See <code>ipc_clas_grupos</code> for the actual meaning of each group.</li>
+<li>grupo: The labeo of each group. The label ‘general’ is for the generic inflation data.</li>
+<li><code>dato</code>: The type of datum: ‘index’ is the Consumer Price Index, ‘mensual’ is the monthly inflation rate, ‘anual’ the inter-annual inflation rate and ‘acumulada’ the cumulative inflation rate for the year.</li>
+<li><code>valor</code>: The Consumer Price Index For rows with dato equal to ‘indice’, inflation rate in percentage for the rest of values.</li>
+</ul>
+<div id="evolution-of-spanish-inflation" class="section level2">
+<h2>Evolution of Spanish inflation</h2>
+<p>Let’s examine the value of inflation in Spain since 2018. To filter the required data, I am using the <code>year</code> function from <code>lubridate</code>.</p>
+<p>Here are some ggplot2 functionalities I have used in this plot:</p>
+<ul>
+<li>The red band covering the COVID lockdown period is made with <code>geom_rect</code>. I have set some value of <code>alpha</code> After this geom, I have added text with <code>annotate</code>.</li>
+<li>The evolution of inflation is presented with <code>geom_line</code>. I have changed width with <code>size</code> and also the <code>color</code>. This line is plotted after <code>geom_rect</code> to make it visible during the COVID lockdown.</li>
+<li>The start of the Ukraine conflict is presented with <code>geom_vline</code>. I have used <code>linetype = "dashed"</code> to present a dashed line. Again, I have used <code>annotate</code> to add text. If I wanted the line to start at zero, I would have used <code>geom_segment</code> instead of <code>geom_vline</code>.</li>
+<li>With <code>scale_y_continuous</code> I am presenting the inflation as percentage. That’s why I have divided inflation <code>value</code> by 100 with <code>mutate</code> at the beginning. I have also set y axis breaks. With <code>scale_x_date</code>, I am setting a scale break for each year.</li>
+<li>With <code>theme_minimal</code> I set the plot theme, place the legend with <code>legend.position = "bottom"</code> an annotate the plot with <code>labs</code>.</li>
+</ul>
+<pre class="r"><code>ipc_clasif %&gt;%
+  filter(year(periodo) &gt;= 2018, grupo == &quot;general&quot;, dato == &quot;anual&quot;) %&gt;%
+  mutate(valor = valor / 100) %&gt;%
+  ggplot(aes(periodo, valor)) +
+  geom_rect(aes(xmin = as.Date(&quot;2020-03-14&quot;), xmax = as.Date(&quot;2020-06-21&quot;), ymin = -0.02, ymax = 0.12), fill = &quot;#FF9999&quot;, alpha = 0.05) +
+  annotate(&quot;text&quot;, x= as.Date(&quot;2019-07-01&quot;), y = 0.06, label = &quot;COVID lockdown&quot;, size = 5) +
+  geom_line(size = 1, color = &quot;#606060&quot;) +
+  geom_vline(xintercept = as.Date(&quot;2022-02-24&quot;), color = &quot;red&quot;, linetype = &quot;dashed&quot;, size = 1) +
+  annotate(&quot;text&quot;, x = as.Date(&quot;2021-07-01&quot;), y = 0.1, label = &quot;war on Ukraine&quot;, size = 5) +
+  scale_y_continuous(labels = scales::percent, breaks = seq(-0.02, 0.12, 0.01)) +
+  scale_x_date(breaks = scales::date_breaks(&quot;1 year&quot;), date_labels = &quot;%Y&quot;) +
+  theme_minimal() +
+  theme(legend.position = &quot;bottom&quot;) +
+  labs(title = &quot;Evolution of Spanish inflation&quot;, x = &quot;time&quot;, y = &quot;yearly inflation&quot;, caption = &quot;Source: INE&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="100%" /></p>
+<p>We observe that inflation starts to ramp up at the beginning 2021, some months after the COVID lockdown. The events of Ukraine did not apparently affect inflation. Although yet in high values, it is decreasing since the beginning of 2022.</p>
+</div>
+<div id="evolution-of-prices-of-selected-groups" class="section level2">
+<h2>Evolution of prices of selected groups</h2>
+<p>Let’s see the groups with largest inflation in the reference period. To do so, I have calculated the maximum value of yearly inflation for each group, and ordered by decreasing value of this maximum:</p>
+<pre class="r"><code>ipc_ccaa %&gt;%
+  filter(region == &quot;ES&quot;, year(periodo) &gt;= 2018) %&gt;%
+  group_by(grupo) %&gt;%
+  summarise(max_value = max(valor)) %&gt;%
+  arrange(desc(max_value)) %&gt;%
+  slice(1:5) %&gt;%
+  kbl() %&gt;%
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+grupo
+</th>
+<th style="text-align:right;">
+max_value
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+G04
+</td>
+<td style="text-align:right;">
+125.137
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+G07
+</td>
+<td style="text-align:right;">
+119.210
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+G01
+</td>
+<td style="text-align:right;">
+114.017
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+G03
+</td>
+<td style="text-align:right;">
+111.726
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+general
+</td>
+<td style="text-align:right;">
+110.267
+</td>
+</tr>
+</tbody>
+</table>
+<p>We can see which groups are <code>G04</code> and <code>G07</code> with ipc_clas groups:</p>
+<pre class="r"><code>ipc_clas_grupos %&gt;%
+  filter(codigo %in% c(&quot;G04&quot;, &quot;G07&quot;)) %&gt;%
+  select(codigo, nombre) %&gt;%
+  kbl() %&gt;%
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+codigo
+</th>
+<th style="text-align:left;">
+nombre
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+G04
+</td>
+<td style="text-align:left;">
+Vivienda, agua, electricidad, gas y otros combustibles
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+G07
+</td>
+<td style="text-align:left;">
+Transporte
+</td>
+</tr>
+</tbody>
+</table>
+<p>Here is the plot of housing and energy <code>G04</code>, transportation <code>G07</code> and <code>general</code> index for the same period.</p>
+<p>The tricks used here are similar to the plot above, with some differences:</p>
+<ul>
+<li>To make <code>geom_rect</code> to work correctly, I have set the color parameter. I have chosen the same value as <code>fill</code>.</li>
+<li>The ranges of the y axis need to be changed, as prices of groups have more variability than general inflation.</li>
+<li>Color lines and legend values are set with scale_color_manual.</li>
+</ul>
+<pre class="r"><code>ipc_clasif %&gt;%
+  filter(year(periodo) &gt;= 2018, grupo %in% c(&quot;general&quot;, &quot;G04&quot;, &quot;G07&quot;), dato == &quot;anual&quot;) %&gt;%
+  mutate(valor = valor/100) %&gt;%
+  ggplot(aes(periodo, valor, color = grupo)) +
+   geom_rect(aes(xmin = as.Date(&quot;2020-03-14&quot;), xmax = as.Date(&quot;2020-06-21&quot;), ymin = -0.1, ymax = 0.35), fill = &quot;#FF9999&quot;, color = &quot;#FF9999&quot;, alpha = 0.05) +
+  annotate(&quot;text&quot;, x= as.Date(&quot;2019-07-01&quot;), y = 0.15, label = &quot;COVID lockdown&quot;, size = 5) +
+  geom_line(size = 1) +
+  geom_vline(xintercept = as.Date(&quot;2022-02-24&quot;), color = &quot;red&quot;, linetype = &quot;dashed&quot;, size = 1) +
+  annotate(&quot;text&quot;, x = as.Date(&quot;2021-07-01&quot;), y = 0.3, label = &quot;war on Ukraine&quot;, size = 5) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_date(breaks = scales::date_breaks(&quot;1 year&quot;), date_labels = &quot;%Y&quot;) +
+  scale_color_manual(values = c(&quot;#66CC00&quot;, &quot;#0080FF&quot;, &quot;#606060&quot;), labels = c(&quot;energy&quot;, &quot;transport&quot;, &quot;general&quot;), name = &quot;group&quot;) +
+  theme_minimal() +
+  theme(legend.position = &quot;bottom&quot;) +
+  labs(title = &quot;Evolution of Spanish inflation (groups)&quot;, x = &quot;time&quot;, y = &quot;yearly inflation&quot;, caption = &quot;Source: INE&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="100%" /></p>
+<p>Energy and transportation prices started growing in the middle of the lockdonn, at a higher rate than the global inflation index.</p>
+</div>
+<div id="evolution-of-prices-of-electricity-and-gas" class="section level2">
+<h2>Evolution of prices of electricity and gas</h2>
+<p>We may be interested in the evolution of gas and electricity. We know that they are in <code>GO45</code>, so we look for these groups with a regular expression using <code>grepl</code>.</p>
+<pre class="r"><code>ipc_clas_grupos %&gt;%
+  filter(grepl(&quot;^G045&quot;, codigo)) %&gt;%
+  select(codigo, nombre) %&gt;%
+  kbl() %&gt;%
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+codigo
+</th>
+<th style="text-align:left;">
+nombre
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+G045
+</td>
+<td style="text-align:left;">
+Electricidad, gas y otros combustibles
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+G0451
+</td>
+<td style="text-align:left;">
+Electricidad
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+G0452
+</td>
+<td style="text-align:left;">
+Gas
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+G0453
+</td>
+<td style="text-align:left;">
+Combustibles líquidos
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+G04510
+</td>
+<td style="text-align:left;">
+Electricidad
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+G04521
+</td>
+<td style="text-align:left;">
+Gas natural y gas ciudad
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+G04522
+</td>
+<td style="text-align:left;">
+Hidrocarburos licuados (butano, propano, etc.)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+G04530
+</td>
+<td style="text-align:left;">
+Combustibles líquidos
+</td>
+</tr>
+</tbody>
+</table>
+<p>Here is the evolution of prices of gas <code>G04521</code> and electricity <code>G04510</code>:</p>
+<pre class="r"><code>ipc_clasif %&gt;%
+  filter(year(periodo) &gt;= 2018, grupo %in% c(&quot;general&quot;, &quot;G04510&quot;, &quot;G04521&quot;), dato == &quot;anual&quot;) %&gt;%
+  mutate(valor = valor/100) %&gt;%
+  ggplot(aes(periodo, valor, color = grupo)) +
+  geom_rect(aes(xmin = as.Date(&quot;2020-03-14&quot;), xmax = as.Date(&quot;2020-06-21&quot;), ymin = -0.2, ymax = 1.2), fill = &quot;#FF9999&quot;, color = &quot;#FF9999&quot;, alpha = 0.05) +
+  annotate(&quot;text&quot;, x= as.Date(&quot;2019-07-01&quot;), y = 0.4, label = &quot;COVID lockdown&quot;, size = 5) +
+  geom_line(size=1) +
+  geom_vline(xintercept = as.Date(&quot;2022-02-24&quot;), color = &quot;red&quot;, linetype = &quot;dashed&quot;, size = 1) +
+  annotate(&quot;text&quot;, x = as.Date(&quot;2021-07-01&quot;), y = 0.8, label = &quot;war on Ukraine&quot;, size = 5) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_date(breaks = scales::date_breaks(&quot;1 year&quot;), date_labels = &quot;%Y&quot;) +
+  scale_color_manual(values = c(&quot;#66CC00&quot;, &quot;#0080FF&quot;, &quot;#606060&quot;), labels = c(&quot;electricity&quot;, &quot;gas&quot;, &quot;general&quot;), name = &quot;group&quot;) +
+  theme_minimal() +
+  theme(legend.position = &quot;bottom&quot;) +
+  labs(title = &quot;Evolution of Spanish inflation (gas and electricity)&quot;, x = &quot;time&quot;, y = &quot;yearly inflation&quot;, caption = &quot;Source: INE&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="100%" /></p>
+<p>Although the recent events in Ukraine would suggest a rise in the price of gas, it has grown more than electricity prices. Gas and electricity prices started growing earlier than the war in Ukraine. Some people argue, though, that INE considers the evolution of prices or regulated market only. This could reduce the impact of electricity prices in inflation.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>The <code>ESdata</code> package. <a href="https://github.com/jmsallan/ESdata" class="uri">https://github.com/jmsallan/ESdata</a></li>
+<li>Instituto Nacional de Estadística. <em>INEbase. Lista completa de operaciones.</em> <a href="https://www.ine.es/dyngs/INEbase/listaoperaciones.htm" class="uri">https://www.ine.es/dyngs/INEbase/listaoperaciones.htm</a> Accessed 2022-11-12.</li>
+<li>Rodriguez Asensio, D. (2022). Qué está pasando (y qué no) con la inflación en España. <a href="https://www.libremercado.com/2022-11-06/daniel-rodriguez-asensio-que-esta-pasando-y-que-no-con-la-inflacion-en-espana-6950646/" class="uri">https://www.libremercado.com/2022-11-06/daniel-rodriguez-asensio-que-esta-pasando-y-que-no-con-la-inflacion-en-espana-6950646/</a> Accessed 2022-11-06</li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre><code>## R version 4.2.2 (2022-10-31)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 19.2
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/openblas/libblas.so.3
+## LAPACK: /usr/lib/x86_64-linux-gnu/libopenblasp-r0.2.20.so
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] kableExtra_1.3.4 lubridate_1.8.0  ESdata_0.1.0     forcats_0.5.2   
+##  [5] stringr_1.4.1    dplyr_1.0.10     purrr_0.3.5      readr_2.1.3     
+##  [9] tidyr_1.2.1      tibble_3.1.8     ggplot2_3.3.6    tidyverse_1.3.1 
+## 
+## loaded via a namespace (and not attached):
+##  [1] svglite_2.1.0     assertthat_0.2.1  digest_0.6.30     utf8_1.2.2       
+##  [5] R6_2.5.1          cellranger_1.1.0  backports_1.4.1   reprex_2.0.2     
+##  [9] evaluate_0.17     highr_0.9         httr_1.4.4        blogdown_1.9     
+## [13] pillar_1.8.1      rlang_1.0.6       readxl_1.4.1      rstudioapi_0.13  
+## [17] jquerylib_0.1.4   rmarkdown_2.14    labeling_0.4.2    webshot_0.5.3    
+## [21] munsell_0.5.0     broom_1.0.1       compiler_4.2.2    modelr_0.1.9     
+## [25] xfun_0.34         pkgconfig_2.0.3   systemfonts_1.0.4 htmltools_0.5.3  
+## [29] tidyselect_1.1.2  bookdown_0.26     fansi_1.0.3       viridisLite_0.4.1
+## [33] crayon_1.5.2      tzdb_0.3.0        dbplyr_2.2.1      withr_2.5.0      
+## [37] grid_4.2.2        jsonlite_1.8.3    gtable_0.3.0      lifecycle_1.0.3  
+## [41] DBI_1.1.2         magrittr_2.0.3    scales_1.2.1      cli_3.4.1        
+## [45] stringi_1.7.8     farver_2.1.1      fs_1.5.2          xml2_1.3.3       
+## [49] bslib_0.3.1       ellipsis_0.3.2    generics_0.1.2    vctrs_0.5.0      
+## [53] tools_4.2.2       glue_1.6.2        hms_1.1.2         fastmap_1.1.0    
+## [57] yaml_2.3.6        colorspace_2.0-3  rvest_1.0.3       knitr_1.40       
+## [61] haven_2.5.1       sass_0.4.1</code></pre>
+</div>
