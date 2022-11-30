@@ -1,0 +1,596 @@
+---
+title: Mapping with purrr
+author: Jose M Sallan
+date: '2022-11-30'
+slug: mapping-with-purrr
+categories:
+  - R
+tags:
+  - purrr
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>In this post, I will present the functionalities of the <code>purrr</code> package for mapping (iterating) along vectors, lists or data frames using functional programming. <code>purrr</code> is included in the tidyverse and it is loaded with the <code>tidyverse</code> (meta-)package.</p>
+<p>I will also be using <code>kableExtra</code> to present data frames nicely.</p>
+<pre class="r"><code>library(tidyverse)
+library(kableExtra)</code></pre>
+<div id="mapping-one-list" class="section level2">
+<h2>Mapping one list</h2>
+<p>In mathematics, <strong>mapping</strong> is an operation that associates each element of a given set (the domain) with one or more elements of a second set (the range). This is precisely what the <code>map</code> function of <code>purrr</code> is doing.</p>
+<p><code>map</code> has two arguments. The first one is a list, vector or data frame. The second is the function to be applied to each element of the first argument.</p>
+<p>Let’s build a <strong>list</strong> of a vector and two data frames:</p>
+<pre class="r"><code>l &lt;- list(a = LETTERS, b = iris, c = mtcars)</code></pre>
+<p>The outcome of <code>map</code> is always a list:</p>
+<pre class="r"><code>map(l, length)</code></pre>
+<pre><code>## $a
+## [1] 26
+## 
+## $b
+## [1] 5
+## 
+## $c
+## [1] 11</code></pre>
+<p>We can obtain a similar output using the <code>lapply</code> R base function:</p>
+<pre class="r"><code>lapply(l, length)</code></pre>
+<pre><code>## $a
+## [1] 26
+## 
+## $b
+## [1] 5
+## 
+## $c
+## [1] 11</code></pre>
+<p>The <code>length</code> function always returns an integer, so it makes sense to obtain a vector of integers instead of a list. We can achieve that with <code>map_int</code>.</p>
+<pre class="r"><code>map_int(l, length)</code></pre>
+<pre><code>##  a  b  c 
+## 26  5 11</code></pre>
+<p>Again, we can obtain a similar output using <code>sapply</code>:</p>
+<pre class="r"><code>sapply(l, length)</code></pre>
+<pre><code>##  a  b  c 
+## 26  5 11</code></pre>
+<p>All mapping functions of <code>purrr</code> include variants that allow specifying the class of the output. Using <code>map_int</code>, <code>map_dbl</code>, <code>map_chr</code> and <code>map_lgl</code> we obtain, if possible, outputs of class integer, double, character and logical respectively.</p>
+<p>Let’s obtain the output of <code>length</code> for list <code>l</code> as a character vector:</p>
+<pre class="r"><code>map_chr(l, length)</code></pre>
+<pre><code>##    a    b    c 
+## &quot;26&quot;  &quot;5&quot; &quot;11&quot;</code></pre>
+<p>The first argument of the <code>map</code> family functions can also be a data frame. Those functions treat a data frame as a list of columns. Let’s see how can we calculate the mean of each of the columns of <code>mtcars</code>.</p>
+<pre class="r"><code>map_dbl(mtcars, mean)</code></pre>
+<pre><code>##        mpg        cyl       disp         hp       drat         wt       qsec 
+##  20.090625   6.187500 230.721875 146.687500   3.596563   3.217250  17.848750 
+##         vs         am       gear       carb 
+##   0.437500   0.406250   3.687500   2.812500</code></pre>
+<p>Using R base we can obtain the same result using <code>apply</code> across columns:</p>
+<pre class="r"><code>apply(mtcars, 2, mean)</code></pre>
+<pre><code>##        mpg        cyl       disp         hp       drat         wt       qsec 
+##  20.090625   6.187500 230.721875 146.687500   3.596563   3.217250  17.848750 
+##         vs         am       gear       carb 
+##   0.437500   0.406250   3.687500   2.812500</code></pre>
+<p>In <code>purrr</code> functions we can use <strong>function shortcuts</strong>, where the function is introduced with <code>~</code>. In <code>map</code>, the element of list or data frame is represented as <code>.</code>.</p>
+<pre class="r"><code>map_dbl(mtcars, ~ round(mean(.), 4))</code></pre>
+<pre><code>##      mpg      cyl     disp       hp     drat       wt     qsec       vs 
+##  20.0906   6.1875 230.7219 146.6875   3.5966   3.2172  17.8487   0.4375 
+##       am     gear     carb 
+##   0.4062   3.6875   2.8125</code></pre>
+<p>We can produce a similar output using R base, but not with the function shortcut.</p>
+<pre class="r"><code>sapply(mtcars, \(i) round(mean(i), 4))</code></pre>
+<pre><code>##      mpg      cyl     disp       hp     drat       wt     qsec       vs 
+##  20.0906   6.1875 230.7219 146.6875   3.5966   3.2172  17.8487   0.4375 
+##       am     gear     carb 
+##   0.4062   3.6875   2.8125</code></pre>
+</div>
+<div id="mapping-two-lists" class="section level2">
+<h2>Mapping two lists</h2>
+<p>The <code>map2</code> family of functions allows iterating a function with two arguments along two lists.</p>
+<p>To illustrate how <code>map2</code> functions work, let’s build a function that tells us if we have improved or worsened our performance when comparing <code>past</code> and <code>present</code> grades:</p>
+<pre class="r"><code>check_improvement &lt;- function(past, present){
+  
+  if(past &lt; present){
+    report &lt;- &quot;improved&quot;
+  }else{
+    report &lt;- &quot;not improved&quot;
+  }
+  
+  return(report)
+}</code></pre>
+<p>We want to apply <code>check_improvement</code> to two vectors of past and present grades:</p>
+<pre class="r"><code>set.seed(1111)
+past_grades &lt;- sample(1:10, 10, replace = TRUE)
+present_grades &lt;- sample(1:10, 10, replace = TRUE)</code></pre>
+<p>We cannot apply <code>check_improvement</code> to the vectors <code>past_grades</code> and <code>present_grades</code> directly, as <code>if</code> only logical evaluations arguments of length one. We can iterate along these two vectors using <code>map2</code>. The two inputs of the function are labeled as ´.x<code>and</code>.y`.</p>
+<pre class="r"><code>map2(past_grades, present_grades, ~ check_improvement(.x, .y))</code></pre>
+<pre><code>## [[1]]
+## [1] &quot;not improved&quot;
+## 
+## [[2]]
+## [1] &quot;improved&quot;
+## 
+## [[3]]
+## [1] &quot;not improved&quot;
+## 
+## [[4]]
+## [1] &quot;not improved&quot;
+## 
+## [[5]]
+## [1] &quot;improved&quot;
+## 
+## [[6]]
+## [1] &quot;not improved&quot;
+## 
+## [[7]]
+## [1] &quot;not improved&quot;
+## 
+## [[8]]
+## [1] &quot;not improved&quot;
+## 
+## [[9]]
+## [1] &quot;not improved&quot;
+## 
+## [[10]]
+## [1] &quot;improved&quot;</code></pre>
+<p>Using functions <code>*_dfr</code> and <code>*_dfc</code> we can present the output as tibbles constructed by rows or columns, respectively. Let’s modify the function above to return a row of a data frame for each observation.</p>
+<pre class="r"><code>check_improvement2 &lt;- function(past, present){
+  
+  if(past &lt; present){
+    report &lt;- &quot;improved&quot;
+  }else{
+    report &lt;- &quot;not improved&quot;
+  }
+  
+  return(list(past = past, present = present, report = report))
+}</code></pre>
+<p>Now we get the data frame binding rows with <code>map2_dfr</code>:</p>
+<pre class="r"><code>map2_dfr(past_grades, present_grades, ~ check_improvement2(.x, .y)) %&gt;%
+  kbl() %&gt;%
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+past
+</th>
+<th style="text-align:right;">
+present
+</th>
+<th style="text-align:left;">
+report
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:left;">
+not improved
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:left;">
+improved
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+10
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:left;">
+not improved
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:left;">
+not improved
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+7
+</td>
+<td style="text-align:left;">
+improved
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+not improved
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:left;">
+not improved
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+10
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+not improved
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+7
+</td>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:left;">
+not improved
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:left;">
+improved
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="mapping-more-than-two-lists" class="section level2">
+<h2>Mapping more than two lists</h2>
+<p>We can map functions taking three or more arguments using the <code>pmap</code> family. They work similary to <code>map2</code>, but taking arguments of the form <code>..1</code>, <code>..2</code>, <code>..3</code> and so on. The input of those functions is a list with the elements to iterate. Let’s see how the <code>pmap</code> functions work with an example.</p>
+<p>Let’s consider a quiz where you are betting on the results of football matches. If your result has the same winning team as the real match, or you correctly guess a tie, you get two points. If your bet matches the exact result, you get three points. If <code>f1</code> and <code>f2</code> are the forecasted goals for each team, and <code>r1</code> and <code>r2</code> the real result, we can get the points of the bet with the function:</p>
+<pre class="r"><code>score &lt;- function(f1, f2, r1, r2){
+  
+  points &lt;- 0
+  
+  if(sign(f1-f2) == sign(r1-r2))
+    points &lt;- 2
+  
+  if(f1 == r1 &amp; f2 == r2)
+    points &lt;- 3
+  
+  return(points)
+}</code></pre>
+<p>Let’s test the function with a list of bets and results <code>matches_list</code> and the <code>pmap_dbl</code> function:</p>
+<pre class="r"><code>matches_list &lt;- list(mf1 = c(0, 0, 0, 1),
+                     mf2 = c(0, 2, 3, 1),
+                     mr1 = c(1, 0, 1, 1),
+                     mr2 = c(1, 2, 0, 1))
+
+pmap_dbl(matches_list, ~score(..1, ..2, ..3, ..4))</code></pre>
+<pre><code>## [1] 2 3 0 3</code></pre>
+</div>
+<div id="mapping-in-a-data-frame" class="section level2">
+<h2>Mapping in a data frame</h2>
+<p>We can use the <code>map</code>, <code>map2</code> and <code>pmap</code> families of functions inside a data frame or tibble using <code>mutate</code>. For the example above we can store bets and results in a tibble, and then use <code>mutate</code> to add a column with the results of the <code>score</code> function. Note that the argument of <code>pmap</code> can be also a data frame.</p>
+<pre class="r"><code>matches &lt;- tibble(mf1 = c(0, 0, 0, 1),
+                  mf2 = c(0, 2, 3, 1),
+                  mr1 = c(1, 0, 1, 1),
+                  mr2 = c(1, 2, 0, 1))
+
+matches &lt;- matches %&gt;%
+  mutate(result = pmap_dbl(matches, ~score(..1, ..2, ..3, ..4)))
+
+matches %&gt;%
+  kbl() %&gt;%
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+mf1
+</th>
+<th style="text-align:right;">
+mf2
+</th>
+<th style="text-align:right;">
+mr1
+</th>
+<th style="text-align:right;">
+mr2
+</th>
+<th style="text-align:right;">
+result
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+3
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+3
+</td>
+</tr>
+</tbody>
+</table>
+<p>If we use functions of the <code>map</code> or <code>map2</code> family, the arguments of the functions are the columns of the data frame.</p>
+<pre class="r"><code>grades &lt;- tibble(past = past_grades, present = present_grades)
+
+grades &lt;- grades %&gt;%
+  mutate(check = map2_chr(past, present, ~ check_improvement(.x, .y)))
+
+grades %&gt;%
+  kbl() %&gt;%
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+past
+</th>
+<th style="text-align:right;">
+present
+</th>
+<th style="text-align:left;">
+check
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:left;">
+not improved
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:left;">
+improved
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+10
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:left;">
+not improved
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:left;">
+not improved
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+7
+</td>
+<td style="text-align:left;">
+improved
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+not improved
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:left;">
+not improved
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+10
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+not improved
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+7
+</td>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:left;">
+not improved
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:left;">
+improved
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li><code>purrr</code> page in tidyverse website <a href="https://purrr.tidyverse.org/" class="uri">https://purrr.tidyverse.org/</a></li>
+<li><em>21: iteration</em> in Wickham, H. and Grolemund, G. (in progress). <em>R for data science</em>. <a href="https://r4ds.had.co.nz/iteration.html" class="uri">https://r4ds.had.co.nz/iteration.html</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre><code>## R version 4.2.2 Patched (2022-11-10 r83330)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 19.2
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/openblas/libblas.so.3
+## LAPACK: /usr/lib/x86_64-linux-gnu/libopenblasp-r0.2.20.so
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] kableExtra_1.3.4 forcats_0.5.2    stringr_1.4.1    dplyr_1.0.10    
+##  [5] purrr_0.3.5      readr_2.1.3      tidyr_1.2.1      tibble_3.1.8    
+##  [9] ggplot2_3.4.0    tidyverse_1.3.1 
+## 
+## loaded via a namespace (and not attached):
+##  [1] svglite_2.1.0     lubridate_1.9.0   assertthat_0.2.1  digest_0.6.30    
+##  [5] utf8_1.2.2        R6_2.5.1          cellranger_1.1.0  backports_1.4.1  
+##  [9] reprex_2.0.2      evaluate_0.17     highr_0.9         httr_1.4.4       
+## [13] blogdown_1.9      pillar_1.8.1      rlang_1.0.6       readxl_1.4.1     
+## [17] rstudioapi_0.13   jquerylib_0.1.4   rmarkdown_2.14    webshot_0.5.3    
+## [21] munsell_0.5.0     broom_1.0.1       compiler_4.2.2    modelr_0.1.10    
+## [25] xfun_0.34         pkgconfig_2.0.3   systemfonts_1.0.4 htmltools_0.5.3  
+## [29] tidyselect_1.1.2  bookdown_0.26     fansi_1.0.3       viridisLite_0.4.1
+## [33] crayon_1.5.2      tzdb_0.3.0        dbplyr_2.2.1      withr_2.5.0      
+## [37] grid_4.2.2        jsonlite_1.8.3    gtable_0.3.0      lifecycle_1.0.3  
+## [41] DBI_1.1.2         magrittr_2.0.3    scales_1.2.1      cli_3.4.1        
+## [45] stringi_1.7.8     fs_1.5.2          xml2_1.3.3        bslib_0.3.1      
+## [49] ellipsis_0.3.2    generics_0.1.2    vctrs_0.5.0       tools_4.2.2      
+## [53] glue_1.6.2        hms_1.1.2         fastmap_1.1.0     yaml_2.3.6       
+## [57] timechange_0.1.1  colorspace_2.0-3  rvest_1.0.3       knitr_1.40       
+## [61] haven_2.5.1       sass_0.4.1</code></pre>
+</div>

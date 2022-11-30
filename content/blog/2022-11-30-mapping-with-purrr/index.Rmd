@@ -1,0 +1,226 @@
+---
+title: Mapping with purrr
+author: Jose M Sallan
+date: '2022-11-30'
+slug: mapping-with-purrr
+categories:
+  - R
+tags:
+  - purrr
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post, I will present the functionalities of the `purrr` package for mapping (iterating) along vectors, lists or data frames using functional programming. `purrr` is included in the tidyverse and it is loaded with the `tidyverse` (meta-)package.
+
+I will also be using `kableExtra` to present data frames nicely.
+
+```{r}
+library(tidyverse)
+library(kableExtra)
+```
+
+## Mapping one list
+
+In mathematics, **mapping** is an operation that associates each element of a given set (the domain) with one or more elements of a second set (the range). This is precisely what the `map` function of `purrr` is doing. 
+
+`map` has two arguments. The first one is a list, vector or data frame. The second is the function to be applied to each element of the first argument. 
+
+Let's build a **list** of a vector and two data frames:
+
+```{r}
+l <- list(a = LETTERS, b = iris, c = mtcars)
+```
+
+The outcome of `map` is always a list:
+
+```{r}
+map(l, length)
+```
+
+We can obtain a similar output using the `lapply` R base function:
+
+```{r}
+lapply(l, length)
+```
+
+The `length` function always returns an integer, so it makes sense to obtain a vector of integers instead of a list. We can achieve that with `map_int`.
+
+```{r}
+map_int(l, length)
+```
+
+Again, we can obtain a similar output using `sapply`:
+
+```{r}
+sapply(l, length)
+```
+
+All mapping functions of `purrr` include variants that allow specifying the class of the output. Using `map_int`, `map_dbl`, `map_chr` and `map_lgl` we obtain, if possible, outputs of class integer, double, character and logical respectively.
+
+Let's obtain the output of `length` for list `l` as a character vector:
+
+```{r}
+map_chr(l, length)
+```
+
+The first argument of the `map` family functions can also be a data frame. Those functions treat a data frame as a list of columns. Let's see how can we calculate the mean of each of the columns of `mtcars`.
+
+```{r}
+map_dbl(mtcars, mean)
+```
+
+Using R base we can obtain the same result using `apply` across columns:
+
+```{r}
+apply(mtcars, 2, mean)
+```
+
+In `purrr` functions we can use **function shortcuts**, where the function is introduced with `~`. In `map`, the element of list or data frame is represented as `.`.
+
+```{r}
+map_dbl(mtcars, ~ round(mean(.), 4))
+```
+
+We can produce a similar output using R base, but not with the function shortcut.
+
+```{r}
+sapply(mtcars, \(i) round(mean(i), 4))
+```
+
+## Mapping two lists
+
+The `map2` family of functions allows iterating a function with two arguments along two lists.
+
+To illustrate how `map2` functions work, let's build a function that tells us if we have improved or worsened our performance when comparing `past` and `present` grades:
+
+```{r}
+check_improvement <- function(past, present){
+  
+  if(past < present){
+    report <- "improved"
+  }else{
+    report <- "not improved"
+  }
+  
+  return(report)
+}
+```
+
+We want to apply `check_improvement` to two vectors of past and present grades:
+
+```{r}
+set.seed(1111)
+past_grades <- sample(1:10, 10, replace = TRUE)
+present_grades <- sample(1:10, 10, replace = TRUE)
+```
+
+We cannot apply `check_improvement` to the vectors `past_grades` and `present_grades` directly, as `if` only logical evaluations arguments of length one. We can iterate along these two vectors using `map2`. The two inputs of the function are labeled as ´.x` and `.y`.
+
+```{r}
+map2(past_grades, present_grades, ~ check_improvement(.x, .y))
+```
+
+Using functions `*_dfr` and `*_dfc` we can present the output as tibbles constructed by rows or columns, respectively. Let's modify the function above to return a row of a data frame for each observation.
+
+```{r}
+check_improvement2 <- function(past, present){
+  
+  if(past < present){
+    report <- "improved"
+  }else{
+    report <- "not improved"
+  }
+  
+  return(list(past = past, present = present, report = report))
+}
+```
+
+Now we get the data frame binding rows with `map2_dfr`:
+
+```{r}
+map2_dfr(past_grades, present_grades, ~ check_improvement2(.x, .y)) %>%
+  kbl() %>%
+  kable_styling(full_width = FALSE)
+```
+
+## Mapping more than two lists
+
+We can map functions taking three or more arguments using the `pmap` family. They work similary to `map2`, but taking arguments of the form `..1`, `..2`, `..3` and so on. The input of those functions is a list with the elements to iterate. Let's see how the `pmap` functions work with an example.
+
+Let's consider a quiz where you are betting on the results of football matches. If your result has the same winning team as the real match, or you correctly guess a tie, you get two points. If your bet matches the exact result, you get three points. If `f1` and `f2` are the forecasted goals for each team, and `r1` and `r2` the real result, we can get the points of the bet with the function:
+
+```{r}
+score <- function(f1, f2, r1, r2){
+  
+  points <- 0
+  
+  if(sign(f1-f2) == sign(r1-r2))
+    points <- 2
+  
+  if(f1 == r1 & f2 == r2)
+    points <- 3
+  
+  return(points)
+}
+```
+
+Let's test the function with a list of bets and results `matches_list` and the `pmap_dbl` function:
+
+```{r}
+matches_list <- list(mf1 = c(0, 0, 0, 1),
+                     mf2 = c(0, 2, 3, 1),
+                     mr1 = c(1, 0, 1, 1),
+                     mr2 = c(1, 2, 0, 1))
+
+pmap_dbl(matches_list, ~score(..1, ..2, ..3, ..4))
+```
+
+## Mapping in a data frame
+
+We can use the `map`, `map2` and `pmap` families of functions inside a data frame or tibble using `mutate`. For the example above we can store bets and results in a tibble, and then use `mutate` to add a column with the results of the `score` function. Note that the argument of `pmap` can be also a data frame.
+
+```{r}
+matches <- tibble(mf1 = c(0, 0, 0, 1),
+                  mf2 = c(0, 2, 3, 1),
+                  mr1 = c(1, 0, 1, 1),
+                  mr2 = c(1, 2, 0, 1))
+
+matches <- matches %>%
+  mutate(result = pmap_dbl(matches, ~score(..1, ..2, ..3, ..4)))
+
+matches %>%
+  kbl() %>%
+  kable_styling(full_width = FALSE)
+```
+
+If we use functions of the `map` or `map2` family, the arguments of the functions are the columns of the data frame.
+
+```{r}
+grades <- tibble(past = past_grades, present = present_grades)
+
+grades <- grades %>%
+  mutate(check = map2_chr(past, present, ~ check_improvement(.x, .y)))
+
+grades %>%
+  kbl() %>%
+  kable_styling(full_width = FALSE)
+```
+
+
+## References
+
+* `purrr` page in tidyverse website <https://purrr.tidyverse.org/>
+* *21: iteration* in Wickham, H. and Grolemund, G. (in progress). *R for data science*. <https://r4ds.had.co.nz/iteration.html>
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
