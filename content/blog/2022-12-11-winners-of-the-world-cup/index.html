@@ -1,0 +1,284 @@
+---
+title: Winners of the World Cup
+author: Jose M Sallan
+date: '2022-12-11'
+slug: winners-of-the-world-cup
+categories:
+  - R
+tags:
+  - ggplot
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>While I am publishing this post, the 2022 World Cup is taking place in Qatar. To celebrate this event, I will use the tidytuesday data about World Cups celebrated until 2018 to present two visualizations about the past winners of the World Cup. The packages I will be using are:</p>
+<pre class="r"><code>library(tidyverse)
+library(ggimage)
+library(kableExtra)
+library(tidytuesdayR)
+library(countrycode)</code></pre>
+<p>The <code>tidyverse</code> package loads utilties for data handling and visualization. <code>ggimage</code> allows placing images in plots done with <code>gpplot2</code>. I am using <code>kableExtra</code> to print tables.</p>
+<p>I am using <code>tidytuesdayR</code> to load World Cup data from the Tidytuesday GitHub repository. <code>countrycode</code> allows obtaining data about countries, like the iso codes and the continent the country is in.</p>
+<p>Let’s load the data about the world cup with <code>tt_load</code>. Here I will be using the <code>worldcups</code> dataset only.</p>
+<pre class="r"><code>tuesdata &lt;- tidytuesdayR::tt_load(2022, week = 48)
+wcmatches &lt;- tuesdata$wcmatches
+worldcups &lt;- tuesdata$worldcups
+rm(tuesdata)</code></pre>
+<pre class="r"><code>load(&quot;worldcup.RData&quot;)</code></pre>
+<p><code>worldcups</code> contains information about each edition World Cup, among them the year and the winner:</p>
+<pre class="r"><code>worldcups %&gt;% glimpse()</code></pre>
+<pre><code>## Rows: 21
+## Columns: 10
+## $ year         &lt;dbl&gt; 1930, 1934, 1938, 1950, 1954, 1958, 1962, 1966, 1970, 197…
+## $ host         &lt;chr&gt; &quot;Uruguay&quot;, &quot;Italy&quot;, &quot;France&quot;, &quot;Brazil&quot;, &quot;Switzerland&quot;, &quot;S…
+## $ winner       &lt;chr&gt; &quot;Uruguay&quot;, &quot;Italy&quot;, &quot;Italy&quot;, &quot;Uruguay&quot;, &quot;West Germany&quot;, &quot;…
+## $ second       &lt;chr&gt; &quot;Argentina&quot;, &quot;Czechoslovakia&quot;, &quot;Hungary&quot;, &quot;Brazil&quot;, &quot;Hung…
+## $ third        &lt;chr&gt; &quot;USA&quot;, &quot;Germany&quot;, &quot;Brazil&quot;, &quot;Sweden&quot;, &quot;Austria&quot;, &quot;France&quot;…
+## $ fourth       &lt;chr&gt; &quot;Yugoslavia&quot;, &quot;Austria&quot;, &quot;Sweden&quot;, &quot;Spain&quot;, &quot;Uruguay&quot;, &quot;W…
+## $ goals_scored &lt;dbl&gt; 70, 70, 84, 88, 140, 126, 89, 89, 95, 97, 102, 146, 132, …
+## $ teams        &lt;dbl&gt; 13, 16, 15, 13, 16, 16, 16, 16, 16, 16, 16, 24, 24, 24, 2…
+## $ games        &lt;dbl&gt; 18, 17, 18, 22, 26, 35, 32, 32, 32, 38, 38, 52, 52, 52, 5…
+## $ attendance   &lt;dbl&gt; 434000, 395000, 483000, 1337000, 943000, 868000, 776000, …</code></pre>
+<div id="winners-of-the-world-cup-1930-2018" class="section level1">
+<h1>Winners of the World Cup (1930-2018)</h1>
+<p>Let’s see what countries have ever won a World Cup:</p>
+<pre class="r"><code>unique(worldcups$winner)</code></pre>
+<pre><code>## [1] &quot;Uruguay&quot;      &quot;Italy&quot;        &quot;West Germany&quot; &quot;Brazil&quot;       &quot;England&quot;     
+## [6] &quot;Argentina&quot;    &quot;France&quot;       &quot;Spain&quot;        &quot;Germany&quot;</code></pre>
+<p>When it comes to football, West Germany is equivalent to Germany. Let’s replace their appearances in the table:</p>
+<pre class="r"><code>worldcups &lt;- worldcups %&gt;%
+  mutate(winner = replace(winner, winner == &quot;West Germany&quot;, &quot;Germany&quot;))</code></pre>
+<p>Let’s see how many Cups has won each country. I’ll store that information in the <code>winners</code> table.</p>
+<pre class="r"><code>winners &lt;- worldcups %&gt;%
+  group_by(winner) %&gt;%
+  summarize(n = n(), .groups = &quot;drop&quot;) 
+
+winners %&gt;%
+  kbl() %&gt;%
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+winner
+</th>
+<th style="text-align:right;">
+n
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Argentina
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Brazil
+</td>
+<td style="text-align:right;">
+5
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+England
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+France
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Germany
+</td>
+<td style="text-align:right;">
+4
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Italy
+</td>
+<td style="text-align:right;">
+4
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Spain
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Uruguay
+</td>
+<td style="text-align:right;">
+2
+</td>
+</tr>
+</tbody>
+</table>
+<p>The obvious way of visualizing this information is through a bar plot. Let’s see the default view:</p>
+<pre class="r"><code>winners %&gt;%
+  ggplot(aes(winner, n)) +
+  geom_bar(stat = &quot;identity&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="100%" /></p>
+<div id="an-edited-barplot" class="section level2">
+<h2>An edited barplot</h2>
+<p>Let’s do a better plot, ordering the bars, plotting each winner’s continent and presenting the countries with their flags. To do so, I’ve:</p>
+<ul>
+<li>Obtained the <code>iso2</code> code and <code>continent</code> of each country.</li>
+<li>As England is missing in the table, I am replacing its values, and picking a file with the English flag from the internet with <code>england_link</code>.</li>
+</ul>
+<pre class="r"><code>winners &lt;- winners %&gt;%
+  mutate(iso2 = countrycode(winner, &quot;country.name&quot;, &quot;iso2c&quot;),
+         continent = countrycode(winner, &quot;country.name&quot;, &quot;continent&quot;))
+
+winners &lt;- winners %&gt;%
+  mutate(iso2 = replace(iso2, is.na(iso2), &quot;EN&quot;),
+         continent = replace(continent, is.na(continent), &quot;Europe&quot;))
+
+england_link &lt;- &quot;https://upload.wikimedia.org/wikipedia/en/thumb/b/be/Flag_of_England.svg/800px-Flag_of_England.svg.png&quot;</code></pre>
+<p>Here is the new version of the visualization of the World Cup winners:</p>
+<ul>
+<li>Define the plot as a bar plot, with fill color defined by continent of each country.</li>
+<li>Set the limits of y axis with <code>ylim</code> so that I can set the flags on the left hand side.</li>
+<li>Placing country flags in <code>y = -0.5</code> with <code>geom_flag</code>. England flag is missing as it is not included in this geom.</li>
+<li>Placing the English flag with <code>geom_image</code>.</li>
+<li>Placing the number of World Cups won of each country with <code>geom_text</code> for better readability. This will allow removing the y axis later.</li>
+<li>Flip axis with <code>coord_flip</code> and remove axis and background with <code>theme_void</code>.</li>
+<li>Set an image title with <code>ggtitle</code>.</li>
+<li>Tune colors and legend labels with <code>scale_fill_manual</code>. Legend size is tuned with <code>legend.*</code> parameters in the <code>theme</code>.</li>
+<li>Change title size with <code>plot.title</code> in <code>theme</code>.</li>
+</ul>
+<pre class="r"><code>winners %&gt;%
+  mutate(winner = fct_reorder(winner, n)) %&gt;%
+  ggplot(aes(winner, n, fill = continent)) +
+  geom_bar(stat = &quot;identity&quot;) +
+  ylim(-1, 5) +
+  geom_flag(y = -0.5, aes(image = iso2), size = 0.12) +
+  geom_image(aes(x = &quot;England&quot;, y = -0.5, image = england_link), size = 0.12) +
+  geom_text(aes(label = n), hjust = -1, size = 5) +
+  coord_flip() +
+  theme_void() +
+  ggtitle(&quot;Winners of the World Cup until 2018&quot;) +
+  scale_fill_manual(values = c(&quot;#9E66AB&quot;, &quot;#599AD3&quot;), label = c(&quot;America&quot;, &quot;Europe&quot;)) +
+  theme(legend.position = c(0.7, 0.2),
+        legend.key.size = unit(1, &#39;cm&#39;),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15),
+        plot.title = element_text(size = 20))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="100%" /></p>
+<p>The resulting barplot is hopefully more informative than the default plot.</p>
+</div>
+<div id="a-world-cup-winners-timeline" class="section level2">
+<h2>A World Cup winners timeline</h2>
+<p>I have also done a timeline plot presenting where has won the World Cups each of the winners. For doing that, I need to obtain World Cup winners ordered with non-increasing order of Cups won <code>l_winners</code>:</p>
+<pre class="r"><code>l_winners &lt;- winners %&gt;%
+  arrange(n) %&gt;%
+  pull(winner)</code></pre>
+<p>I also need a the url address of a World Cup icon:</p>
+<pre class="r"><code>world_cup_icon &lt;- &quot;https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/FIFA_World_Cup_Icon_%28Campionato_mondiale_di_calcio%29.svg/94px-FIFA_World_Cup_Icon_%28Campionato_mondiale_di_calcio%29.svg.png&quot;</code></pre>
+<p>Here is the plot. Let’s see how I have done it:</p>
+<ul>
+<li>I am retrieving the <code>iso2</code> country codes in <code>worldcups</code> to set the flags later.</li>
+<li>The plot has <code>year</code> in the x axis, and <code>winner</code> in the y axis.</li>
+<li>In every year a country has won a World Cup I am placing a World Cup icon with <code>geom_image</code>.</li>
+<li>I am placing country flags on the left-hand size like in the previous plot. Let’s remember that first World Cup was celebrated in 1930. I am using <code>geom_flag</code> and <code>geom_image</code> in the same was as in the previous plot.</li>
+<li>I am changing the default labels of the <code>years</code> axis with <code>scale_x_continuous</code>.</li>
+<li>I am using <code>theme_minimal</code> to maintain the grid lines in a white background. In <code>theme</code> I am removing all elements of the y axis.</li>
+</ul>
+<pre class="r"><code>worldcups %&gt;%
+  mutate(winner = factor(winner, levels = l_winners),
+         iso2 = countrycode(winner, &quot;country.name&quot;, &quot;iso2c&quot;)) %&gt;%
+  mutate(iso2 = replace(iso2, is.na(iso2), &quot;EN&quot;)) %&gt;%
+  ggplot(aes(year, winner)) +
+  geom_image(image = world_cup_icon, size = 0.03) +
+  geom_flag(x = 1920, aes(image = iso2)) +
+  geom_image(aes(y = &quot;England&quot;, x = 1920, image = england_link)) +
+  scale_x_continuous(limits = c(1920, 2018), breaks = seq(1930, 2018, 8), name = element_blank()) +
+  theme_minimal() +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.title.y = element_blank())</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-13-1.png" width="100%" /></p>
+<p>We observe here that Uruguay won its two World Cups in the first editions of the competition. We also see how Argentina, France and Spain have started to win World Cups recently.</p>
+<p>With these two visualizations, I have presented some of the functionalities of <code>ggplot2</code> to customize plots. I have also introduced <code>ggimage</code> package, that allows placing any image in plots done with ggplot2 with <code>geom_image</code> and <code>geom_flag</code>.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>FIFA World Cup dataset from Kaggle in tidytuesday repository: <a href="https://github.com/rfordatascience/tidytuesday/tree/master/data/2022/2022-11-29" class="uri">https://github.com/rfordatascience/tidytuesday/tree/master/data/2022/2022-11-29</a></li>
+<li>The first visualization was largely inspired by Paula’s blog R <em>Functions and Packages for Political Science Analysis</em>: <a href="https://rforpoliticalscience.com/2020/12/22/add-flags-to-graphs-with-ggimage-package-in-r/" class="uri">https://rforpoliticalscience.com/2020/12/22/add-flags-to-graphs-with-ggimage-package-in-r/</a></li>
+<li>I have selected barplot colors inspired by this post compiled by <em>R bloggers</em>: <a href="https://www.r-bloggers.com/2012/05/bar-graph-colours-that-work-well/" class="uri">https://www.r-bloggers.com/2012/05/bar-graph-colours-that-work-well/</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session info</h2>
+<pre><code>## R version 4.2.2 Patched (2022-11-10 r83330)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 19.2
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/openblas/libblas.so.3
+## LAPACK: /usr/lib/x86_64-linux-gnu/libopenblasp-r0.2.20.so
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] countrycode_1.4.0  tidytuesdayR_1.0.2 kableExtra_1.3.4   ggimage_0.3.1     
+##  [5] forcats_0.5.2      stringr_1.4.1      dplyr_1.0.10       purrr_0.3.5       
+##  [9] readr_2.1.3        tidyr_1.2.1        tibble_3.1.8       ggplot2_3.4.0     
+## [13] tidyverse_1.3.1   
+## 
+## loaded via a namespace (and not attached):
+##  [1] httr_1.4.4         sass_0.4.1         jsonlite_1.8.3     viridisLite_0.4.1 
+##  [5] modelr_0.1.10      bslib_0.3.1        assertthat_0.2.1   highr_0.9         
+##  [9] yulab.utils_0.0.5  cellranger_1.1.0   yaml_2.3.6         pillar_1.8.1      
+## [13] backports_1.4.1    glue_1.6.2         digest_0.6.30      rvest_1.0.3       
+## [17] colorspace_2.0-3   ggfun_0.0.9        htmltools_0.5.3    pkgconfig_2.0.3   
+## [21] broom_1.0.1        haven_2.5.1        magick_2.7.3       bookdown_0.26     
+## [25] scales_1.2.1       webshot_0.5.3      ggplotify_0.1.0    svglite_2.1.0     
+## [29] tzdb_0.3.0         timechange_0.1.1   farver_2.1.1       generics_0.1.2    
+## [33] usethis_2.1.5      ellipsis_0.3.2     withr_2.5.0        cli_3.4.1         
+## [37] magrittr_2.0.3     crayon_1.5.2       readxl_1.4.1       evaluate_0.17     
+## [41] fs_1.5.2           fansi_1.0.3        xml2_1.3.3         blogdown_1.9      
+## [45] tools_4.2.2        hms_1.1.2          lifecycle_1.0.3    munsell_0.5.0     
+## [49] reprex_2.0.2       compiler_4.2.2     jquerylib_0.1.4    gridGraphics_0.5-1
+## [53] systemfonts_1.0.4  rlang_1.0.6        grid_4.2.2         rstudioapi_0.13   
+## [57] labeling_0.4.2     rmarkdown_2.14     gtable_0.3.0       DBI_1.1.2         
+## [61] curl_4.3.2         R6_2.5.1           lubridate_1.9.0    knitr_1.40        
+## [65] fastmap_1.1.0      utf8_1.2.2         stringi_1.7.8      Rcpp_1.0.9        
+## [69] vctrs_0.5.0        dbplyr_2.2.1       tidyselect_1.1.2   xfun_0.34</code></pre>
+</div>
+</div>

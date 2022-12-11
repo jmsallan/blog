@@ -1,0 +1,198 @@
+---
+title: Winners of the World Cup
+author: Jose M Sallan
+date: '2022-12-11'
+slug: winners-of-the-world-cup
+categories:
+  - R
+tags:
+  - ggplot
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+While I am publishing this post, the 2022 World Cup is taking place in Qatar. To celebrate this event, I will use the tidytuesday data about World Cups celebrated until 2018 to present two visualizations about the past winners of the World Cup. The packages I will be using are:
+
+```{r}
+library(tidyverse)
+library(ggimage)
+library(kableExtra)
+library(tidytuesdayR)
+library(countrycode)
+```
+
+The `tidyverse` package loads utilties for data handling and visualization. `ggimage` allows placing images in plots done with `gpplot2`. I am using `kableExtra` to print tables. 
+
+I am using `tidytuesdayR` to load World Cup data from the Tidytuesday GitHub repository. `countrycode` allows obtaining data about countries, like the iso codes and the continent the country is in.
+
+Let's load the data about the world cup with `tt_load`. Here I will be using the `worldcups` dataset only.
+
+```{r, eval=FALSE}
+tuesdata <- tidytuesdayR::tt_load(2022, week = 48)
+wcmatches <- tuesdata$wcmatches
+worldcups <- tuesdata$worldcups
+rm(tuesdata)
+```
+
+```{r}
+load("worldcup.RData")
+```
+
+`worldcups` contains information about each edition World Cup, among them the year and the winner:
+
+```{r}
+worldcups %>% glimpse()
+```
+
+
+# Winners of the World Cup (1930-2018)
+
+Let's see what countries have ever won a World Cup:
+
+```{r}
+unique(worldcups$winner)
+```
+
+When it comes to football, West Germany is equivalent to Germany. Let's replace their appearances in the table:
+
+```{r}
+worldcups <- worldcups %>%
+  mutate(winner = replace(winner, winner == "West Germany", "Germany"))
+```
+
+Let's see how many Cups has won each country. I'll store that information in the `winners` table.
+
+```{r}
+winners <- worldcups %>%
+  group_by(winner) %>%
+  summarize(n = n(), .groups = "drop") 
+
+winners %>%
+  kbl() %>%
+  kable_styling(full_width = FALSE)
+```
+
+The obvious way of visualizing this information is through a bar plot. Let's see the default view:
+
+```{r, out.width='100%'}
+winners %>%
+  ggplot(aes(winner, n)) +
+  geom_bar(stat = "identity")
+```
+
+## An edited barplot
+
+Let's do a better plot, ordering the bars, plotting each winner's continent and presenting the countries with their flags. To do so, I've:
+
+* Obtained the `iso2` code and `continent` of each country.
+* As England is missing in the table, I am replacing its values, and picking a file with the English flag from the internet with `england_link`.
+
+```{r}
+winners <- winners %>%
+  mutate(iso2 = countrycode(winner, "country.name", "iso2c"),
+         continent = countrycode(winner, "country.name", "continent"))
+
+winners <- winners %>%
+  mutate(iso2 = replace(iso2, is.na(iso2), "EN"),
+         continent = replace(continent, is.na(continent), "Europe"))
+
+england_link <- "https://upload.wikimedia.org/wikipedia/en/thumb/b/be/Flag_of_England.svg/800px-Flag_of_England.svg.png"
+```
+
+Here is the new version of the visualization of the World Cup winners:
+
+* Define the plot as a bar plot, with fill color defined by continent of each country.
+* Set the limits of y axis with `ylim` so that I can set the flags on the left hand side.
+* Placing country flags in `y = -0.5` with `geom_flag`. England flag is missing as it is not included in this geom.
+* Placing the English flag with `geom_image`.
+* Placing the number of World Cups won of each country with `geom_text` for better readability. This will allow removing the y axis later.
+* Flip axis with `coord_flip` and remove axis and background with `theme_void`.
+* Set an image title with `ggtitle`.
+* Tune colors and legend labels with `scale_fill_manual`. Legend size is tuned with `legend.*` parameters in the `theme`.
+* Change title size with `plot.title` in `theme`.
+
+```{r, out.width='100%'}
+winners %>%
+  mutate(winner = fct_reorder(winner, n)) %>%
+  ggplot(aes(winner, n, fill = continent)) +
+  geom_bar(stat = "identity") +
+  ylim(-1, 5) +
+  geom_flag(y = -0.5, aes(image = iso2), size = 0.12) +
+  geom_image(aes(x = "England", y = -0.5, image = england_link), size = 0.12) +
+  geom_text(aes(label = n), hjust = -1, size = 5) +
+  coord_flip() +
+  theme_void() +
+  ggtitle("Winners of the World Cup until 2018") +
+  scale_fill_manual(values = c("#9E66AB", "#599AD3"), label = c("America", "Europe")) +
+  theme(legend.position = c(0.7, 0.2),
+        legend.key.size = unit(1, 'cm'),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15),
+        plot.title = element_text(size = 20))
+```
+
+The resulting barplot is hopefully more informative than the default plot.
+
+## A World Cup winners timeline
+
+I have also done a timeline plot presenting where has won the World Cups each of the winners. For doing that, I need to obtain World Cup winners ordered with non-increasing order of Cups won `l_winners`:
+
+```{r}
+l_winners <- winners %>%
+  arrange(n) %>%
+  pull(winner)
+```
+
+I also need a the url address of a World Cup icon:
+
+```{r}
+world_cup_icon <- "https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/FIFA_World_Cup_Icon_%28Campionato_mondiale_di_calcio%29.svg/94px-FIFA_World_Cup_Icon_%28Campionato_mondiale_di_calcio%29.svg.png"
+```
+
+Here is the plot. Let's see how I have done it:
+
+* I am retrieving the `iso2` country codes in `worldcups` to set the flags later.
+* The plot has `year` in the x axis, and `winner` in the y axis.
+* In every year a country has won a World Cup I am placing a World Cup icon with `geom_image`.
+* I am placing country flags on the left-hand size like in the previous plot. Let's remember that first World Cup was celebrated in 1930. I am using `geom_flag` and `geom_image` in the same was as in the previous plot.
+* I am changing the default labels of the `years` axis with `scale_x_continuous`.
+* I am using `theme_minimal` to maintain the grid lines in a white background. In `theme` I am removing all elements of the y axis.
+
+```{r, out.width='100%'}
+worldcups %>%
+  mutate(winner = factor(winner, levels = l_winners),
+         iso2 = countrycode(winner, "country.name", "iso2c")) %>%
+  mutate(iso2 = replace(iso2, is.na(iso2), "EN")) %>%
+  ggplot(aes(year, winner)) +
+  geom_image(image = world_cup_icon, size = 0.03) +
+  geom_flag(x = 1920, aes(image = iso2)) +
+  geom_image(aes(y = "England", x = 1920, image = england_link)) +
+  scale_x_continuous(limits = c(1920, 2018), breaks = seq(1930, 2018, 8), name = element_blank()) +
+  theme_minimal() +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.title.y = element_blank())
+```
+
+We observe here that Uruguay won its two World Cups in the first editions of the competition. We also see how Argentina, France and Spain have started to win World Cups recently.
+
+With these two visualizations, I have presented some of the functionalities of `ggplot2` to customize plots. I have also introduced `ggimage` package, that allows placing any image in plots done with ggplot2 with `geom_image` and `geom_flag`.
+
+## References
+
+* FIFA World Cup dataset from Kaggle in tidytuesday repository: <https://github.com/rfordatascience/tidytuesday/tree/master/data/2022/2022-11-29>
+* The first visualization was largely inspired by Paula's blog R *Functions and Packages for Political Science Analysis*: <https://rforpoliticalscience.com/2020/12/22/add-flags-to-graphs-with-ggimage-package-in-r/>
+* I have selected barplot colors inspired by this post compiled by *R bloggers*: <https://www.r-bloggers.com/2012/05/bar-graph-colours-that-work-well/>
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
