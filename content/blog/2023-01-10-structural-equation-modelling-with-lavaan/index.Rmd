@@ -1,0 +1,267 @@
+---
+title: Structural Equation Modelling with lavaan
+author: Jose M Sallan
+date: '2023-01-10'
+slug: -structural-equation-modelling-with-lavaan
+categories:
+  - R
+  - statistics
+tags:
+  - dplyr
+  - R
+  - structural equation modelling
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post, I will introduce **structural equation modelling (SEM)**, a statistical technique to evaluate the fit of models including latent and observable variables taking as input the covariance matrix of observable variables.
+
+SEM models can include **observable variables** (represented with squares in SEM diagrams) and **latent variables** (represented with circles in SEM diagrams). Latent variables represent constructs not observable directly. Observable variables are supposed to be measurements with error of constructs.
+
+Any SEM model can be split into two submodels:
+
+* **Measurement model**, specifying the relationship between observable and latent variables.
+* **Structural model**, specifying the relationship between latent variables.
+
+If the model you are examining consists solely of a measurement model, it is a **confirmatory factor analysis (CFA)** model. CFA is a special case of SEM, where we want to examine the fit of assigning observable variables to specific latent variables.
+
+Let's see how can we fit SEM models in R. We will use the following packages:
+
+* The `lavaan` package to fit SEM models.
+* The `dplyr` package to handle data frames and `purr` to iterate effectively. Those packages belong to the tidyverse.
+* The `broom` package to present a tidy output of `lavaan`.
+* `semPlot` to plot diagrams of SEM models.
+* `kableExtra` to present nice tables.
+
+```{r}
+library(lavaan)
+library(dplyr)
+library(purrr)
+library(broom)
+library(semPlot)
+library(kableExtra)
+```
+
+To present the workflow I will use the `PoliticalDemocracy` dataset included in `lavaan`. A simpler workflow is presented in the `lavaan` documentation.
+
+## Confirmatory factor analysis
+
+Let's start examining a `m01` model where each observable variable is loading in the latent variable to which is attached theoretically. The latent-observable relationship is specified with a `=~`, with the latent variable on the left- and the observable variables in the right-hand side.
+
+```{r}
+m01 <- '
+  # measurement model
+    ind60 =~ x1 + x2 + x3
+    dem60 =~ y1 + y2 + y3 + y4
+    dem65 =~ y5 + y6 + y7 + y8'
+```
+
+Let's fit the `m01` model usign the `lavaan::cfa` function, specifying that we are using the `PoliticalDemocracy` dataset.
+
+```{r}
+f01 <- cfa(m01, data = PoliticalDemocracy)
+```
+
+We can use `f01` to obtain the path diagram with `semPlot::semPaths`:
+
+```{r, out.width='80%', fig.align='center'}
+semPaths(f01, edge.label.cex = 0.7, curvePivot = TRUE)
+```
+
+We can learn several things from this plot:
+
+* Note that arrows go from latent to observable variables. This is contrary to general intuition, and means that all latent variables have a common source of variability, the latent variable, and a specific source of variability, introduced in the model as an error term.
+* Some of the arrows are presented with a dashed line. This means that the regression coefficient of the observable variable model is set to one. This is done to scale the latent variable. 
+
+Let's examine the output of the `lavaan` fit of the model. There are three ways of doing this:
+
+* `summary` for a summary of selected results.
+* `fitMeasures` for overall fit measures.
+* `parameterEstimates` for a data frame of parameter estimates.
+
+With `summary` we obtain a report of the model, including selected fit indices and parameter estimates:
+
+```{r}
+summary(f01)
+```
+
+With `fitMeasures` we obtain a long list of fit indices:
+
+```{r}
+fitMeasures(f01)
+```
+
+The output of `fitMeasures` is a named vector. If we want only some of the fit indices we can do as follows:
+
+```{r}
+fitMeasures(f01, c("npar", "chisq", "tli", "agfi", "rmsea"))
+```
+
+The `broom::glance` returns a selection of fit indices as a tibble. I use `dplyr::select` to obtain the selection of fit indices.
+
+```{r}
+glance(f01) |>
+  select(npar, chisq, tli, agfi, rmsea)
+```
+
+Finally, with `parameterEstimates` we obtain a data frame of parameter estimates:
+
+```{r}
+parameterestimates(f01)
+```
+
+## Comparing CFA models
+
+Let's compare the `m01` model with two other models:
+
+* A `m00` model where all variables are loading in the same factor.
+* A `m02` model where some of the observable variables are allowed to correlate, as specified in the original model. Covariances between variables are specified with a `~~` operator.
+
+Comparisons between models similar to `m00` and `m01` are frequently used when reporting CFA analysis. If the confirmatory model works well, it will show a considerably better fit that the one-factor model.
+
+```{r}
+m00 <- '
+  #measurement model
+    f =~ x1 + x2 + x3 + y1 + y2 + y3 + y4 + y5 + y6 + y7 + y8'
+
+m02 <- '
+  # measurement model
+    ind60 =~ x1 + x2 + x3
+    dem60 =~ y1 + y2 + y3 + y4
+    dem65 =~ y5 + y6 + y7 + y8
+  # residual correlations
+    y1 ~~ y5
+    y2 ~~ y4 + y6
+    y3 ~~ y7
+    y4 ~~ y8
+    y6 ~~ y8'
+```
+
+If we need to compare models, it can be a good idea to build an iterative workflow with `purrr::map`. Let's start storing the models in a list:
+
+```{r}
+cfa_models <- list(m00, m01, m02)
+```
+
+Let's fit the three models at once:
+
+```{r}
+fit_cfa_models <- map(cfa_models, ~ cfa(., data = PoliticalDemocracy))
+```
+
+We can use broom::glance to obtain the selected indices for each model as data frames, and purrr::map_dfr to put them all together in a data frame of three rows:
+
+```{r}
+fit_indices <- map_dfr(fit_cfa_models, ~ glance(.) |> select(npar, chisq, tli, agfi, rmsea))
+```
+
+And finally label each model with its name:
+
+```{r}
+fit_indices <- bind_cols(model = c("m00", "m01", "m02"), fit_indices)
+```
+
+Here are the results:
+
+```{r}
+fit_indices |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+We observe that the fit of `m00` is much poorer than of the other two models. As the degrees of freedom of `m02` are smaller than `m01`, its fit is better. Let's examine the m02fitted model with `semPlot::semPaths`.
+
+```{r, fig.align='center', out.width='100%'}
+semPaths(fit_cfa_models[[3]], what = "path", whatLabels = "par", edge.label.cex = 0.7, curvePivot = TRUE)
+```
+
+## A structural model
+
+Let's define the structural model presented in the lavaan website. The relationships of the structural model are represented by the `~` symbol.
+
+```{r}
+m03 <- '  
+  # measurement model
+    ind60 =~ x1 + x2 + x3
+    dem60 =~ y1 + y2 + y3 + y4
+    dem65 =~ y5 + y6 + y7 + y8
+  # structural model
+    dem60 ~ ind60
+    dem65 ~ ind60 + dem60
+  # residual correlations
+    y1 ~~ y5
+    y2 ~~ y4 + y6
+    y3 ~~ y7
+    y4 ~~ y8
+    y6 ~~ y8'
+```
+
+The model can be fit with the `lavaan::sem` function:
+
+```{r}
+fit_m03 <- sem(m03, data = PoliticalDemocracy)
+```
+
+The diagram of this model is:
+
+```{r, out.width='100%'}
+semPaths(fit_m03, what = "path", whatLabels = "par", edge.label.cex = 0.7, curvePivot = TRUE)
+```
+
+We can use `summary`, `lavaan::fitMeasures` and `lavaan::parameterEstimates` to see the output as with the previous models. Instead of this, I will obtain fit indices in the same way as of previous models, and add the result to the table of CFA fit indices.
+
+```{r}
+df_fit_m03 <- bind_cols(model = "m03", glance(fit_m03) |> select(npar, chisq, tli, agfi, rmsea))
+
+fit_indices <- bind_rows(fit_indices, df_fit_m03)
+
+fit_indices |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+We observe that the fit of `m02` and `m03` is exactly the same.
+
+
+The parameter estimates are presented as a data table with `lavaan`, but `broom::tidy` presents them in a better way as a tibble:
+
+```{r}
+tidy(fit_m03)
+```
+
+If we want to check the significance of the coefficients of the structural model, we can do:
+
+```{r}
+tidy(fit_m03) |>
+  filter(op == "~") |>
+  select(term, estimate, std.error, p.value) |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+Here we observe that all coefficients are significant for *p* < 0.001.
+
+The `lavaan` package is one of the most common packages to fit structural equation models in R. Here I have presented how to retrieve fit indices and parameter estimates from a fitted model, and how to use the `broom` and `purrr` functionalities to fit several models at once.
+
+## References
+
+* The `lavaan` tutorial website: <https://lavaan.ugent.be/tutorial/>
+* The `PoliticalDemocracy` example: <https://lavaan.ugent.be/tutorial/sem.html>
+* The `semPlot` website examples section: <http://sachaepskamp.com/semPlot/examples>
+* Mapping with `purrr`: <https://jmsallan.netlify.app/blog/mapping-with-purrr/>
+
+## Session info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
+
+
+
