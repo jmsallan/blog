@@ -1,0 +1,911 @@
+---
+title: Plotting World Bank Data
+author: Jose M Sallan
+date: '2023-01-26'
+slug: plotting-world-bank-data
+categories:
+  - R
+tags:
+  - color
+  - ggplot
+  - R
+  - data visualization
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>In this post, I will show how to retrieve data from the Warld Bank with the package <code>wbstats</code> and <code>countrycode</code>. I will use some datasets to present some posibilities of <code>ggplot2</code> from the tidyverse to produce frequently used plots, such as line plots, horizontal bar charts and scatter plots. I will also use <code>kableExtra</code> to present tables nicely, and <code>ggrepel</code> to deal with overlapping text labels.</p>
+<pre class="r"><code>library(wbstats)
+library(countrycode)
+library(tidyverse)
+library(kableExtra)
+library(ggrepel)</code></pre>
+<p>I have used the <code>wb_data</code> function from <code>wbstats</code> to retrieve three datasets:</p>
+<ul>
+<li><code>NY.GDP.PCAP.PP.KD</code>: GDP per capita (constant 2017 international dollars).</li>
+<li><code>SP.POP.TOTL</code>: Population, total.</li>
+<li><code>SP.DYN.TFRT.IN</code>: Fertility rate, total (births per woman).</li>
+</ul>
+<pre class="r"><code>gdp &lt;- wb_data(indicator = &quot;NY.GDP.PCAP.PP.KD&quot;)
+population &lt;- wb_data(indicator = &quot;SP.POP.TOTL&quot;)
+fertility &lt;- wb_data(indicator = &quot;SP.DYN.TFRT.IN&quot;)</code></pre>
+<p>The three tables have a similar structure, presenting information for each country and year:</p>
+<pre class="r"><code>population |&gt;
+  slice(1:10) |&gt;
+  kbl() |&gt; 
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+iso2c
+</th>
+<th style="text-align:left;">
+iso3c
+</th>
+<th style="text-align:left;">
+country
+</th>
+<th style="text-align:right;">
+date
+</th>
+<th style="text-align:right;">
+SP.POP.TOTL
+</th>
+<th style="text-align:left;">
+unit
+</th>
+<th style="text-align:left;">
+obs_status
+</th>
+<th style="text-align:left;">
+footnote
+</th>
+<th style="text-align:left;">
+last_updated
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+AF
+</td>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+2021
+</td>
+<td style="text-align:right;">
+40099462
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+2022-12-22
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AF
+</td>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+2020
+</td>
+<td style="text-align:right;">
+38972230
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+2022-12-22
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AF
+</td>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+2019
+</td>
+<td style="text-align:right;">
+37769499
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+2022-12-22
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AF
+</td>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+2018
+</td>
+<td style="text-align:right;">
+36686784
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+2022-12-22
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AF
+</td>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+2017
+</td>
+<td style="text-align:right;">
+35643418
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+2022-12-22
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AF
+</td>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+2016
+</td>
+<td style="text-align:right;">
+34636207
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+2022-12-22
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AF
+</td>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+2015
+</td>
+<td style="text-align:right;">
+33753499
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+2022-12-22
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AF
+</td>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+2014
+</td>
+<td style="text-align:right;">
+32716210
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+2022-12-22
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AF
+</td>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+2013
+</td>
+<td style="text-align:right;">
+31541209
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+2022-12-22
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AF
+</td>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+2012
+</td>
+<td style="text-align:right;">
+30466479
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+NA
+</td>
+<td style="text-align:left;">
+2022-12-22
+</td>
+</tr>
+</tbody>
+</table>
+<p>As I am interested in introducing the continents in the analysis, I will create a <code>countries</code> table including the <code>iso3c</code> three-digit code, the <code>name</code> and <code>continent</code> of each country in the datasets. I will use the countries in <code>population</code> for reference. Names and continents are retrieved with the <code>countrycode</code> package.</p>
+<pre class="r"><code>countries &lt;- tibble(iso3c = unique(population$iso3c),
+                    name = countrycode(iso3c, origin = &quot;iso3c&quot;, destination = &quot;country.name&quot;),
+                    continent = countrycode(iso3c, origin = &quot;iso3c&quot;, destination = &quot;continent&quot;))</code></pre>
+<pre><code>## Warning in countrycode_convert(sourcevar = sourcevar, origin = origin, destination = dest, : Some values were not matched unambiguously: CHI, XKX
+
+## Warning in countrycode_convert(sourcevar = sourcevar, origin = origin, destination = dest, : Some values were not matched unambiguously: CHI, XKX</code></pre>
+<p>We observe that <code>countrycode</code> data does not include:</p>
+<ul>
+<li>the Channel Islands, which aggregates the two Crown dependencies of Jersey and Guernsey, with iso3c code CHI.</li>
+<li>the partially recognized state of Kosovo, with iso3c code XKX.</li>
+</ul>
+<p>I am using the base function <code>replace</code> in combination with <code>mutate</code> to complete these two elements manually:</p>
+<pre class="r"><code>countries &lt;- countries |&gt;
+  mutate(name = replace(name, list = which(iso3c %in% c(&quot;CHI&quot;, &quot;XKX&quot;)), values = c(&quot;Channel Islands&quot;, &quot;Kosovo&quot;))) |&gt;
+  mutate(continent = replace(continent, list = which(iso3c %in% c(&quot;CHI&quot;, &quot;XKX&quot;)), values = &quot;Europe&quot;))</code></pre>
+<p>Let’s check that both elements are complete now:</p>
+<pre class="r"><code>countries |&gt; 
+  filter(iso3c %in% c(&quot;CHI&quot;, &quot;XKX&quot;)) |&gt;
+  kbl() |&gt;
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+iso3c
+</th>
+<th style="text-align:left;">
+name
+</th>
+<th style="text-align:left;">
+continent
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+CHI
+</td>
+<td style="text-align:left;">
+Channel Islands
+</td>
+<td style="text-align:left;">
+Europe
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+XKX
+</td>
+<td style="text-align:left;">
+Kosovo
+</td>
+<td style="text-align:left;">
+Europe
+</td>
+</tr>
+</tbody>
+</table>
+<p>The next step is to create a <code>wb_indicators</code> table with the value of each indicator for each country and date, and the continent of each country. The merges required to build that table are:</p>
+<pre class="r"><code>wb_indicators &lt;- left_join(population |&gt; select(iso3c, date, country, SP.POP.TOTL),
+                           gdp |&gt; select(iso3c, date, NY.GDP.PCAP.PP.KD),
+                           by = c(&quot;iso3c&quot;, &quot;date&quot;))
+
+wb_indicators &lt;- left_join(wb_indicators,
+                           fertility |&gt; select(iso3c, date, SP.DYN.TFRT.IN),
+                           by = c(&quot;iso3c&quot;, &quot;date&quot;))
+
+wb_indicators &lt;- left_join(wb_indicators,
+                           countries |&gt; select(iso3c, continent),
+                           by = &quot;iso3c&quot;)</code></pre>
+<p>Let’s take a look at <code>wb_indicators</code>:</p>
+<pre class="r"><code>wb_indicators |&gt;
+  slice(1:10) |&gt;
+  kbl() |&gt;
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+iso3c
+</th>
+<th style="text-align:right;">
+date
+</th>
+<th style="text-align:left;">
+country
+</th>
+<th style="text-align:right;">
+SP.POP.TOTL
+</th>
+<th style="text-align:right;">
+NY.GDP.PCAP.PP.KD
+</th>
+<th style="text-align:right;">
+SP.DYN.TFRT.IN
+</th>
+<th style="text-align:left;">
+continent
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:right;">
+2021
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+40099462
+</td>
+<td style="text-align:right;">
+1516.306
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:left;">
+Asia
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:right;">
+2020
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+38972230
+</td>
+<td style="text-align:right;">
+1968.341
+</td>
+<td style="text-align:right;">
+4.750
+</td>
+<td style="text-align:left;">
+Asia
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:right;">
+2019
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+37769499
+</td>
+<td style="text-align:right;">
+2079.922
+</td>
+<td style="text-align:right;">
+4.870
+</td>
+<td style="text-align:left;">
+Asia
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:right;">
+2018
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+36686784
+</td>
+<td style="text-align:right;">
+2060.699
+</td>
+<td style="text-align:right;">
+5.002
+</td>
+<td style="text-align:left;">
+Asia
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:right;">
+2017
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+35643418
+</td>
+<td style="text-align:right;">
+2096.093
+</td>
+<td style="text-align:right;">
+5.129
+</td>
+<td style="text-align:left;">
+Asia
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:right;">
+2016
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+34636207
+</td>
+<td style="text-align:right;">
+2101.422
+</td>
+<td style="text-align:right;">
+5.262
+</td>
+<td style="text-align:left;">
+Asia
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:right;">
+2015
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+33753499
+</td>
+<td style="text-align:right;">
+2108.714
+</td>
+<td style="text-align:right;">
+5.405
+</td>
+<td style="text-align:left;">
+Asia
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:right;">
+2014
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+32716210
+</td>
+<td style="text-align:right;">
+2144.450
+</td>
+<td style="text-align:right;">
+5.560
+</td>
+<td style="text-align:left;">
+Asia
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:right;">
+2013
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+31541209
+</td>
+<td style="text-align:right;">
+2165.341
+</td>
+<td style="text-align:right;">
+5.696
+</td>
+<td style="text-align:left;">
+Asia
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AFG
+</td>
+<td style="text-align:right;">
+2012
+</td>
+<td style="text-align:left;">
+Afghanistan
+</td>
+<td style="text-align:right;">
+30466479
+</td>
+<td style="text-align:right;">
+2122.831
+</td>
+<td style="text-align:right;">
+5.830
+</td>
+<td style="text-align:left;">
+Asia
+</td>
+</tr>
+</tbody>
+</table>
+<div id="evolution-of-population-by-continent" class="section level2">
+<h2>Evolution of population by continent</h2>
+<p>Let’s start showing how has evolved the total population in each of the continents between years 1995 and 2020. I will obtain the total population for each continent and date using <code>summarise</code> and <code>group_by</code>.</p>
+<pre class="r"><code>pop_cont_table &lt;- wb_indicators |&gt;
+  filter(date &gt;= 1993, date &lt;= 2020) |&gt;
+  group_by(date, continent) |&gt;
+  summarise(pop_cont = sum(SP.POP.TOTL, na.rm = TRUE), .groups = &quot;drop&quot;)</code></pre>
+<p>Then we can obtain a first plot draft with the <code>ggplot</code> defaults.</p>
+<pre class="r"><code>pop_cont_table |&gt;
+  ggplot(aes(date, pop_cont, color = continent)) +
+  geom_line()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-11-1.png" width="80%" style="display: block; margin: auto;" /></p>
+<p>This plot can be improved in several ways. Firstly, I will scale population to millions of people so it is easier to interpret.</p>
+<pre class="r"><code>pop_cont_table &lt;- pop_cont_table |&gt;
+  mutate(pop_cont = pop_cont/1e6)</code></pre>
+<p>Then, I will make some transformations to the plot:</p>
+<ul>
+<li>Increase line size in <code>geom_line</code>.</li>
+<li>Remove the legend with <code>legend.position = "none"</code> and replace with direct labels using <code>geom_text</code>. Those labels will have the same color as continent lines.</li>
+<li>Transform the x axis with <code>scale_x_continuous</code> to customize date labels and to enlarge limits to make room for the continent direct labels.</li>
+<li>Change the line colors with <code>scale_color_manual</code>. Here I want to stand out that Asia and Africa have a different evolution than the other continents, so I am using one color for them and other for the rest. Note that values of continents are set in alphabetical order.</li>
+<li>Use <code>theme_minimal</code> for a clear background.</li>
+<li>Relabel axis and adding title, subtitle and caption with <code>labs</code>. I am using the title to convey the message that Asia and Africa populations grow.</li>
+</ul>
+<pre class="r"><code>pop_cont_table  |&gt;
+  ggplot(aes(date, pop_cont, color = continent)) +
+  geom_line(size = 1) +
+  geom_text(data = pop_cont_table |&gt; filter(date == 2020), aes(date, pop_cont, label = continent, color = continent), hjust = 0, nudge_x = 0.5) +
+  scale_x_continuous(breaks = seq(1995, 2020, 5), limits = c(1993, 2025)) +
+  scale_color_manual(values = c(&quot;#0066CC&quot;, &quot;#606060&quot;, &quot;#0066CC&quot;, &quot;#606060&quot;, &quot;#606060&quot;)) +
+  theme_minimal() +
+  theme(legend.position = &quot;none&quot;) +
+  labs(title = &quot;The world population is increasing&quot;, subtitle = &quot;Mostly in Asia and Africa&quot;, x = &quot;year&quot;, y = &quot;population (milions)&quot;, caption = &quot;source: World Bank&quot;)</code></pre>
+<pre><code>## Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
+## ℹ Please use `linewidth` instead.</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-13-1.png" width="80%" style="display: block; margin: auto;" /></p>
+<p>The resulting plot is hopefully better than the default at least for two reasons:</p>
+<ul>
+<li><strong>Eliminating clutter:</strong> I have eliminated some elements like the legend and the grey background that can distract the reader. I have replaced the legend by direct labels for better readability.</li>
+<li><strong>Strategic use of color:</strong> The use of direct labels eliminates the need to assign a color for each continent, that the reader has to check in a legend box. Then, i can use the color strategically to stand out Asia and Africa to the rest of continents, to reinforce the message I am presenting in the title and subtitle.</li>
+</ul>
+</div>
+<div id="ranking-of-countries-with-lowest-fertility-rate" class="section level2">
+<h2>Ranking of countries with lowest fertility rate</h2>
+<p>The next job is to evaluate the evolution of fertility rate between 1995 and 2020. For doing so, I will examine which are the countries with a population larger than one million people with lowest fertility rate in 2020, and compare those values with 1995 values.</p>
+<p>Let’s filter the <code>wb_indicators</code> dataset and arrange by increasing order of fertility rate:</p>
+<pre class="r"><code>wb_indicators |&gt; 
+  filter(date == 2020, SP.POP.TOTL &gt;= 1e06) |&gt;
+  arrange(SP.DYN.TFRT.IN) |&gt;
+  select(country, date, SP.DYN.TFRT.IN, SP.POP.TOTL)</code></pre>
+<pre><code>## # A tibble: 160 × 4
+##    country               date SP.DYN.TFRT.IN SP.POP.TOTL
+##    &lt;chr&gt;                &lt;dbl&gt;          &lt;dbl&gt;       &lt;dbl&gt;
+##  1 Korea, Rep.           2020          0.837    51836239
+##  2 Hong Kong SAR, China  2020          0.868     7481000
+##  3 Puerto Rico           2020          0.9       3281538
+##  4 Singapore             2020          1.1       5685807
+##  5 Ukraine               2020          1.22     44132049
+##  6 Spain                 2020          1.23     47365655
+##  7 Italy                 2020          1.24     59438851
+##  8 China                 2020          1.28   1411100000
+##  9 North Macedonia       2020          1.3       2072531
+## 10 Cyprus                2020          1.33      1237537
+## # … with 150 more rows</code></pre>
+<p>Let’s pick the eight countries with lowest fertility in 2020 in <code>fert_countries</code> vector and retrieve their fertility in 1995 and 2020 in the <code>fert_table</code> data frame.</p>
+<pre class="r"><code>fert_countries &lt;- wb_indicators |&gt; 
+  filter(date == 2020, SP.POP.TOTL &gt;= 1e06) |&gt;
+  arrange(SP.DYN.TFRT.IN) |&gt;
+  slice(1:8) |&gt;
+  pull(country)
+
+fert_table &lt;- wb_indicators |&gt;
+  filter(date %in% c(1995, 2020), country %in% fert_countries) </code></pre>
+<p>And let’s present the evolution of fertility with a dodged barplot with the default settings:</p>
+<pre class="r"><code>fert_table |&gt;
+  mutate(date = factor(date)) |&gt;
+  ggplot(aes(country, SP.DYN.TFRT.IN, fill = date)) +
+  geom_bar(stat = &quot;identity&quot;, position = &quot;dodge&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-16-1.png" width="80%" style="display: block; margin: auto;" /></p>
+<p>This plot has a large range of improvement. Firstly, I will shorten the name of Hong Kong, and define a <code>f_label</code> equal to fertility rates for 2020 and blank for 1995.</p>
+<pre class="r"><code>fert_table &lt;- fert_table |&gt;
+  mutate(f_label = ifelse(date == 2020, format(round(SP.DYN.TFRT.IN, digits = 2), nsmall = 2), &quot;&quot;),
+         country = replace(country, which(country == &quot;Hong Kong SAR, China&quot;), &quot;Hong Kong&quot;),
+         date = factor(date))</code></pre>
+<p>Here is the transformed barplot:</p>
+<ul>
+<li>I have reordered countries by increasing order of fertility rate of 2020. Before, I have used <code>arrange</code> to order the table by year, so the last value for each country is of year 2020. This allows using <code>fct_reorder</code> to achieve the desired effect.</li>
+<li>I have reversed the values of country and fertility rate in <code>aes</code>, so we hove an horizontal bar plot.</li>
+<li>I have transformed the x axis so the limits are enlarged and presented at the top.</li>
+<li>I have presented the value of fertility rate of 2020 with <code>f_label</code> using <code>geom_text</code>. To make appear the value next to the 2020 bar I have used <code>position = position_dodge(width = 1)</code>.</li>
+<li>When choosing the colors I have used the same blue of the previous plot for values of 2020, and a lighter grey for values of 1985. By lighting the grey of 1985, I am emphasizing the values of 2020.</li>
+<li>I have selected a <code>theme_minimal</code> and placed the legend at the bottom of the plot.</li>
+<li>I have selected the title and subtitle of the plot to convey the message and to avoid placing labels in x and y axis.</li>
+</ul>
+<pre class="r"><code>fert_table |&gt;
+  arrange(country, date) |&gt;
+  mutate(country = fct_reorder(country, -SP.DYN.TFRT.IN, last)) |&gt;
+  ggplot(aes(SP.DYN.TFRT.IN, country, fill = date)) +
+  geom_bar(stat = &quot;identity&quot;, position = &quot;dodge&quot;) +
+  scale_x_continuous(breaks = seq(0, 2.5, 0.5), limits = c(0,2.8), position = &quot;top&quot;) +
+  geom_text(aes(label = f_label), position = position_dodge(width = 1), hjust = -0.3, size = 3, color = &quot;#0066CC&quot;) +
+  scale_fill_manual(values = c(&quot;#C0C0C0&quot;, &quot;#0066CC&quot;)) +
+  theme_minimal() +
+  theme(legend.position = &quot;bottom&quot;) +
+  labs(title = &quot;Asian countries are experiencing low fertility rates&quot;, subtitle = &quot;Fertility in European countries is increasing&quot;, x =&quot;&quot;, y =&quot;&quot;, caption = &quot;source: World Bank&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-18-1.png" width="80%" style="display: block; margin: auto;" /></p>
+<p>Like in the previous plot, in this new version of the plot I have removed clutter by removing the grey background and using an horizontal bar chart, that allows reading country names better. I have also used color strategically, using the same blue color as in the previous plot.</p>
+<p>An alternative visualization for those data is the <strong>slopegraph</strong>. We can create slopegraphs with <code>ggplot2</code> using geom_line and including the <code>group</code> in the plot aesthetic. The values of fertility in 2020 are quite similar for several countries, so I have used <code>geom_text_repel</code> to separate labels.</p>
+<pre class="r"><code>fert_table |&gt;
+  ggplot(aes(date, SP.DYN.TFRT.IN, group = country), color = &quot;#808080&quot;) +
+  geom_point(color = &quot;#808080&quot;, size = 2) +
+  geom_line(color = &quot;#808080&quot;, size = 1) +
+  geom_text_repel(data = fert_table |&gt; filter(date == 1995), aes(label = country), hjust = 1, nudge_x = -0.05, size = 4, color = &quot;#808080&quot;) +
+  geom_text_repel(data = fert_table |&gt; filter(date == 2020), aes(label = country), hjust = 0, nudge_x = 0.05, size = 4, color = &quot;#808080&quot;) +
+  theme_minimal() +
+  labs(title = &quot;Asian countries are experiencing low fertility rates&quot;, subtitle = &quot;Fertility in European countries is increasing&quot;, x=&quot;&quot;, y = &quot;Total fertiity rate&quot;, caption = &quot;source: World Bank&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-19-1.png" width="672" /></p>
+<p>In this plot, I have chosen to set the color to dark grey</p>
+</div>
+<div id="relationship-between-gdp-per-capita-and-fertility-rate" class="section level2">
+<h2>Relationship between GDP per capita and fertility rate</h2>
+<p>Let’s examine the relationship between GDP per capita and fertility rate in 2020 with a scatterplot:</p>
+<pre class="r"><code>wb_indicators |&gt;
+  filter(date == 2020) |&gt;
+  ggplot(aes(NY.GDP.PCAP.PP.KD, SP.DYN.TFRT.IN)) +
+  geom_point(aes(color = continent))</code></pre>
+<pre><code>## Warning: Removed 32 rows containing missing values (`geom_point()`).</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-20-1.png" width="80%" style="display: block; margin: auto;" /></p>
+<p>We observe that the GDP per capita has a long tail distribution: a few countries have values of GDP per capita much larger than other countries. Let’s tune the plot adding a logarithmic scale in the GDP per capita axis, removing the grey background and using a viridis scale to distinguish continents.</p>
+<pre class="r"><code>wb_indicators |&gt;
+  filter(date == 2020, !is.na(NY.GDP.PCAP.PP.KD), !is.na(SP.DYN.TFRT.IN)) |&gt;
+  ggplot(aes(NY.GDP.PCAP.PP.KD, SP.DYN.TFRT.IN)) +
+  geom_point(aes(color = continent)) +
+  scale_x_log10() +
+  theme_minimal() +
+  theme(legend.position = c(0.8, 0.8)) +
+  scale_color_viridis_d() +
+  labs(x = &quot;GDP per capita&quot;, y = &quot;total fertility rate&quot;, title = &quot;Relationship between GDP and TRFT&quot;, caption = &quot;source: World Bank&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-21-1.png" width="80%" style="display: block; margin: auto;" /></p>
+<p>Let’s suppose that we are focusing in the evolution of GDP per capita and fertility rate of Assian countries across time. Then, we can use a facet grid and use color strategically to highlight Asian countries. Note that we can remove the legend as the use of color is explained by the title plot. I have also removed axis labels to avoid clutter.</p>
+<pre class="r"><code>wb_indicators |&gt;
+  filter(date %in% c(1995, 2020), !is.na(NY.GDP.PCAP.PP.KD), !is.na(SP.DYN.TFRT.IN)) |&gt;
+  ggplot(aes(NY.GDP.PCAP.PP.KD, SP.DYN.TFRT.IN)) +
+  geom_point(aes(color = continent)) +
+  scale_x_log10() +
+  theme_minimal() +
+  scale_color_manual(values = c(&quot;#C0C0C0&quot;, &quot;#C0C0C0&quot;, &quot;#0066CC&quot;, &quot;#C0C0C0&quot;, &quot;#C0C0C0&quot;)) +
+  theme(axis.text = element_blank(), legend.position = &quot;none&quot;) +
+  facet_grid(. ~ date) +
+  labs(x = &quot;GDP per capita&quot;, y = &quot;total fertility rate&quot;, title = &quot;Asian countries are now richer and have less children&quot;, caption = &quot;source: World Bank&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-22-1.png" width="100%" style="display: block; margin: auto;" /></p>
+<p>In this plot, we can observe how has moved the swarm of blue points, representing Asian countries, from 1995 to 2020. In 2020, Asian countries tend to be richer and have lower fertility rate. In some cases, like South Korea, Hong Kong or Singapore the vales of fertility rate are lower than of European countries.</p>
+<p>The plots presented here try to follow the criteria presented by Cole Nussbaumer Knafic in her book <code>Storytelling with Data</code>, specially about avoiding clutter and using color strategically.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>cole nussbaumer knafic (2015). <em>Storytelling with Data.</em> Wiley. <a href="https://www.storytellingwithdata.com/" class="uri">https://www.storytellingwithdata.com/</a></li>
+<li><code>countrycode</code> R package GitHub repository. <a href="https://github.com/vincentarelbundock/countrycode" class="uri">https://github.com/vincentarelbundock/countrycode</a></li>
+<li>Nguyen, C. (2021). <em>7-day Challenge — Mastering Ggplot2: Day 3 — Slope Graph.</em> <a href="https://towardsdatascience.com/7-day-challenge-mastering-ggplot2-day-3-slope-graph-a7cb373dc252" class="uri">https://towardsdatascience.com/7-day-challenge-mastering-ggplot2-day-3-slope-graph-a7cb373dc252</a></li>
+<li><code>wbstats</code>: An R package for searching and downloading data from the World Bank API. <a href="https://cran.r-project.org/web/packages/wbstats/vignettes/wbstats.html" class="uri">https://cran.r-project.org/web/packages/wbstats/vignettes/wbstats.html</a></li>
+<li><em>World Bank data indicators.</em> <a href="https://data.worldbank.org/indicator" class="uri">https://data.worldbank.org/indicator</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.2.2 Patched (2022-11-10 r83330)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 19.2
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/openblas/libblas.so.3
+## LAPACK: /usr/lib/x86_64-linux-gnu/libopenblasp-r0.2.20.so
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] ggrepel_0.9.1     kableExtra_1.3.4  forcats_0.5.2     stringr_1.4.1    
+##  [5] dplyr_1.0.10      purrr_0.3.5       readr_2.1.3       tidyr_1.2.1      
+##  [9] tibble_3.1.8      ggplot2_3.4.0     tidyverse_1.3.1   countrycode_1.4.0
+## [13] wbstats_1.0.4    
+## 
+## loaded via a namespace (and not attached):
+##  [1] Rcpp_1.0.9        svglite_2.1.0     lubridate_1.9.0   assertthat_0.2.1 
+##  [5] digest_0.6.30     utf8_1.2.2        R6_2.5.1          cellranger_1.1.0 
+##  [9] backports_1.4.1   reprex_2.0.2      evaluate_0.17     highr_0.9        
+## [13] httr_1.4.4        blogdown_1.9      pillar_1.8.1      rlang_1.0.6      
+## [17] readxl_1.4.1      rstudioapi_0.13   jquerylib_0.1.4   rmarkdown_2.14   
+## [21] labeling_0.4.2    webshot_0.5.3     munsell_0.5.0     broom_1.0.1      
+## [25] compiler_4.2.2    modelr_0.1.10     xfun_0.34         systemfonts_1.0.4
+## [29] pkgconfig_2.0.3   htmltools_0.5.3   tidyselect_1.1.2  bookdown_0.26    
+## [33] viridisLite_0.4.1 fansi_1.0.3       crayon_1.5.2      tzdb_0.3.0       
+## [37] dbplyr_2.2.1      withr_2.5.0       grid_4.2.2        jsonlite_1.8.3   
+## [41] gtable_0.3.0      lifecycle_1.0.3   DBI_1.1.2         magrittr_2.0.3   
+## [45] scales_1.2.1      cli_3.4.1         stringi_1.7.8     farver_2.1.1     
+## [49] fs_1.5.2          xml2_1.3.3        bslib_0.3.1       ellipsis_0.3.2   
+## [53] generics_0.1.2    vctrs_0.5.0       tools_4.2.2       glue_1.6.2       
+## [57] hms_1.1.2         fastmap_1.1.0     yaml_2.3.6        timechange_0.1.1 
+## [61] colorspace_2.0-3  rvest_1.0.3       knitr_1.40        haven_2.5.1      
+## [65] sass_0.4.1</code></pre>
+</div>
