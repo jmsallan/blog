@@ -1,0 +1,148 @@
+---
+title: Prompting chatGPT to Build a Tabu Search Algorithm
+author: Jose M Sallan
+date: '2023-02-03'
+slug: []
+categories:
+  - R
+  - using AI
+tags:
+  - R
+  - chatGPT
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p><em>This is a post about using chatGPT to define and code algorithms. The introduction has been written with the help of chatGPT and the</em> <strong>Prompts to define the algorithm</strong> <em>section presents the prompts passed to define the algorithm and to obtain the code.</em></p>
+<p>In this post, chatGPT and I are presenting the Traveling Salesman Problem (TSP) and its solutions. We have defined the TSP as a problem of finding the shortest route that visits a set of cities exactly once and returns to the starting city. We have also discussed a simple R function to calculate the total distance of a tour in the TSP. Furthermore, we have described a tabu search algorithm to solve the TSP, where the neighborhood was based on the 2-opt move. Finally, we have presented an R function that implements the tabu search algorithm for the TSP using the 2-opt move.</p>
+<div id="prompts-to-define-the-algorithm" class="section level2">
+<h2>Prompts to define the algorithm</h2>
+<p><strong>What is the traveller salesman problem</strong></p>
+<p>The Traveling Salesman Problem (TSP) is a computational optimization problem that asks “Given a list of cities and the distances between each pair of cities, what is the shortest possible route that visits each city exactly once and returns to the origin city?” It is a classic example of an NP-hard problem, meaning that finding an exact solution for large instances of TSP can be very time-consuming and, in many cases, intractable. Despite this, heuristics and approximate algorithms exist that can find near-optimal solutions in a reasonable amount of time.</p>
+<p><strong>Write in R a function that returns the total distance for a solution of the travelling salesman problem</strong></p>
+<p>Here is an R function that calculates the total distance of a solution to the traveling salesman problem, given a matrix of pairwise distances between cities:</p>
+<pre class="r"><code>tsp_distance &lt;- function(distances, solution) {
+  n &lt;- length(solution)
+  total_distance &lt;- 0
+  for (i in 1:(n-1)) {
+    total_distance &lt;- total_distance + distances[solution[i], solution[i+1]]
+  }
+  total_distance &lt;- total_distance + distances[solution[n], solution[1]]
+  return(total_distance)
+}</code></pre>
+<p>This function takes two arguments:</p>
+<ul>
+<li><code>distances</code>: a square matrix where the <code>(i, j)</code>-th entry is the distance between city <code>i</code> and city <code>j</code>.</li>
+<li><code>solution</code>: a permutation of the integers <code>1, 2, ..., n</code>, where <code>n</code> is the number of cities. The <code>i</code>-th entry of <code>solution</code> gives the index of the city visited in step <code>i</code> of the solution.</li>
+</ul>
+<p>The function iterates over the entries of solution (with the exception of the last entry), and adds up the distances between consecutive cities. Finally, it adds the distance between the last city in the solution and the first city, to complete the tour. The total distance is returned as the output of the function.</p>
+<p><strong>Define a tabu search algorithm to solve the travelling salesman problem</strong></p>
+<p>Tabu Search is a metaheuristic optimization algorithm that can be used to solve the traveling salesman problem (TSP). It works by maintaining a list of “tabu” moves, which are moves that are temporarily forbidden in the search. This helps to prevent the algorithm from getting stuck in local optima.</p>
+<p>Here is a high-level outline of a tabu search algorithm for the TSP:</p>
+<ol style="list-style-type: decimal">
+<li>Initialize the solution with a randomly generated tour.</li>
+<li>Initialize the tabu list and set other parameters, such as the maximum length of the tabu list, the number of iterations, and the number of allowed non-improving moves.</li>
+<li>Repeat the following steps until a stopping criterion is met:
+<ol style="list-style-type: lower-alpha">
+<li>Generate a set of candidate solutions by making small, random changes to the current solution.</li>
+<li>Evaluate the candidate solutions and select the best one that is not tabu. If multiple solutions are equally good, choose the one that was made tabu the longest time ago.</li>
+<li>Update the current solution to be the best solution found in step 3b.</li>
+<li>Add the move that led to the new solution to the tabu list.</li>
+<li>If the current solution is not better than the best solution found so far, 3. increment the number of consecutive non-improving moves. If this number exceeds the allowed number of non-improving moves, reset the current solution to a randomly generated tour and clear the tabu list.</li>
+</ol></li>
+<li>Return the best solution found.</li>
+</ol>
+<p>This is just one example of a tabu search algorithm for the TSP. There are many variations and modifications that can be made to the basic procedure to improve its performance. The choice of neighborhood structure (i.e., the set of candidate solutions generated in step 3a), the size of the tabu list, and the other parameters will have a large impact on the performance of the algorithm.</p>
+<p><strong>Define a tabu search algorithm for the travelling salesman problem using a neighborhood based on the 2-opt move</strong></p>
+<p>Here is a high-level outline of a tabu search algorithm for the traveling salesman problem that uses a neighborhood based on the 2-opt move:</p>
+<ol style="list-style-type: decimal">
+<li>Initialize the solution with a randomly generated tour.</li>
+<li>Initialize the tabu list and set other parameters, such as the maximum length of the tabu list, the number of iterations, and the number of allowed non-improving moves.</li>
+<li>Repeat the following steps until a stopping criterion is met:
+<ol style="list-style-type: lower-alpha">
+<li>Generate a set of candidate solutions by making 2-opt moves to the current solution. A 2-opt move involves selecting two edges in the tour and reversing the order of the cities between these edges.</li>
+<li>Evaluate the candidate solutions and select the best one that is not tabu. If multiple solutions are equally good, choose the one that was made tabu the longest time ago.</li>
+<li>Update the current solution to be the best solution found in step 3b.</li>
+<li>Add the move that led to the new solution to the tabu list.</li>
+<li>If the current solution is not better than the best solution found so far, increment the number of consecutive non-improving moves. If this number exceeds the allowed number of non-improving moves, reset the current solution to a randomly generated tour and clear the tabu list.</li>
+</ol></li>
+<li>Return the best solution found.</li>
+</ol>
+<p>Generate a R function that implements the tabu search defined in the previous answer.</p>
+<pre class="r"><code>tsp_2opt_tabu_search &lt;- function(distance_matrix, max_iterations = 1000, tabu_list_length = 50, max_non_improve = 100) {
+  # Get the number of cities
+  n &lt;- nrow(distance_matrix)
+  
+  # Initialize the solution with a randomly generated tour
+  solution &lt;- sample(1:n)
+  
+  # Initialize the best solution found so far
+  best_solution &lt;- solution
+  
+  # Initialize the best distance found so far
+  best_distance &lt;- tsp_total_distance(distance_matrix, solution)
+  
+  # Initialize the tabu list
+  tabu_list &lt;- rep(-1, tabu_list_length)
+  
+  # Initialize the number of consecutive non-improving moves
+  non_improve &lt;- 0
+  
+  # Repeat until a stopping criterion is met
+  for (iter in 1:max_iterations) {
+    # Generate a set of candidate solutions by making 2-opt moves
+    candidate_solutions &lt;- list()
+    candidate_distances &lt;- numeric(n * (n - 1) / 2)
+    idx &lt;- 1
+    for (i in 1:(n - 1)) {
+      for (j in (i + 1):n) {
+        candidate &lt;- solution
+        candidate[i:(j - 1)] &lt;- rev(candidate[i:(j - 1)])
+        candidate_solutions[[idx]] &lt;- candidate
+        candidate_distances[idx] &lt;- tsp_total_distance(distance_matrix, candidate)
+        idx &lt;- idx + 1
+      }
+    }
+    
+    # Select the best solution that is not tabu
+    best_candidate_idx &lt;- which.min(candidate_distances)
+    best_candidate_distance &lt;- candidate_distances[best_candidate_idx]
+    if (best_candidate_distance &lt; best_distance) {
+      solution &lt;- candidate_solutions[[best_candidate_idx]]
+      best_solution &lt;- solution
+      best_distance &lt;- best_candidate_distance
+      non_improve &lt;- 0
+    } else {
+      non_improve &lt;- non_improve + 1
+    }
+    
+    # Update the tabu list
+    tabu_list &lt;- c(best_candidate_idx, tabu_list[1:(tabu_list_length - 1)])
+    
+    # Check the stopping criterion
+    if (non_improve &gt;= max_non_improve) {
+      break
+    }
+  }
+  
+  # Return the best solution found
+  return(best_solution)
+}</code></pre>
+<p>Note that this implementation assumes the presence of a function <code>tsp_total_distance</code> that calculates the total distance of a tour. A function that implements this calculation was provided in a previous answer. The choice of parameters, such as <code>max_iterations</code>, <code>tabu_list_length</code>, and <code>max_non_improve</code>, may need to be fine-tuned for a particular instance of the TSP.</p>
+</div>
+<div id="assessment-of-the-solution" class="section level2">
+<h2>Assessment of the solution</h2>
+<p>chatGPT is able to define a tabu search heuristic for the travelling salesman problem, and write R code to implement that tabu search algorithm.</p>
+<p>The obtained solution is basically correct, with minor flaws to be corrected. The most evident is that the <code>tsp_distance</code> is named <code>tsp_total_distance</code> in the <code>tsp_2opt_tabu_search</code> function.</p>
+<p>The obtained code is not optimized to speed. A faster <code>tsp_distance</code> function can be obtained with a vectorial, no-loop implementation. The neighbourhood definition is problematic at least for two reasons: many of the 2-opt moves defined obtain the same solution. This is critical for the performance of a tabu search algorithm, as it can evolve to solutions similar to the included in the tabu list.</p>
+<p>To teach how to define metaheuristics, the outcome of chatGPT is an interesting starting point to define a better, more consistent algorithm by examining the outcome critically.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li><em>A fast fitness function for the TSP in R</em> <a href="https://jmsallan.netlify.app/blog/a-fast-fitness-function-for-the-tsp-in-r/" class="uri">https://jmsallan.netlify.app/blog/a-fast-fitness-function-for-the-tsp-in-r/</a></li>
+<li><em>Coding tabu search in R</em> <a href="https://jmsallan.netlify.app/blog/coding-tabu-search-in-r/" class="uri">https://jmsallan.netlify.app/blog/coding-tabu-search-in-r/</a></li>
+</ul>
+</div>
