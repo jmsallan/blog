@@ -1,0 +1,556 @@
+---
+title: A Workflow for Exploratory Factor Analysis in R
+author: Jose M Sallan
+date: '2023-02-27'
+slug: a-workflow-for-exploratory-factor-analysis-in-r
+categories:
+  - R
+  - statistics
+tags:
+  - correlation
+  - R
+  - factor analysis
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>Factor analysis is a statistical technique used to analyze the relationships among a large number of observed variables and to identify a smaller number of underlying, unobserved variables, which are called <strong>factors</strong>. The goal of factor analysis is to reduce the complexity of a dataset and to identify the underlying structure that explains the observed data.</p>
+<p>Factor analysis is used in a variety of fields, including psychology, sociology, economics, marketing, and biology. The results of factor analysis can help researchers to better understand the relationships among the observed variables and to identify the underlying factors that are driving those relationships.</p>
+<p>In <strong>predictive modelling</strong>, factor analysis can be used to reduce the number of variables that are included in a model. The factor scores of observations can then be used as input variables in the predictive model.</p>
+<p>By reducing the number of variables in the model, factor analysis can help to overcome problems of overfitting, multicollinearity, and high dimensionality. <strong>Overfitting</strong> occurs when a model is too complex and fits the training data too closely, which can lead to poor performance on new data. <strong>Multicollinearity</strong> occurs when two or more variables are highly correlated with each other, which can lead to unstable and unreliable estimates of the model coefficients. <strong>High dimensionality</strong> occurs when there are too many variables in the model, which can lead to computational inefficiency and reduced model interpretability.</p>
+<p>Exploratory factor analysis (EFA) and confirmatory factor analysis (CFA) are two different types of factor analysis that are used for different purposes.</p>
+<p><strong>Exploratory factor analysis</strong> (EFA) is used to explore and identify the underlying factor structure of a dataset. EFA does not require prior knowledge of the relationships among the observed variables. In EFA, the researcher examines the pattern of correlations among the observed variables to identify the factors that best explain the variation in the data. The researcher does not have any preconceived ideas about the number or structure of the factors that underlie the data, and the number of factors is determined based on statistical criteria. On the other hand, <strong>confirmatory factor analysis</strong> (CFA) is used to test a specific hypothesis about the underlying factor structure of a dataset. CFA requires prior knowledge of the relationships among the observed variables. In CFA, the researcher specifies a theoretical model of the underlying factor structure, and the model is then tested against the observed data to determine how well it fits the data.</p>
+<p>In this post, I will present a workflow to carry out exploratory factor analysis (EFA) in R. I will use the <code>tidyverse</code> for handling and plotting data, <code>kableExtra</code> to present tabular data, <code>corrr</code> for examining correlation matrices, the <code>psych</code> package for functions to carry out EFA and <code>lavaan</code> to retrieve the dataset I will be using in the workflow.</p>
+<pre class="r"><code>library(tidyverse)
+library(corrr)
+library(psych)
+library(lavaan)
+library(kableExtra)</code></pre>
+<p>The <code>HolzingerSwineford1939</code> dataset contains 301 observations of mental ability scores. The variables relevant for our analysis are <code>x1</code> to <code>x9</code>.</p>
+<pre class="r"><code>hz &lt;- HolzingerSwineford1939 |&gt;
+  select(x1:x9)
+
+hz |&gt;
+  slice(1:5) |&gt;
+  kbl() |&gt;
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+x1
+</th>
+<th style="text-align:right;">
+x2
+</th>
+<th style="text-align:right;">
+x3
+</th>
+<th style="text-align:right;">
+x4
+</th>
+<th style="text-align:right;">
+x5
+</th>
+<th style="text-align:right;">
+x6
+</th>
+<th style="text-align:right;">
+x7
+</th>
+<th style="text-align:right;">
+x8
+</th>
+<th style="text-align:right;">
+x9
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+3.333333
+</td>
+<td style="text-align:right;">
+7.75
+</td>
+<td style="text-align:right;">
+0.375
+</td>
+<td style="text-align:right;">
+2.333333
+</td>
+<td style="text-align:right;">
+5.75
+</td>
+<td style="text-align:right;">
+1.2857143
+</td>
+<td style="text-align:right;">
+3.391304
+</td>
+<td style="text-align:right;">
+5.75
+</td>
+<td style="text-align:right;">
+6.361111
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.333333
+</td>
+<td style="text-align:right;">
+5.25
+</td>
+<td style="text-align:right;">
+2.125
+</td>
+<td style="text-align:right;">
+1.666667
+</td>
+<td style="text-align:right;">
+3.00
+</td>
+<td style="text-align:right;">
+1.2857143
+</td>
+<td style="text-align:right;">
+3.782609
+</td>
+<td style="text-align:right;">
+6.25
+</td>
+<td style="text-align:right;">
+7.916667
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+4.500000
+</td>
+<td style="text-align:right;">
+5.25
+</td>
+<td style="text-align:right;">
+1.875
+</td>
+<td style="text-align:right;">
+1.000000
+</td>
+<td style="text-align:right;">
+1.75
+</td>
+<td style="text-align:right;">
+0.4285714
+</td>
+<td style="text-align:right;">
+3.260870
+</td>
+<td style="text-align:right;">
+3.90
+</td>
+<td style="text-align:right;">
+4.416667
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5.333333
+</td>
+<td style="text-align:right;">
+7.75
+</td>
+<td style="text-align:right;">
+3.000
+</td>
+<td style="text-align:right;">
+2.666667
+</td>
+<td style="text-align:right;">
+4.50
+</td>
+<td style="text-align:right;">
+2.4285714
+</td>
+<td style="text-align:right;">
+3.000000
+</td>
+<td style="text-align:right;">
+5.30
+</td>
+<td style="text-align:right;">
+4.861111
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+4.833333
+</td>
+<td style="text-align:right;">
+4.75
+</td>
+<td style="text-align:right;">
+0.875
+</td>
+<td style="text-align:right;">
+2.666667
+</td>
+<td style="text-align:right;">
+4.00
+</td>
+<td style="text-align:right;">
+2.5714286
+</td>
+<td style="text-align:right;">
+3.695652
+</td>
+<td style="text-align:right;">
+6.30
+</td>
+<td style="text-align:right;">
+5.916667
+</td>
+</tr>
+</tbody>
+</table>
+<div id="exploring-the-correlation-mmatrix" class="section level2">
+<h2>Exploring the Correlation mMatrix</h2>
+<p>The input of factor analysis is the correlation matrix, and for some indices the number of observations. We can explore correlations with the <code>corrr</code> package:</p>
+<pre class="r"><code>cor_tb &lt;- correlate(hz)</code></pre>
+<p><code>corrr::rearrange</code> groups highly correlated variables closer together, and <code>corrr::rplot</code> visualizes the result (I have used a custom color scale to highlight the results):</p>
+<pre class="r"><code>cor_tb |&gt;
+  rearrange() |&gt;
+  rplot(colors = c(&quot;red&quot;, &quot;white&quot;, &quot;blue&quot;))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="80%" style="display: block; margin: auto;" /></p>
+<p>Looks like three groups emerge, around variables:</p>
+<ul>
+<li><code>x4</code> to <code>x6</code> (first group).</li>
+<li><code>x1</code> to <code>x3</code> (second group).</li>
+<li><code>x7</code> to <code>x9</code> (third group).</li>
+</ul>
+<p>Let’s start the factor analysis workflow. To do so, we need to obtain the correlations in matrix format with the R base <code>cor</code> function.</p>
+<pre class="r"><code>cor_mat &lt;- cor(hz)</code></pre>
+</div>
+<div id="preliminary-tests" class="section level2">
+<h2>Preliminary tests</h2>
+<p>In preliminary analysis, we examine if the correlation matrix is suitable for factor analysis. We have two methods available:</p>
+<ul>
+<li>The <strong>Kaiser–Meyer–Olkin (KMO)</strong> test of sample adequacy. According to Kaiser (1974), values of KMO &gt; 0.9 are marvelous, in the 0.80s, mertitourious, in the 0.70s, middling, in the 0.60s, mediocre, in the 0.50s, miserable, and less than 0.5, unacceptable. We can obtain that index with <code>psych::KMO</code>. It also provides a sample adequacy measure for each variable.</li>
+<li>The <strong>Bartlett’s test of sphericity</strong>. It is a testing of the hypothesis that the correlation matrix is an identity matrix. If this null hypothesis can be rejected, we can assume that variables are correlated and then perform factor analysis. We can do this testing with the <code>psych::cortest.bartlett</code> function.</li>
+</ul>
+<p>The results of the KMO test are:</p>
+<pre class="r"><code>KMO(cor_mat)</code></pre>
+<pre><code>## Kaiser-Meyer-Olkin factor adequacy
+## Call: KMO(r = cor_mat)
+## Overall MSA =  0.75
+## MSA for each item = 
+##   x1   x2   x3   x4   x5   x6   x7   x8   x9 
+## 0.81 0.78 0.73 0.76 0.74 0.81 0.59 0.68 0.79</code></pre>
+<p>These eresults can be considered middling. The Bartlett’s test results are:</p>
+<pre class="r"><code>cortest.bartlett(R = cor_mat, n = 301)</code></pre>
+<pre><code>## $chisq
+## [1] 904.0971
+## 
+## $p.value
+## [1] 1.912079e-166
+## 
+## $df
+## [1] 36</code></pre>
+<p>Those results provide strong evidence that variables are correlated.</p>
+</div>
+<div id="number-of-factors-to-extract" class="section level2">
+<h2>Number of Factors to Extract</h2>
+<p>A starting point to decide how many factors to extract is to examine the <strong>eigenvalues</strong> of correlation matrix.</p>
+<pre class="r"><code>eigen(cor_mat)$values</code></pre>
+<pre><code>## [1] 3.2163442 1.6387132 1.3651593 0.6989185 0.5843475 0.4996872 0.4731021
+## [8] 0.2860024 0.2377257</code></pre>
+<p>There are two criteria used to decide the number of factors to extract:</p>
+<ul>
+<li>Pick as many factors as eigenvalues greater than one.</li>
+<li>Examine the <strong>elbow point</strong> of the <strong>scree plot</strong>. In that plot we have the rank the factors in the <code>x</code> axis and the eigenvalues in the <code>y</code> axis.</li>
+</ul>
+<p>Let’s do the scree plot to see the elbow point.</p>
+<pre class="r"><code>n &lt;- dim(cor_mat)[1]
+scree_tb &lt;- tibble(x = 1:n, 
+                   y = sort(eigen(cor_mat)$value, decreasing = TRUE))
+
+scree_plot &lt;- scree_tb |&gt;
+  ggplot(aes(x, y)) +
+  geom_point() +
+  geom_line() +
+  theme_minimal() +
+  scale_x_continuous(breaks = 1:n) +
+  ggtitle(&quot;Scree plot&quot;)
+
+scree_plot</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>scree_plot +
+  geom_vline(xintercept = 4, color = &quot;red&quot;, linetype = &quot;dashed&quot;) +
+  annotate(&quot;text&quot;, 4.1, 2, label = &quot;elbow point&quot;, color = &quot;red&quot;, hjust = 0)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>We observe that the elbow method occurs with four facgtor` and that we have three factors with eigenvalue greater than one. I have chosen to obtain a three-factor solution.</p>
+</div>
+<div id="factor-loadings-and-rotations" class="section level2">
+<h2>Factor Loadings and Rotations</h2>
+<p>Factor loedings <span class="math inline">\(f_{ij}\)</span> are defined for each variable <span class="math inline">\(i\)</span> and factor <span class="math inline">\(j\)</span>, and represent the correlation between both. A high value of <span class="math inline">\(f_{ij}\)</span> means that a large amount of variability of variable <span class="math inline">\(i\)</span> can be explained by factor <span class="math inline">\(j\)</span>.</p>
+<p>Factor loadings of a model are unique up to a rotation. We prefer rotation methods that obtain factor loadings that allow relating one factor to each variable. <strong>Orthogonal rotations</strong> yield a set of uncorrelated factors. The most common orthogonal rotation methods are:</p>
+<ul>
+<li><strong>Varimax</strong> maximizes variance of the squared loadings in each factor, so that each factor has only few variables with large loadings by the factor.</li>
+<li><strong>Quartimax</strong> minimizes the number of factors needed to explain a variable.</li>
+<li><strong>Equamax</strong> is a combination of varimax and quartimax.</li>
+</ul>
+<p><strong>Oblique rotations</strong> lead to a set of correlated factors. The most common oblique rotation methods are <strong>oblimin</strong> and <strong>promax</strong>.</p>
+<p>In <code>psych::fa</code>, the type of rotation is passed with the <code>rotate</code> parameter.</p>
+<p>For a factor analysis, we can split the variance of each variable in:</p>
+<ul>
+<li><strong>Communality</strong> <code>h2</code>: the proportion of the variance explained by factors.</li>
+<li><strong>Uniqueness</strong> <code>u2</code>: the proportion of the variance not explained by factors, thus unique for the variable.</li>
+</ul>
+</div>
+<div id="interpreting-the-results" class="section level2">
+<h2>Interpreting the Results</h2>
+<p>We can perform the factor analysis using the <code>psych::fa</code> function. This function allows several methods to do the factor analysis specifying <code>fm</code> parameter. The main options available are:</p>
+<ul>
+<li><code>fm = "minres"</code> for the minimum residual solution (the default).</li>
+<li><code>fm = "ml"</code> for the maximum likelihood solution.</li>
+<li><code>fm = "pa"</code> for the principal axis solution.</li>
+</ul>
+<p>Let’s do the factor analysis using the principal axis method and the varimax rotation. The other parameters are the correlation matrix and the number of factors <code>nfactors = 3</code>.</p>
+<pre class="r"><code>hz_factor &lt;- fa(r = cor_mat, nfactors = 3, fm = &quot;ml&quot;, rotate = &quot;varimax&quot;)</code></pre>
+<p>The output of the factor analysis performed above is:</p>
+<pre class="r"><code>hz_factor</code></pre>
+<pre><code>## Factor Analysis using method =  ml
+## Call: fa(r = cor_mat, nfactors = 3, rotate = &quot;varimax&quot;, fm = &quot;ml&quot;)
+## Standardized loadings (pattern matrix) based upon correlation matrix
+##     ML1   ML3   ML2   h2   u2 com
+## x1 0.28  0.62  0.15 0.49 0.51 1.5
+## x2 0.10  0.49 -0.03 0.25 0.75 1.1
+## x3 0.03  0.66  0.13 0.46 0.54 1.1
+## x4 0.83  0.16  0.10 0.72 0.28 1.1
+## x5 0.86  0.09  0.09 0.76 0.24 1.0
+## x6 0.80  0.21  0.09 0.69 0.31 1.2
+## x7 0.09 -0.07  0.70 0.50 0.50 1.1
+## x8 0.05  0.16  0.71 0.53 0.47 1.1
+## x9 0.13  0.41  0.52 0.46 0.54 2.0
+## 
+##                        ML1  ML3  ML2
+## SS loadings           2.18 1.34 1.33
+## Proportion Var        0.24 0.15 0.15
+## Cumulative Var        0.24 0.39 0.54
+## Proportion Explained  0.45 0.28 0.27
+## Cumulative Proportion 0.45 0.73 1.00
+## 
+## Mean item complexity =  1.2
+## Test of the hypothesis that 3 factors are sufficient.
+## 
+## The degrees of freedom for the null model are  36  and the objective function was  3.05
+## The degrees of freedom for the model are 12  and the objective function was  0.08 
+## 
+## The root mean square of the residuals (RMSR) is  0.02 
+## The df corrected root mean square of the residuals is  0.03 
+## 
+## Fit based upon off diagonal values = 1
+## Measures of factor score adequacy             
+##                                                    ML1  ML3  ML2
+## Correlation of (regression) scores with factors   0.93 0.81 0.84
+## Multiple R square of scores with factors          0.87 0.66 0.70
+## Minimum correlation of possible factor scores     0.74 0.33 0.40</code></pre>
+<p>There is a lot of information here. Let’s see some relevant insights:</p>
+<ul>
+<li>The solution starts with the factor loadings for factors <code>ML1</code>, <code>ML3</code> and <code>ML2</code>. Factor loadings are the only values affected by the rotation.
+For each variable we obtain the communalities <code>h2</code> and uniquenesses <code>u2</code>.</li>
+<li>Communalities are quite heterogeneous, ranging from 0.25 for <code>x2</code> to 0.76 for <code>x5</code>.</li>
+<li>The proportion of variance explained by each factor is presented in <code>Proportion Var</code> and the cumulative variance in <code>Cumulative Var</code>. From the <code>Cumulative Var</code> we learn that the model explains the 54% of total variance. This value is considered low for an exploratory factor analysis.</li>
+</ul>
+<p>We can see better the pattern of factor loadings printing them with a cutoff value:</p>
+<pre class="r"><code>print(hz_factor$loadings, cutoff = 0.3)</code></pre>
+<pre><code>## 
+## Loadings:
+##    ML1    ML3    ML2   
+## x1         0.623       
+## x2         0.489       
+## x3         0.663       
+## x4  0.827              
+## x5  0.861              
+## x6  0.801              
+## x7                0.696
+## x8                0.709
+## x9         0.406  0.524
+## 
+##                  ML1   ML3   ML2
+## SS loadings    2.185 1.343 1.327
+## Proportion Var 0.243 0.149 0.147
+## Cumulative Var 0.243 0.392 0.539</code></pre>
+<p>We can see that we can group variables <code>x1</code> to <code>x3</code> in a factor <code>ML1</code>, variables <code>x4</code> to <code>x6</code> in factor ML3 and variables <code>x7</code> to <code>x9</code> in factor <code>ML2</code>. For this dataset, this result is in correspondence with the meaning of the variables. <code>ML1</code> would be realated with visual ability, <code>ML3</code> with verbal ability and <code>ML2</code> with mathematical ability.</p>
+</div>
+<div id="factor-scores" class="section level2">
+<h2>Factor Scores</h2>
+<p>While factor loadings help to interpret the meaning of the factors, factor scores allow obtaining values of factors for each observation. The arguments of <code>psych::factor.scores</code> are the observations for which we want to compute the scores and the factor analysis model:</p>
+<pre class="r"><code>hz_scores &lt;- factor.scores(HolzingerSwineford1939 |&gt; select(x1:x9), hz_factor)</code></pre>
+<p>The outcome of <code>factor.scores</code> is a list with matrices:</p>
+<ul>
+<li><code>scores</code> with the values of factor scores for each observation.</li>
+<li><code>weights</code> with the weights used to obtain the scores.</li>
+<li><code>r.scores</code>, the correlation matrix of the scores.</li>
+</ul>
+<p>Let’s see how factor scores look like:</p>
+<pre class="r"><code>hz_scores$scores |&gt;
+  as_tibble() |&gt;
+  slice(1:5) |&gt;
+  kbl() |&gt;
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+ML1
+</th>
+<th style="text-align:right;">
+ML3
+</th>
+<th style="text-align:right;">
+ML2
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+0.1222182
+</td>
+<td style="text-align:right;">
+-0.9011525
+</td>
+<td style="text-align:right;">
+0.0418319
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+-1.3415596
+</td>
+<td style="text-align:right;">
+0.6430582
+</td>
+<td style="text-align:right;">
+0.9741734
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+-1.8725468
+</td>
+<td style="text-align:right;">
+-0.1570029
+</td>
+<td style="text-align:right;">
+-1.2605706
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+-0.0706078
+</td>
+<td style="text-align:right;">
+0.9977696
+</td>
+<td style="text-align:right;">
+-0.9695703
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+-0.0528519
+</td>
+<td style="text-align:right;">
+-0.6743954
+</td>
+<td style="text-align:right;">
+0.4465503
+</td>
+</tr>
+</tbody>
+</table>
+<p>Let’s do a scatterplot of factors <code>ML1</code> and <code>ML3</code>, highlighting the gender of each observation.</p>
+<pre class="r"><code>scores &lt;- as_tibble(hz_scores$scores)
+scores &lt;- bind_cols(HolzingerSwineford1939 |&gt; select(id, sex), scores) |&gt;
+  mutate(sex = factor(sex))
+
+scores |&gt;
+  ggplot(aes(ML1, ML3, color = sex)) +
+  geom_point() +
+  theme_minimal() +
+  theme(legend.position = &quot;bottom&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-16-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>The plot show two uncorrelated factors, uniformly distributed among the two genders.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Kaiser, H. F. (1974). An index of factor simplicity. <em>Psychometrika</em>, 39(1), 31-36.</li>
+<li>Statology (2019). A Guide to Bartlett’s Test of Sphericity. <a href="https://www.statology.org/bartletts-test-of-sphericity/" class="uri">https://www.statology.org/bartletts-test-of-sphericity/</a></li>
+<li>Factor rotation methods (varimax, quartimax, oblimin, etc.) - what do the names mean and what do the methods do? <a href="https://stats.stackexchange.com/questions/185216/factor-rotation-methods-varimax-quartimax-oblimin-etc-what-do-the-names" class="uri">https://stats.stackexchange.com/questions/185216/factor-rotation-methods-varimax-quartimax-oblimin-etc-what-do-the-names</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.2.2 Patched (2022-11-10 r83330)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] kableExtra_1.3.4 lavaan_0.6-14    psych_2.2.9      corrr_0.4.4     
+##  [5] forcats_0.5.2    stringr_1.5.0    dplyr_1.0.10     purrr_1.0.1     
+##  [9] readr_2.1.3      tidyr_1.3.0      tibble_3.1.8     ggplot2_3.4.0   
+## [13] tidyverse_1.3.2 
+## 
+## loaded via a namespace (and not attached):
+##  [1] nlme_3.1-162        fs_1.6.0            lubridate_1.9.1    
+##  [4] webshot_0.5.4       httr_1.4.4          tools_4.2.2        
+##  [7] backports_1.4.1     bslib_0.4.2         utf8_1.2.2         
+## [10] R6_2.5.1            DBI_1.1.3           colorspace_2.1-0   
+## [13] withr_2.5.0         tidyselect_1.2.0    mnormt_2.1.1       
+## [16] compiler_4.2.2      cli_3.6.0           rvest_1.0.3        
+## [19] TSP_1.2-2           xml2_1.3.3          labeling_0.4.2     
+## [22] bookdown_0.32       sass_0.4.5          scales_1.2.1       
+## [25] quadprog_1.5-8      systemfonts_1.0.4   digest_0.6.31      
+## [28] pbivnorm_0.6.0      rmarkdown_2.20      svglite_2.1.1      
+## [31] ca_0.71.1           pkgconfig_2.0.3     htmltools_0.5.4    
+## [34] dbplyr_2.3.0        fastmap_1.1.0       highr_0.10         
+## [37] rlang_1.0.6         readxl_1.4.1        rstudioapi_0.14    
+## [40] farver_2.1.1        jquerylib_0.1.4     generics_0.1.3     
+## [43] jsonlite_1.8.4      googlesheets4_1.0.1 magrittr_2.0.3     
+## [46] munsell_0.5.0       fansi_1.0.4         lifecycle_1.0.3    
+## [49] stringi_1.7.12      yaml_2.3.7          grid_4.2.2         
+## [52] parallel_4.2.2      crayon_1.5.2        lattice_0.20-45    
+## [55] haven_2.5.1         hms_1.1.2           knitr_1.42         
+## [58] pillar_1.8.1        codetools_0.2-19    stats4_4.2.2       
+## [61] reprex_2.0.2        glue_1.6.2          evaluate_0.20      
+## [64] blogdown_1.16       modelr_0.1.10       vctrs_0.5.2        
+## [67] tzdb_0.3.0          foreach_1.5.2       cellranger_1.1.0   
+## [70] gtable_0.3.1        assertthat_0.2.1    cachem_1.0.6       
+## [73] xfun_0.36           broom_1.0.3         googledrive_2.0.0  
+## [76] viridisLite_0.4.1   gargle_1.2.1        seriation_1.4.1    
+## [79] iterators_1.0.14    registry_0.5-1      timechange_0.2.0   
+## [82] ellipsis_0.3.2</code></pre>
+</div>

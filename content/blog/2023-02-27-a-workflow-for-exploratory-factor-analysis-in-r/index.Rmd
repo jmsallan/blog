@@ -1,0 +1,254 @@
+---
+title: A Workflow for Exploratory Factor Analysis in R
+author: Jose M Sallan
+date: '2023-02-27'
+slug: a-workflow-for-exploratory-factor-analysis-in-r
+categories:
+  - R
+  - statistics
+tags:
+  - correlation
+  - R
+  - factor analysis
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+Factor analysis is a statistical technique used to analyze the relationships among a large number of observed variables and to identify a smaller number of underlying, unobserved variables, which are called **factors**. The goal of factor analysis is to reduce the complexity of a dataset and to identify the underlying structure that explains the observed data.
+
+Factor analysis is used in a variety of fields, including psychology, sociology, economics, marketing, and biology. The results of factor analysis can help researchers to better understand the relationships among the observed variables and to identify the underlying factors that are driving those relationships.
+
+In **predictive modelling**, factor analysis can be used to reduce the number of variables that are included in a model. The factor scores of observations can then be used as input variables in the predictive model.
+
+By reducing the number of variables in the model, factor analysis can help to overcome problems of overfitting, multicollinearity, and high dimensionality. **Overfitting** occurs when a model is too complex and fits the training data too closely, which can lead to poor performance on new data. **Multicollinearity** occurs when two or more variables are highly correlated with each other, which can lead to unstable and unreliable estimates of the model coefficients. **High dimensionality** occurs when there are too many variables in the model, which can lead to computational inefficiency and reduced model interpretability.
+
+Exploratory factor analysis (EFA) and confirmatory factor analysis (CFA) are two different types of factor analysis that are used for different purposes.
+
+**Exploratory factor analysis** (EFA) is used to explore and identify the underlying factor structure of a dataset. EFA does not require prior knowledge of the relationships among the observed variables. In EFA, the researcher examines the pattern of correlations among the observed variables to identify the factors that best explain the variation in the data. The researcher does not have any preconceived ideas about the number or structure of the factors that underlie the data, and the number of factors is determined based on statistical criteria. On the other hand, **confirmatory factor analysis** (CFA) is used to test a specific  hypothesis about the underlying factor structure of a dataset. CFA requires prior knowledge of the relationships among the observed variables. In CFA, the researcher specifies a theoretical model of the underlying factor structure, and the model is then tested against the observed data to determine how well it fits the data.
+
+In this post, I will present a workflow to carry out exploratory factor analysis (EFA) in R. I will use the `tidyverse` for handling and plotting data, `kableExtra` to present tabular data, `corrr` for examining correlation matrices, the `psych` package for functions to carry out EFA and `lavaan` to retrieve the dataset I will be using in the workflow.
+
+```{r}
+library(tidyverse)
+library(corrr)
+library(psych)
+library(lavaan)
+library(kableExtra)
+```
+
+The `HolzingerSwineford1939` dataset contains 301 observations of mental ability scores. The variables relevant for our analysis are `x1` to `x9`.
+
+```{r}
+hz <- HolzingerSwineford1939 |>
+  select(x1:x9)
+
+hz |>
+  slice(1:5) |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+## Exploring the Correlation mMatrix
+
+The input of factor analysis is the correlation matrix, and for some indices the number of observations. We can explore correlations with the `corrr` package:
+
+```{r}
+cor_tb <- correlate(hz)
+```
+
+`corrr::rearrange` groups highly correlated variables closer together, and `corrr::rplot` visualizes the result (I have used a custom color scale to highlight the results):
+
+```{r, fig.align='center', out.width='80%'}
+cor_tb |>
+  rearrange() |>
+  rplot(colors = c("red", "white", "blue"))
+```
+
+Looks like three groups emerge, around variables:
+
+* `x4` to `x6` (first group).
+* `x1` to `x3` (second group).
+* `x7` to `x9` (third group).
+
+Let's start the factor analysis workflow. To do so, we need to obtain the correlations in matrix format with the R base `cor` function.
+
+```{r}
+cor_mat <- cor(hz)
+```
+
+## Preliminary tests
+
+In preliminary analysis, we examine if the correlation matrix is suitable for factor analysis. We have two methods available:
+
+* The **Kaiser–Meyer–Olkin (KMO)** test of sample adequacy. According to Kaiser (1974), values of KMO > 0.9 are marvelous, in the 0.80s, mertitourious, in the 0.70s, middling, in the 0.60s, mediocre, in the 0.50s, miserable, and less than 0.5, unacceptable. We can obtain that index with `psych::KMO`. It also provides a sample adequacy measure for each variable.
+* The **Bartlett's test of sphericity**. It is a testing of the hypothesis that the correlation matrix is an identity matrix. If this null hypothesis can be rejected, we can assume that variables are correlated and then perform factor analysis. We can do this testing with the `psych::cortest.bartlett` function.
+
+The results of the KMO test are:
+
+```{r}
+KMO(cor_mat)
+```
+
+These eresults can be considered middling. The Bartlett's test results are:
+
+```{r}
+cortest.bartlett(R = cor_mat, n = 301)
+```
+
+Those results provide strong evidence that variables are correlated.
+
+
+## Number of Factors to Extract
+
+A starting point to decide how many factors to extract is to examine the **eigenvalues** of correlation matrix.
+
+```{r}
+eigen(cor_mat)$values
+```
+
+There are two criteria used to decide the number of factors to extract:
+
+* Pick as many factors as eigenvalues greater than one.
+* Examine the **elbow point** of the **scree plot**. In that plot we have the rank the factors in the `x` axis and the eigenvalues in the `y` axis.
+
+Let's do the scree plot to see the elbow point.
+
+```{r, fig.align='center'}
+n <- dim(cor_mat)[1]
+scree_tb <- tibble(x = 1:n, 
+                   y = sort(eigen(cor_mat)$value, decreasing = TRUE))
+
+scree_plot <- scree_tb |>
+  ggplot(aes(x, y)) +
+  geom_point() +
+  geom_line() +
+  theme_minimal() +
+  scale_x_continuous(breaks = 1:n) +
+  ggtitle("Scree plot")
+
+scree_plot
+```
+
+
+```{r, fig.align='center'}
+scree_plot +
+  geom_vline(xintercept = 4, color = "red", linetype = "dashed") +
+  annotate("text", 4.1, 2, label = "elbow point", color = "red", hjust = 0)
+```
+
+We observe that the elbow method occurs with four facgtor` and that we have three factors with eigenvalue greater than one. I have chosen to obtain a three-factor solution.
+
+## Factor Loadings and Rotations
+
+Factor loedings $f_{ij}$ are defined for each variable $i$ and factor $j$, and represent the correlation between both. A high value of $f_{ij}$ means that a large amount of variability of variable $i$ can be explained by factor $j$.
+
+Factor loadings of a model are unique up to a rotation. We prefer rotation methods that obtain factor loadings that allow relating one factor to each variable. **Orthogonal rotations** yield a set of uncorrelated factors. The most common orthogonal rotation methods are:
+
+* **Varimax** maximizes variance of the squared loadings in each factor, so that each factor has only few variables with large loadings by the factor.
+* **Quartimax** minimizes the number of factors needed to explain a variable.
+* **Equamax** is a combination of varimax and quartimax.
+
+**Oblique rotations** lead to a set of correlated factors. The most common oblique rotation methods are **oblimin** and **promax**.
+
+In `psych::fa`, the type of rotation is passed with the `rotate` parameter.
+
+For a factor analysis, we can split the variance of each variable in:
+
+* **Communality** `h2`: the proportion of the variance explained by factors.
+* **Uniqueness** `u2`: the proportion of the variance not explained by factors, thus unique for the variable.
+
+## Interpreting the Results
+
+We can perform the factor analysis using the `psych::fa` function. This function allows several methods to do the factor analysis specifying `fm` parameter. The main options available are:
+
+* `fm = "minres"` for the minimum residual solution (the default).
+* `fm = "ml"` for the maximum likelihood solution.
+* `fm = "pa"` for the principal axis solution.
+
+Let's do the factor analysis using the principal axis method and the varimax rotation. The other parameters are the correlation matrix and the number of factors `nfactors = 3`.
+
+```{r}
+hz_factor <- fa(r = cor_mat, nfactors = 3, fm = "ml", rotate = "varimax")
+```
+
+The output of the factor analysis performed above is:
+
+```{r}
+hz_factor
+```
+
+There is a lot of information here. Let's see some relevant insights:
+
+* The solution starts with the factor loadings for factors `ML1`, `ML3` and `ML2`. Factor loadings are the only values affected by the rotation.
+For each variable we obtain the communalities `h2` and uniquenesses `u2`. 
+* Communalities are quite heterogeneous, ranging from 0.25 for `x2` to 0.76 for `x5`.
+* The proportion of variance explained by each factor is presented in `Proportion Var` and the cumulative variance in `Cumulative Var`. From the `Cumulative Var` we learn that the model explains the 54% of total variance. This value is considered low for an exploratory factor analysis.
+
+We can see better the pattern of factor loadings printing them with a cutoff value:
+
+```{r}
+print(hz_factor$loadings, cutoff = 0.3)
+```
+
+We can see that we can group variables `x1` to `x3` in a factor `ML1`, variables `x4` to `x6` in factor ML3 and variables `x7` to `x9` in factor `ML2`. For this dataset, this result is in correspondence with the meaning of the variables. `ML1` would be realated with visual ability, `ML3` with verbal ability and `ML2` with mathematical ability.
+
+## Factor Scores
+
+While factor loadings help to interpret the meaning of the factors, factor scores allow obtaining values of factors for each observation. The arguments of `psych::factor.scores` are the observations for which we want to compute the scores and the factor analysis model:
+
+```{r}
+hz_scores <- factor.scores(HolzingerSwineford1939 |> select(x1:x9), hz_factor)
+```
+
+The outcome of `factor.scores` is a list with matrices:
+
+* `scores` with the values of factor scores for each observation.
+* `weights` with the weights used to obtain the scores.
+* `r.scores`, the correlation matrix of the scores.
+
+Let's see how factor scores look like:
+
+```{r}
+hz_scores$scores |>
+  as_tibble() |>
+  slice(1:5) |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+Let's do a scatterplot of factors `ML1` and `ML3`, highlighting the gender of each observation.
+
+```{r, fig.align='center'}
+scores <- as_tibble(hz_scores$scores)
+scores <- bind_cols(HolzingerSwineford1939 |> select(id, sex), scores) |>
+  mutate(sex = factor(sex))
+
+scores |>
+  ggplot(aes(ML1, ML3, color = sex)) +
+  geom_point() +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+The plot show two uncorrelated factors, uniformly distributed among the two genders.
+
+## References
+
+* Kaiser, H. F. (1974). An index of factor simplicity. *Psychometrika*, 39(1), 31-36.
+* Statology (2019). A Guide to Bartlett’s Test of Sphericity. <https://www.statology.org/bartletts-test-of-sphericity/>
+* Factor rotation methods (varimax, quartimax, oblimin, etc.) - what do the names mean and what do the methods do? <https://stats.stackexchange.com/questions/185216/factor-rotation-methods-varimax-quartimax-oblimin-etc-what-do-the-names>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+
+```
+
+
+
