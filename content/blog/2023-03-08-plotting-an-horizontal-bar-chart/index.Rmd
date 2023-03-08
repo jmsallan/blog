@@ -1,0 +1,121 @@
+---
+title: Ploting an Horizontal Bar Chart
+author: Jose M Sallan
+date: '2023-03-08'
+slug: plotting-an-horizontal-bar-chart
+categories:
+  - R
+tags:
+  - data visualization
+  - ggplot
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post, I will present the workflow to create an horizontal barchart presenting a set of values. A good practice for those tables is to arrange bars in decreasing order of the value. We'll see that we can to that with the `fct_reorder` function of `forcats`, included in the tidyverse.
+
+I will be using the txhousing dataset, included in tidyverse, so I don't need more than that:
+
+```{r}
+library(tidyverse)
+```
+
+Let's see which cities of Texas have the most expensive housing. For each city, I am computing a price variable, equal to the median of median prices from 2010 onwards: 
+
+```{r}
+txhousing |>
+  filter(year >= 2010) |>
+  group_by(city) |>
+  summarise(price = median(median, na.rm = TRUE)) |>
+  arrange(-price)
+```
+
+Let's see the default plot of those values with `geom_bar(stat = "identity")`:
+
+```{r}
+txhousing |>
+  filter(year >= 2010) |>
+  group_by(city) |>
+  summarise(price = median(median, na.rm = TRUE)) |>
+  ggplot(aes(city, price)) +
+  geom_bar(stat = "identity")
+```
+
+This plot is not nice, for several reasons:
+
+* We cannot see the city names in the x axis.
+* Bars are not arranged, so it is hard to see what are the most expensive cities.
+* There are too many bars to see, which add little information if we focus on the more expensive cities.
+* The standard output of ggplot has a lot of clutter.
+
+We can get to see city names reversing axis. That's why we present an horizontal bar chart:
+
+```{r}
+txhousing |>
+  filter(year >= 2010) |>
+  group_by(city) |>
+  summarise(price = median(median, na.rm = TRUE)) |>
+  ggplot(aes(price, city)) +
+  geom_bar(stat = "identity")
+```
+
+To reorder the cities, we use fct_reorder to change the city factor variable, so it is reordered by price:
+
+```{r}
+txhousing |>
+  filter(year >= 2010) |>
+  group_by(city) |>
+  summarise(price = median(median, na.rm = TRUE)) |>
+  mutate(city = fct_reorder(city, price)) |>
+  ggplot(aes(price, city)) +
+  geom_bar(stat = "identity")
+```
+
+If we want to pick the ten largest cities instead of all cities, we need to `arrange` the table by price, and then `slice` it to pick the first ten rows. Note that **`fct_reorder` reorders the chart, but not the table!**
+
+```{r}
+txhousing |>
+  filter(year >= 2010) |>
+  group_by(city) |>
+  summarise(price = median(median, na.rm = TRUE)) |>
+  arrange(-price) |>
+  slice(1:10) |>
+  mutate(city = fct_reorder(city, price)) |>
+  ggplot(aes(price, city)) +
+  geom_bar(stat = "identity")
+```
+
+Finally, we can improve the look of the table by:
+
+* setting a blue color for bars with `fill` parameter in `geom_bar`.
+* removing the backgroun and axis with `theme_minimal`.
+* change the size of the title and axis text with `theme`.
+* adding a descriptive enough title and removing axis labels with `labs`.
+
+```{r}
+txhousing |>
+  filter(year >= 2010) |>
+  group_by(city) |>
+  summarise(price = median(median, na.rm = TRUE)) |>
+  arrange(-price) |>
+  slice(1:10) |>
+  mutate(city = fct_reorder(city, price)) |>
+  ggplot(aes(price, city)) +
+  geom_bar(stat = "identity", fill = "#66B2FF") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 12),
+        plot.title = element_text(size=15)) +
+  labs(title = "The most expensive cities in Texas (median prices)", x = NULL, y = NULL)
+```
+
+The resulting chart is hopefully easier to read and to interpret than the default one.
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
