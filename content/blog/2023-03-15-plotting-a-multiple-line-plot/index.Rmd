@@ -1,0 +1,156 @@
+---
+title: Plotting a Multiple Line Plot
+author: Jose M Sallan
+date: '2023-03-15'
+slug: plotting-a-multiple-line-plot
+categories:
+  - R
+tags:
+  - data visualization
+  - ggplot
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+It is frequent that we need to visualize the temporal evolution along time of one or several variables using a line plot. Doing multiple line plots with ggplot might not be easy at first, as usually we have each variable in a column. Here I will illustrate how to do that with the `economics` dataset, included in the tidyverse. I will also plot a variable and its rolling mean obtained with `zoo`.
+
+```{r}
+library(tidyverse)
+library(zoo)
+data("economics")
+```
+
+`economics` was produced from US economic time series data available from <https://fred.stlouisfed.org/>:
+
+```{r}
+economics
+```
+
+We see that we have multiple series of macroeconomic aggregates, presented on a monthly basis.
+
+## A Single Line Plot
+
+Let's start plotting the evolution of the personal savings rate `psavert`. This is straightforward with `geom_line()`.
+
+```{r, fig.align='center'}
+economics |>
+  ggplot(aes(date, psavert)) +
+  geom_line()
+```
+
+We can remove some clutter by applying `theme_minimal` and replacing axis labels with a descriptive title.
+
+```{r, fig.align='center'}
+economics |>
+  ggplot(aes(date, psavert)) +
+  geom_line() +
+  theme_minimal() +
+  labs(title = "Temporal evolution of personal savings rate", x = NULL, y = NULL)
+```
+
+## Two or More Lines
+
+Let's do a plot including personal savings rate `psavert` and median duration of unemployment `uempmed`. Each variable is presented in its column, so we need to transform data in two steps.
+
+First, let's **`select` the variables included in the plot**:
+
+* y-axis variables `psavert` and `uempmed` 
+* the x-axis time variable `date`
+
+```{r}
+economics |>
+  select(date, psavert, uempmed)
+```
+
+Second, **apply `pivot_longer` to have a long table** excluding the time variable.
+
+```{r}
+economics |>
+  select(date, psavert, uempmed) |>
+  pivot_longer(-date)
+```
+
+No matter how many variables had, now we have three columns: the x axis variable, `value` for the y axis and `name` to define the color of each line. Now we can do the plot.
+
+```{r, fig.align='center'}
+economics |>
+  select(date, psavert, uempmed) |>
+  pivot_longer(-date) |>
+  ggplot(aes(date, value, color = name)) +
+  geom_line()
+```
+
+Here is an improved version. I have defined line colors and legend labels with `scale_color_manual`, and placed the legend below the plot with `theme(legend.position = "bottom")`.
+
+```{r, fig.align='center'}
+economics |>
+  select(date, psavert, uempmed) |>
+  pivot_longer(-date) |>
+  ggplot(aes(date, value, color = name)) +
+  geom_line() +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  scale_color_manual(values = c("#FF8000", "#0080FF"), name = "variable", labels = c("savings", "unemployment")) +
+  labs(title = "Temporal evolution of savings and unemployment", x= NULL ,y = NULL)
+```
+
+## Variable and Rolling Mean
+
+A special case of a two-line plot is presenting a variable and its rolling mean. We can obtain that mean with `rollmean` from the `zoo` package.
+
+```{r}
+economics |>
+  mutate(psavert_roll = rollmean(psavert, k = 12, fill = NA, align = "right")) |>
+  select(date, psavert, psavert_roll) |>
+  print(n = 15)
+```
+
+After that, let's **`select` the variables included in the plot**. Then, we use **apply `pivot_longer` to have a long table**.
+
+```{r}
+economics |>
+  mutate(psavert_roll = rollmean(psavert, k = 12, fill = NA, align = "right")) |>
+  select(date, psavert, psavert_roll) |>
+  pivot_longer(-date) 
+```
+
+Now we are ready to do the plot:
+
+```{r, fig.align='center'}
+economics |>
+  mutate(psavert_roll = rollmean(psavert, k = 12, fill = NA, align = "right")) |>
+  select(date, psavert, psavert_roll) |>
+  pivot_longer(-date) |>
+  ggplot(aes(date, value, color = name)) +
+  geom_line()
+```
+
+If we want to avoid the warning thrown by the `NA` of the rolling mean, we can remove these rows with `filter(!is.na(value))`. To plot the variable and its rolling mean, I have selected two colors with similar hue.
+
+```{r, fig.align='center'}
+economics |>
+  mutate(psavert_roll = rollmean(psavert, k = 24, fill = NA, align = "right")) |>
+  select(date, psavert, psavert_roll) |>
+  pivot_longer(-date) |>
+  filter(!is.na(value)) |>
+  ggplot(aes(date, value, color = name)) +
+  geom_line() +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  scale_color_manual(values = c("#99CCFF", "#0066CC"), name = "savings", labels = c("raw", "detrended")) +
+  labs(title = "Temporal evolution of savings (raw and detrended)", x= NULL ,y = NULL)
+```
+
+Whenever you need to do a multi line plot in ggplot, do no forget the two steps:
+
+* **`select` the variables included in the plot**
+* **apply `pivot_longer` to have a long table**
+
+```{r, echo=FALSE}
+sessionInfo()
+```
