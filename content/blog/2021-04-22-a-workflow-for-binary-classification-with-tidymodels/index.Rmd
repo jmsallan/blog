@@ -1,5 +1,5 @@
 ---
-title: A workflow for binary classification with tidymodels
+title: A workflow for Binary Classification with Tidymodels
 author: Jose M Sallan
 date: '2021-04-22'
 slug: a-workflow-for-binary-classification-with-tidymodels
@@ -17,8 +17,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE)
 ```
 
 `tidymodels` is a collection of packages for modelling and machine learning in R, drawing on the tools and approach of the `tidyverse`. It is replacing `caret` as the main choice to work in supervised learning models. 
-
-The best way to start with `tidymodels` is with a small example. I have found [this example of multiclass classification](https://rviews.rstudio.com/2019/06/19/a-gentle-intro-to-tidymodels/) with the `iris` dataset very helpful. Here I will present a similar workflow, but with a binary classification problem. Loading `tidyverse` only, we'll have all the packages we need:
+The best way to start with `tidymodels` is with a small example. I have found [this example of multiclass classification](https://rviews.rstudio.com/2019/06/19/a-gentle-intro-to-tidymodels/) with the `iris` dataset very helpful. Here I will present a similar workflow, but with a binary classification problem. Loading `tidymodels` only, we'll have all the packages we need:
 
 ```{r}
 library(tidymodels)
@@ -38,22 +37,23 @@ Let's define the target variable. When using `tidymodels` in binary classificati
 * with its **first level** corresponding to the **positive** class.
 
 ```{r}
-iris <- iris %>% mutate(is_versicolor = ifelse(Species == "versicolor", "versicolor", "not_versicolor")) %>%
-  mutate(is_versicolor =factor(is_versicolor, levels = c("versicolor", "not_versicolor")))
+iris <- iris |> 
+  mutate(is_versicolor = ifelse(Species == "versicolor", "versicolor", "not_versicolor")) |>
+  mutate(is_versicolor = factor(is_versicolor, levels = c("versicolor", "not_versicolor")))
 ```
 
 In binary classification problems, the class associated with the presence of a property is labelled **positive**. Here the positive class is that the flower *is* versicolor, that is `is_versicolor==versicolor`. The other class is labelled **negative**. Here that means that the flower *is not* versicolor `is_versicolor==not_versicolor`.
 
-## Data preprocessing with recipes
+## Data Preprocessing with recipes
 
 Data pre-processing in `tidymodels` is performed with the `recipes` package. A recipe has the following structure:
 
 ```{r}
-iris_recipe <- iris %>%
-  recipe(is_versicolor ~.) %>%
-  step_rm(Species) %>%
-  step_corr(all_predictors()) %>%
-  step_center(all_predictors(), -all_outcomes()) %>%
+iris_recipe <- iris |>
+  recipe(is_versicolor ~.) |>
+  step_rm(Species) |>
+  step_corr(all_predictors()) |>
+  step_center(all_predictors(), -all_outcomes()) |>
   step_scale(all_predictors(), -all_outcomes())
 ```
 
@@ -66,18 +66,18 @@ The components of this recipe are:
 To see what the recipe has done we can just estimate doing:
 
 ```{r}
-iris_recipe %>%
+iris_recipe |>
   prep()
 ```
 
 We see that the recipe has removed `Petal.Length` because it was highly correlated with other variables. The next steps of the recipe have not been applied to that variable, so the order in which to apply the steps is relevant.
 
-## Defining the model with parsnip
+## Defining the Model with parsnip
 
 The models in `tidymodels` are stored in `parsnip`, the successor of `caret` (whence its name). Here we define a random forest **model** with some parameters and specify the engine we are using. The **engine** in the `parsnip` context is the source of the code to run the model. It can be a package, a R base function, `stan` or `spark`, among others. Here we are using the random forest implemented in the `ranger` package.
 
 ```{r}
-rf <- rand_forest(mode = "classification", trees = 100) %>%
+rf <- rand_forest(mode = "classification", trees = 100) |>
   set_engine("ranger")
 ```
 
@@ -86,29 +86,30 @@ rf <- rand_forest(mode = "classification", trees = 100) %>%
 Once we have a model and a recipe, we can put it all together with a `workflow`:
 
 ```{r}
-iris_rf_wf <- workflow() %>%
-  add_recipe(iris_recipe) %>%
+iris_rf_wf <- workflow() |>
+  add_recipe(iris_recipe) |>
   add_model(rf)
 ```
 
 The workflow `iris_rf_wf` applies the preprocess recipe iris_recipe, and then builds the model `rf` with data applied to that recipe.
 
-## Obtaining predictions
+## Obtaining Predictions
 
 When we `fit`the workflow to `iris`, we obtain model hyperparameters using the `iris` dataset. Then, we can `predict` the class of each observation from the same data. As the outcome is set in a tibble format, we can use `bind_cols` to attach the prediction to the original data set.
 
 ```{r}
 set.seed(3131)
-iris_pred <- iris_rf_wf %>%
-  fit(iris) %>%
-  predict(iris) %>%
+iris_pred <- iris_rf_wf |>
+  fit(iris) |>
+  predict(iris) |>
   bind_cols(iris)
 ```
 
 Let's examine the results:
 
 ```{r}
-iris_pred %>% glimpse()
+iris_pred |> 
+  glimpse()
 ```
 
 We have the predicted outcome in the `.pred_class` variable. Note that the variable omitted in the recipe has not been removed from the dataset.
@@ -118,7 +119,7 @@ We have the predicted outcome in the `.pred_class` variable. Note that the varia
 We can examine how well has performed the model with the **confusion matrix**:
 
 ```{r}
-iris_pred %>%
+iris_pred |>
   conf_mat(truth = is_versicolor, estimate = .pred_class)
 ```
 
@@ -137,7 +138,7 @@ class_metrics <- metric_set(accuracy, sens, spec)
 and estimate the values:
 
 ```{r}
-iris_pred %>%
+iris_pred |>
  class_metrics(truth = is_versicolor, estimate = .pred_class)
 ```
 
@@ -147,7 +148,7 @@ Here we see that
 * **sensibility** is equal to 49/(1+49) = 0.980,
 * **specificity** is equal to 97/(97+3) = 0.970.
 
-## More features of tidymodels
+## More Features of tidymodels
 
 This is a very basic workflow of model training with `tidymodels`. There are many more features available, among others:
 
@@ -161,6 +162,8 @@ This is a very basic workflow of model training with `tidymodels`. There are man
 
 * `recipes` function reference: <https://recipes.tidymodels.org/reference/index.html>
 * list of available models in `parsnip`: <https://www.tidymodels.org/find/parsnip/>
+
+## Session Info
 
 ```{r, echo=FALSE}
 sessionInfo()

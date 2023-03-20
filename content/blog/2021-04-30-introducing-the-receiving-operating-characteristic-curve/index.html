@@ -1,5 +1,5 @@
 ---
-title: Introducing the receiver operating characteristic curve
+title: Introducing the Receiver Operating Characteristic Curve
 author: Jose M Sallan
 date: '2021-04-30'
 slug: introducing-the-receiving-operating-characteristic-curve
@@ -12,34 +12,34 @@ meta_img: images/image.png
 description: Description for the page
 ---
 
-<script src="{{< blogdown/postref >}}index_files/header-attrs/header-attrs.js"></script>
 
 
 <p>In <a href="https://jmsallan.netlify.app/blog/a-workflow-for-binary-classification-with-tidymodels/">a previous post</a> I presented a small <strong>binary classification problem</strong>, consisting in finding if an observation of the <code>iris</code> dataset belongs to the versicolor species. Remember that the target variable must be a factor, with first level associated to the positive case:</p>
-<pre class="r"><code>iris &lt;- iris %&gt;% mutate(is_versicolor = ifelse(Species == &quot;versicolor&quot;, &quot;versicolor&quot;, &quot;not_versicolor&quot;)) %&gt;%
+<pre class="r"><code>iris &lt;- iris |&gt; 
+  mutate(is_versicolor = ifelse(Species == &quot;versicolor&quot;, &quot;versicolor&quot;, &quot;not_versicolor&quot;)) |&gt;
   mutate(is_versicolor =factor(is_versicolor, levels = c(&quot;versicolor&quot;, &quot;not_versicolor&quot;)))</code></pre>
 <p>The recipe of this problem is straightforward: remove <em>correlated predictors</em>, and <em>normalize</em> (centering and scaling) the remaining predictors:</p>
-<pre class="r"><code>iris_recipe &lt;- iris %&gt;%
-  recipe(is_versicolor ~.) %&gt;%
-  step_rm(Species) %&gt;%
-  step_corr(all_predictors()) %&gt;%
+<pre class="r"><code>iris_recipe &lt;- iris |&gt;
+  recipe(is_versicolor ~.) |&gt;
+  step_rm(Species) |&gt;
+  step_corr(all_predictors()) |&gt;
   step_normalize(all_predictors(), -all_outcomes())</code></pre>
 <p>Here I will introduce the <strong>receiver operating characteristic (ROC)</strong> curve in the context of performance assessment of classification problems. We’ll assess the performance of two predictive models with the ROC curve, and then examine the performance of a bad classifier with the same metric.</p>
 <div id="logistic-regression" class="section level2">
-<h2>Logistic regression</h2>
+<h2>Logistic Regression</h2>
 <p>Let’s begin fitting a <em>logistic regression</em> model:</p>
-<pre class="r"><code>lr &lt;- logistic_reg() %&gt;%
+<pre class="r"><code>lr &lt;- logistic_reg() |&gt;
   set_engine(&quot;glm&quot;)
 
-iris_lr_wf &lt;- workflow() %&gt;%
-  add_recipe(iris_recipe) %&gt;%
+iris_lr_wf &lt;- workflow() |&gt;
+  add_recipe(iris_recipe) |&gt;
   add_model(lr)</code></pre>
 <p>With <code>predict(iris)</code> we predict the class of each observation:</p>
-<pre class="r"><code>iris_pred_lr &lt;- iris_lr_wf %&gt;%
-  fit(iris) %&gt;%
+<pre class="r"><code>iris_pred_lr &lt;- iris_lr_wf |&gt;
+  fit(iris) |&gt;
   predict(iris)
 iris_pred_lr</code></pre>
-<pre><code>## # A tibble: 150 x 1
+<pre><code>## # A tibble: 150 × 1
 ##    .pred_class   
 ##    &lt;fct&gt;         
 ##  1 not_versicolor
@@ -54,11 +54,11 @@ iris_pred_lr</code></pre>
 ## 10 not_versicolor
 ## # … with 140 more rows</code></pre>
 <p>In logistic regression, the class of each observation is assigned using its probability to belong to each class. This probability is used to construct the ROC curve, and we can obtain it using <code>predict</code> with <code>type = "prob"</code>:</p>
-<pre class="r"><code>iris_prob_lr &lt;- iris_lr_wf %&gt;%
-  fit(iris) %&gt;%
+<pre class="r"><code>iris_prob_lr &lt;- iris_lr_wf |&gt;
+  fit(iris) |&gt;
   predict(iris, type = &quot;prob&quot;)
 iris_prob_lr</code></pre>
-<pre><code>## # A tibble: 150 x 2
+<pre><code>## # A tibble: 150 × 2
 ##    .pred_versicolor .pred_not_versicolor
 ##               &lt;dbl&gt;                &lt;dbl&gt;
 ##  1           0.0977                0.902
@@ -76,27 +76,27 @@ iris_prob_lr</code></pre>
 <pre class="r"><code>iris_lr &lt;- bind_cols(iris, iris_pred_lr, iris_prob_lr)</code></pre>
 </div>
 <div id="random-forests" class="section level2">
-<h2>Random forests</h2>
+<h2>Random Forests</h2>
 <p>Let’s replicate the same workflow with <em>random forests</em>:</p>
-<pre class="r"><code>rf &lt;- rand_forest(mode = &quot;classification&quot;, trees = 100) %&gt;%
+<pre class="r"><code>rf &lt;- rand_forest(mode = &quot;classification&quot;, trees = 100) |&gt;
   set_engine(&quot;ranger&quot;)
 
-iris_rf_wf &lt;- workflow() %&gt;%
-  add_recipe(iris_recipe) %&gt;%
+iris_rf_wf &lt;- workflow() |&gt;
+  add_recipe(iris_recipe) |&gt;
   add_model(rf)
 
-iris_pred_rf &lt;- iris_rf_wf %&gt;%
-  fit(iris) %&gt;%
+iris_pred_rf &lt;- iris_rf_wf |&gt;
+  fit(iris) |&gt;
   predict(iris)
 
-iris_prob_rf &lt;- iris_rf_wf %&gt;%
-  fit(iris) %&gt;%
+iris_prob_rf &lt;- iris_rf_wf |&gt;
+  fit(iris) |&gt;
   predict(iris, type = &quot;prob&quot;)
 
 iris_rf &lt;- bind_cols(iris, iris_pred_rf, iris_prob_rf)</code></pre>
 </div>
 <div id="the-roc-curve" class="section level2">
-<h2>The ROC curve</h2>
+<h2>The ROC Curve</h2>
 <p>To classify an observation as positive or negative class from probabilities we need a <strong>threshold value</strong>, a value between 0 and 1 so that:</p>
 <ul>
 <li>If observation’s probability of belonging to positive class is <strong>below the threshold</strong> the observation is labelled as <strong>negative</strong>.</li>
@@ -113,8 +113,7 @@ iris_rf &lt;- bind_cols(iris, iris_pred_rf, iris_prob_rf)</code></pre>
 <li>If <strong>threshold = 1</strong>, all observations are classified as negative. Sensitivity is equal to 0 and specificity is equal to 1. This is the <strong>(0, 0)</strong> point of the ROC curve.</li>
 <li>If <strong>threshold = 0</strong>, all observations are classified as positive. Sensitivity is equal to 1 and specificity is equal to 0. This is the <strong>(1, 1)</strong> point of the ROC curve.</li>
 </ul>
-<p>A perfect classifier has sensitivity and specificity equal to one, which corresponds with the <strong>(0, 1)</strong> point in the ROC curve.
-`</p>
+<p>A perfect classifier has sensitivity and specificity equal to one, which corresponds with the <strong>(0, 1)</strong> point in the ROC curve.</p>
 <pre class="r"><code>roc_df &lt;- data.frame(x_roc = c(0,0,1), 
                      y_roc = c(0,1,1),
                      threshold = c(&quot;threshold=1&quot;, &quot;perfect class.&quot;, &quot;threshold=0&quot;))
@@ -127,21 +126,23 @@ ggplot(roc_df, aes(x_roc,y_roc, label=threshold)) +
   geom_abline(slope=1, intercept = 0, linetype = &quot;dashed&quot;, size=0.2) +
   theme_bw() +
   labs(x=&quot;1-specificity&quot;, y=&quot;sensitivity&quot;)</code></pre>
+<pre><code>## Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
+## ℹ Please use `linewidth` instead.</code></pre>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
 <p>This curve can be turned into a number with the <strong>area under the ROC curve (AUC)</strong>. This area will be a value <strong>between 1 and 0.5</strong>, being 1 the value of a perfect classifier. A classifier with ana AUC below 0.5 can be transformed into a better predictor just reversing the outcome (classifying positives as negatives and vice versa).</p>
 <p>Let’s see the performance of logistic regression and random forests using the ROC curve.</p>
 </div>
 <div id="roc-curve-for-logistic-regression" class="section level2">
-<h2>ROC curve for logistic regression</h2>
+<h2>ROC Curve for Logistic Regression</h2>
 <p>Here is a plot of the ROC curve for logistic regression. The points in red correspond with threshold values around 0.5, the usual cutoff values when predicting classes.</p>
-<pre class="r"><code>roc_curve_lr &lt;- iris_lr %&gt;%
-  roc_curve(truth = is_versicolor, estimate = .pred_versicolor) %&gt;% 
+<pre class="r"><code>roc_curve_lr &lt;- iris_lr |&gt;
+  roc_curve(truth = is_versicolor, estimate = .pred_versicolor) |&gt; 
   mutate(x_roc = 1-sensitivity, y_roc=specificity)
 
-sens_spec_lr &lt;- roc_curve_lr %&gt;% 
+sens_spec_lr &lt;- roc_curve_lr |&gt; 
   filter(.threshold &gt; 0.48, .threshold &lt; 0.52)
 
-roc_curve_lr %&gt;%
+roc_curve_lr |&gt;
   ggplot(aes(x_roc, y_roc)) +
   geom_point(size=0.5)  +
   geom_point(data=sens_spec_lr, aes(x_roc, y_roc), size = 3, color = &quot;red&quot;) +
@@ -151,29 +152,29 @@ roc_curve_lr %&gt;%
   labs(x=&quot;1-specificity&quot;, y=&quot;sensitivity&quot;)</code></pre>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
 <p>We can obtain the ROC curve faster in <code>tidymodels</code> doing:</p>
-<pre class="r"><code>iris_lr %&gt;%
-  roc_curve(truth = is_versicolor, estimate = .pred_versicolor) %&gt;% 
+<pre class="r"><code>iris_lr |&gt;
+  roc_curve(truth = is_versicolor, estimate = .pred_versicolor) |&gt; 
   autoplot()</code></pre>
 <p>The AUC is equal to:</p>
-<pre class="r"><code>iris_lr %&gt;%
+<pre class="r"><code>iris_lr |&gt;
   roc_auc(is_versicolor, .pred_versicolor)</code></pre>
-<pre><code>## # A tibble: 1 x 3
+<pre><code>## # A tibble: 1 × 3
 ##   .metric .estimator .estimate
 ##   &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt;
 ## 1 roc_auc binary         0.809</code></pre>
 <p>Examiing the ROC and the AUC we observe that the performance of logistic regression is relatively poor. Let’s compare it with random forests.</p>
 </div>
 <div id="roc-curve-for-random-forests" class="section level2">
-<h2>ROC curve for random forests</h2>
+<h2>ROC Curve for Random Forests</h2>
 <p>This is the ROC curve for random forests. This curve is close to a perfect classifier:</p>
-<pre class="r"><code>roc_curve_rf &lt;- iris_rf %&gt;%
-  roc_curve(truth = is_versicolor, estimate = .pred_versicolor) %&gt;% 
+<pre class="r"><code>roc_curve_rf &lt;- iris_rf |&gt;
+  roc_curve(truth = is_versicolor, estimate = .pred_versicolor) |&gt; 
   mutate(x_roc = 1-sensitivity, y_roc=specificity) 
 
-sens_spec_rf &lt;- roc_curve_rf %&gt;% 
+sens_spec_rf &lt;- roc_curve_rf |&gt; 
   filter(.threshold &gt; 0.4, .threshold &lt; 0.6)
 
-roc_curve_rf %&gt;%
+roc_curve_rf |&gt;
   ggplot(aes(x_roc, y_roc)) +
   geom_point(size=0.5)  +
   geom_point(data=sens_spec_rf, aes(x_roc, y_roc), size = 3, color = &quot;red&quot;) +
@@ -183,28 +184,28 @@ roc_curve_rf %&gt;%
   labs(x=&quot;1-specificity&quot;, y=&quot;sensitivity&quot;)</code></pre>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-12-1.png" width="672" /></p>
 <p>The AUC is much closer to one now:</p>
-<pre class="r"><code>iris_rf %&gt;%
+<pre class="r"><code>iris_rf |&gt;
   roc_auc(is_versicolor, .pred_versicolor)</code></pre>
-<pre><code>## # A tibble: 1 x 3
+<pre><code>## # A tibble: 1 × 3
 ##   .metric .estimator .estimate
 ##   &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt;
-## 1 roc_auc binary         0.999</code></pre>
+## 1 roc_auc binary         0.998</code></pre>
 </div>
-<div id="an-awful-roc-curve" class="section level2">
-<h2>An awful ROC curve</h2>
+<div id="a-bad-roc-curve" class="section level2">
+<h2>A Bad ROC Curve</h2>
 <p>Let’s see the behaviour of a very bad classifier. We define the probability of each observation of being versicolor as a random value between zero and one:</p>
-<pre class="r"><code>iris_awful &lt;- iris %&gt;%
+<pre class="r"><code>iris_awful &lt;- iris |&gt;
   mutate(.pred_versicolor = runif(150, 0, 1))</code></pre>
 <p>If we define the ROC curve for this classifier, we observe that it lays around the diagonal:</p>
-<pre class="r"><code>roc_iris_awful &lt;- iris_awful %&gt;%
-  roc_curve(truth = is_versicolor, estimate = .pred_versicolor) %&gt;% 
+<pre class="r"><code>roc_iris_awful &lt;- iris_awful |&gt;
+  roc_curve(truth = is_versicolor, estimate = .pred_versicolor) |&gt; 
   mutate(x_roc = 1-sensitivity, y_roc=specificity) 
 
-sens_spec_awful &lt;- roc_iris_awful %&gt;%
+sens_spec_awful &lt;- roc_iris_awful |&gt;
   filter(.threshold &gt; 0.48, .threshold &lt; .52)
   
 
-roc_iris_awful %&gt;%
+roc_iris_awful |&gt;
   ggplot(aes(x_roc, y_roc)) +
   geom_point(size=0.5) +
   geom_point(data=sens_spec_awful, aes(x_roc, y_roc), size=3, color=&quot;red&quot;) +
@@ -214,15 +215,15 @@ roc_iris_awful %&gt;%
   labs(x=&quot;1-specificity&quot;, y=&quot;sensitivity&quot;)</code></pre>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-15-1.png" width="672" /></p>
 <p>… and that the AUC is close to is lower bound 0.5:</p>
-<pre class="r"><code>iris_awful %&gt;%
+<pre class="r"><code>iris_awful |&gt;
   roc_auc(is_versicolor, .pred_versicolor)</code></pre>
-<pre><code>## # A tibble: 1 x 3
+<pre><code>## # A tibble: 1 × 3
 ##   .metric .estimator .estimate
 ##   &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt;
-## 1 roc_auc binary         0.458</code></pre>
+## 1 roc_auc binary         0.454</code></pre>
 </div>
 <div id="assessing-model-performance-with-roc-and-auc" class="section level2">
-<h2>Assessing model performance with ROC and AUC</h2>
+<h2>Assessing Model Performance with ROC and AUC</h2>
 <p>With a bad classifier, if we want to increase sensitivity (the ability to predict the positive class) we need to reduce specificity (the ability to predict the negative class). That’s why the ROC curve of a bad classifier lies close to the diagonal. A good classifier will yield good values of sensitivity and sensibility at once. This means that its ROC curve will be closer to the upper left corner, and the area under the curve (AUC) will be closer to one. ROC and AUC measure of how classifier is able to separate positive and negative cases. In fact, it was developed by radar engineers in World War II to measure the ability of a radar to detect objects depending on the threshold value of detection.</p>
 </div>
 <div id="references" class="section level2">
@@ -230,5 +231,60 @@ roc_iris_awful %&gt;%
 <ul>
 <li><em>Understanding AUC/ROC curve</em>, by Sarang Narkhede <a href="https://towardsdatascience.com/understanding-auc-roc-curve-68b2303cc9c5" class="uri">https://towardsdatascience.com/understanding-auc-roc-curve-68b2303cc9c5</a></li>
 </ul>
-<p><em>Built with R 4.0.3 and tidymodels 0.1.2</em></p>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.2.2 Patched (2022-11-10 r83330)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] yardstick_1.1.0    workflowsets_1.0.0 workflows_1.1.2    tune_1.0.1        
+##  [5] tidyr_1.3.0        tibble_3.1.8       rsample_1.1.1      recipes_1.0.4     
+##  [9] purrr_1.0.1        parsnip_1.0.3      modeldata_1.1.0    infer_1.0.4       
+## [13] ggplot2_3.4.0      dplyr_1.0.10       dials_1.1.0        scales_1.2.1      
+## [17] broom_1.0.3        tidymodels_1.0.0  
+## 
+## loaded via a namespace (and not attached):
+##  [1] sass_0.4.5          foreach_1.5.2       jsonlite_1.8.4     
+##  [4] splines_4.2.2       prodlim_2019.11.13  bslib_0.4.2        
+##  [7] assertthat_0.2.1    highr_0.10          GPfit_1.0-8        
+## [10] yaml_2.3.7          globals_0.16.2      ipred_0.9-13       
+## [13] pillar_1.8.1        backports_1.4.1     lattice_0.20-45    
+## [16] glue_1.6.2          digest_0.6.31       hardhat_1.2.0      
+## [19] colorspace_2.1-0    htmltools_0.5.4     Matrix_1.5-1       
+## [22] timeDate_4022.108   pkgconfig_2.0.3     lhs_1.1.6          
+## [25] DiceDesign_1.9      listenv_0.9.0       bookdown_0.32      
+## [28] ranger_0.14.1       gower_1.0.1         lava_1.7.1         
+## [31] timechange_0.2.0    farver_2.1.1        generics_0.1.3     
+## [34] ellipsis_0.3.2      cachem_1.0.6        withr_2.5.0        
+## [37] furrr_0.3.1         nnet_7.3-18         cli_3.6.0          
+## [40] survival_3.5-3      magrittr_2.0.3      evaluate_0.20      
+## [43] future_1.31.0       fansi_1.0.4         parallelly_1.34.0  
+## [46] MASS_7.3-58.2       class_7.3-21        blogdown_1.16      
+## [49] tools_4.2.2         lifecycle_1.0.3     munsell_0.5.0      
+## [52] compiler_4.2.2      jquerylib_0.1.4     rlang_1.0.6        
+## [55] grid_4.2.2          iterators_1.0.14    rstudioapi_0.14    
+## [58] labeling_0.4.2      rmarkdown_2.20      gtable_0.3.1       
+## [61] codetools_0.2-19    DBI_1.1.3           R6_2.5.1           
+## [64] lubridate_1.9.1     knitr_1.42          fastmap_1.1.0      
+## [67] future.apply_1.10.0 utf8_1.2.2          parallel_4.2.2     
+## [70] Rcpp_1.0.10         vctrs_0.5.2         rpart_4.1.19       
+## [73] tidyselect_1.2.0    xfun_0.36</code></pre>
+<p>Updated at 2023-03-20 10:38:28.</p>
 </div>

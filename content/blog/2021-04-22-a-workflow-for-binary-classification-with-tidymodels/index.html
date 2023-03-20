@@ -1,5 +1,5 @@
 ---
-title: A workflow for binary classification with tidymodels
+title: A workflow for Binary Classification with Tidymodels
 author: Jose M Sallan
 date: '2021-04-22'
 slug: a-workflow-for-binary-classification-with-tidymodels
@@ -14,8 +14,8 @@ description: Description for the page
 
 
 
-<p><code>tidymodels</code> is a collection of packages for modelling and machine learning in R, drawing on the tools and approach of the <code>tidyverse</code>. It is replacing <code>caret</code> as the main choice to work in supervised learning models.</p>
-<p>The best way to start with <code>tidymodels</code> is with a small example. I have found <a href="https://rviews.rstudio.com/2019/06/19/a-gentle-intro-to-tidymodels/">this example of multiclass classification</a> with the <code>iris</code> dataset very helpful. Here I will present a similar workflow, but with a binary classification problem. Loading <code>tidyverse</code> only, we’ll have all the packages we need:</p>
+<p><code>tidymodels</code> is a collection of packages for modelling and machine learning in R, drawing on the tools and approach of the <code>tidyverse</code>. It is replacing <code>caret</code> as the main choice to work in supervised learning models.
+The best way to start with <code>tidymodels</code> is with a small example. I have found <a href="https://rviews.rstudio.com/2019/06/19/a-gentle-intro-to-tidymodels/">this example of multiclass classification</a> with the <code>iris</code> dataset very helpful. Here I will present a similar workflow, but with a binary classification problem. Loading <code>tidymodels</code> only, we’ll have all the packages we need:</p>
 <pre class="r"><code>library(tidymodels)</code></pre>
 <p>Our job is to build a model predicting if an <code>iris</code> flower is of the species versicolor. This is a <strong>binary classification</strong> problem. It has some difficulty, as versicolor are close to virginica:</p>
 <pre class="r"><code>ggplot(iris, aes(Sepal.Length, Sepal.Width, color = Species)) +
@@ -27,17 +27,18 @@ description: Description for the page
 <li>must be a <strong>factor</strong>,</li>
 <li>with its <strong>first level</strong> corresponding to the <strong>positive</strong> class.</li>
 </ul>
-<pre class="r"><code>iris &lt;- iris %&gt;% mutate(is_versicolor = ifelse(Species == &quot;versicolor&quot;, &quot;versicolor&quot;, &quot;not_versicolor&quot;)) %&gt;%
-  mutate(is_versicolor =factor(is_versicolor, levels = c(&quot;versicolor&quot;, &quot;not_versicolor&quot;)))</code></pre>
+<pre class="r"><code>iris &lt;- iris |&gt; 
+  mutate(is_versicolor = ifelse(Species == &quot;versicolor&quot;, &quot;versicolor&quot;, &quot;not_versicolor&quot;)) |&gt;
+  mutate(is_versicolor = factor(is_versicolor, levels = c(&quot;versicolor&quot;, &quot;not_versicolor&quot;)))</code></pre>
 <p>In binary classification problems, the class associated with the presence of a property is labelled <strong>positive</strong>. Here the positive class is that the flower <em>is</em> versicolor, that is <code>is_versicolor==versicolor</code>. The other class is labelled <strong>negative</strong>. Here that means that the flower <em>is not</em> versicolor <code>is_versicolor==not_versicolor</code>.</p>
 <div id="data-preprocessing-with-recipes" class="section level2">
-<h2>Data preprocessing with recipes</h2>
+<h2>Data Preprocessing with recipes</h2>
 <p>Data pre-processing in <code>tidymodels</code> is performed with the <code>recipes</code> package. A recipe has the following structure:</p>
-<pre class="r"><code>iris_recipe &lt;- iris %&gt;%
-  recipe(is_versicolor ~.) %&gt;%
-  step_rm(Species) %&gt;%
-  step_corr(all_predictors()) %&gt;%
-  step_center(all_predictors(), -all_outcomes()) %&gt;%
+<pre class="r"><code>iris_recipe &lt;- iris |&gt;
+  recipe(is_versicolor ~.) |&gt;
+  step_rm(Species) |&gt;
+  step_corr(all_predictors()) |&gt;
+  step_center(all_predictors(), -all_outcomes()) |&gt;
   step_scale(all_predictors(), -all_outcomes())</code></pre>
 <p>The components of this recipe are:</p>
 <ul>
@@ -46,7 +47,7 @@ description: Description for the page
 <li>Some <strong>steps</strong> to transform data. Here we remove <code>Species</code> with <code>step_rm</code>, look for correlated predictors with <code>step_corr</code>, center (substract the mean) and scale (divide by standard deviation) the predictors with <code>step_scale</code>.</li>
 </ul>
 <p>To see what the recipe has done we can just estimate doing:</p>
-<pre class="r"><code>iris_recipe %&gt;%
+<pre class="r"><code>iris_recipe |&gt;
   prep()</code></pre>
 <pre><code>## Recipe
 ## 
@@ -67,29 +68,30 @@ description: Description for the page
 <p>We see that the recipe has removed <code>Petal.Length</code> because it was highly correlated with other variables. The next steps of the recipe have not been applied to that variable, so the order in which to apply the steps is relevant.</p>
 </div>
 <div id="defining-the-model-with-parsnip" class="section level2">
-<h2>Defining the model with parsnip</h2>
+<h2>Defining the Model with parsnip</h2>
 <p>The models in <code>tidymodels</code> are stored in <code>parsnip</code>, the successor of <code>caret</code> (whence its name). Here we define a random forest <strong>model</strong> with some parameters and specify the engine we are using. The <strong>engine</strong> in the <code>parsnip</code> context is the source of the code to run the model. It can be a package, a R base function, <code>stan</code> or <code>spark</code>, among others. Here we are using the random forest implemented in the <code>ranger</code> package.</p>
-<pre class="r"><code>rf &lt;- rand_forest(mode = &quot;classification&quot;, trees = 100) %&gt;%
+<pre class="r"><code>rf &lt;- rand_forest(mode = &quot;classification&quot;, trees = 100) |&gt;
   set_engine(&quot;ranger&quot;)</code></pre>
 </div>
 <div id="defining-a-workflow" class="section level2">
 <h2>Defining a workflow</h2>
 <p>Once we have a model and a recipe, we can put it all together with a <code>workflow</code>:</p>
-<pre class="r"><code>iris_rf_wf &lt;- workflow() %&gt;%
-  add_recipe(iris_recipe) %&gt;%
+<pre class="r"><code>iris_rf_wf &lt;- workflow() |&gt;
+  add_recipe(iris_recipe) |&gt;
   add_model(rf)</code></pre>
 <p>The workflow <code>iris_rf_wf</code> applies the preprocess recipe iris_recipe, and then builds the model <code>rf</code> with data applied to that recipe.</p>
 </div>
 <div id="obtaining-predictions" class="section level2">
-<h2>Obtaining predictions</h2>
+<h2>Obtaining Predictions</h2>
 <p>When we <code>fit</code>the workflow to <code>iris</code>, we obtain model hyperparameters using the <code>iris</code> dataset. Then, we can <code>predict</code> the class of each observation from the same data. As the outcome is set in a tibble format, we can use <code>bind_cols</code> to attach the prediction to the original data set.</p>
 <pre class="r"><code>set.seed(3131)
-iris_pred &lt;- iris_rf_wf %&gt;%
-  fit(iris) %&gt;%
-  predict(iris) %&gt;%
+iris_pred &lt;- iris_rf_wf |&gt;
+  fit(iris) |&gt;
+  predict(iris) |&gt;
   bind_cols(iris)</code></pre>
 <p>Let’s examine the results:</p>
-<pre class="r"><code>iris_pred %&gt;% glimpse()</code></pre>
+<pre class="r"><code>iris_pred |&gt; 
+  glimpse()</code></pre>
 <pre><code>## Rows: 150
 ## Columns: 7
 ## $ .pred_class   &lt;fct&gt; not_versicolor, not_versicolor, not_versicolor, not_vers…
@@ -104,7 +106,7 @@ iris_pred &lt;- iris_rf_wf %&gt;%
 <div id="evaluating-model-performance" class="section level2">
 <h2>Evaluating model performance</h2>
 <p>We can examine how well has performed the model with the <strong>confusion matrix</strong>:</p>
-<pre class="r"><code>iris_pred %&gt;%
+<pre class="r"><code>iris_pred |&gt;
   conf_mat(truth = is_versicolor, estimate = .pred_class)</code></pre>
 <pre><code>##                 Truth
 ## Prediction       versicolor not_versicolor
@@ -119,7 +121,7 @@ iris_pred &lt;- iris_rf_wf %&gt;%
 <p>The obtained values are:</p>
 <pre class="r"><code>class_metrics &lt;- metric_set(accuracy, sens, spec)</code></pre>
 <p>and estimate the values:</p>
-<pre class="r"><code>iris_pred %&gt;%
+<pre class="r"><code>iris_pred |&gt;
  class_metrics(truth = is_versicolor, estimate = .pred_class)</code></pre>
 <pre><code>## # A tibble: 3 × 3
 ##   .metric  .estimator .estimate
@@ -135,7 +137,7 @@ iris_pred &lt;- iris_rf_wf %&gt;%
 </ul>
 </div>
 <div id="more-features-of-tidymodels" class="section level2">
-<h2>More features of tidymodels</h2>
+<h2>More Features of tidymodels</h2>
 <p>This is a very basic workflow of model training with <code>tidymodels</code>. There are many more features available, among others:</p>
 <ul>
 <li>train models of regression or numerical prediction,</li>
@@ -151,13 +153,16 @@ iris_pred &lt;- iris_rf_wf %&gt;%
 <li><code>recipes</code> function reference: <a href="https://recipes.tidymodels.org/reference/index.html" class="uri">https://recipes.tidymodels.org/reference/index.html</a></li>
 <li>list of available models in <code>parsnip</code>: <a href="https://www.tidymodels.org/find/parsnip/" class="uri">https://www.tidymodels.org/find/parsnip/</a></li>
 </ul>
-<pre><code>## R version 4.2.0 (2022-04-22)
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.2.2 Patched (2022-11-10 r83330)
 ## Platform: x86_64-pc-linux-gnu (64-bit)
-## Running under: Linux Mint 19.2
+## Running under: Linux Mint 21.1
 ## 
 ## Matrix products: default
-## BLAS:   /usr/lib/x86_64-linux-gnu/openblas/libblas.so.3
-## LAPACK: /usr/lib/x86_64-linux-gnu/libopenblasp-r0.2.20.so
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
 ## 
 ## locale:
 ##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
@@ -171,32 +176,37 @@ iris_pred &lt;- iris_rf_wf %&gt;%
 ## [1] stats     graphics  grDevices utils     datasets  methods   base     
 ## 
 ## other attached packages:
-##  [1] yardstick_0.0.9    workflowsets_0.2.1 workflows_0.2.6    tune_0.2.0        
-##  [5] tidyr_1.2.0        tibble_3.1.6       rsample_0.1.1      recipes_0.2.0     
-##  [9] purrr_0.3.4        parsnip_0.2.1      modeldata_0.1.1    infer_1.0.0       
-## [13] ggplot2_3.3.5      dplyr_1.0.9        dials_0.1.1        scales_1.2.0      
-## [17] broom_0.8.0        tidymodels_0.2.0  
+##  [1] yardstick_1.1.0    workflowsets_1.0.0 workflows_1.1.2    tune_1.0.1        
+##  [5] tidyr_1.3.0        tibble_3.1.8       rsample_1.1.1      recipes_1.0.4     
+##  [9] purrr_1.0.1        parsnip_1.0.3      modeldata_1.1.0    infer_1.0.4       
+## [13] ggplot2_3.4.0      dplyr_1.0.10       dials_1.1.0        scales_1.2.1      
+## [17] broom_1.0.3        tidymodels_1.0.0  
 ## 
 ## loaded via a namespace (and not attached):
-##  [1] lubridate_1.8.0    DiceDesign_1.9     tools_4.2.0        backports_1.4.1   
-##  [5] bslib_0.3.1        utf8_1.2.2         R6_2.5.1           rpart_4.1.16      
-##  [9] DBI_1.1.2          colorspace_2.0-3   nnet_7.3-17        withr_2.5.0       
-## [13] tidyselect_1.1.2   compiler_4.2.0     cli_3.3.0          labeling_0.4.2    
-## [17] bookdown_0.26      sass_0.4.1         stringr_1.4.0      digest_0.6.29     
-## [21] rmarkdown_2.14     pkgconfig_2.0.3    htmltools_0.5.2    parallelly_1.31.1 
-## [25] lhs_1.1.5          highr_0.9          fastmap_1.1.0      rlang_1.0.2       
-## [29] rstudioapi_0.13    jquerylib_0.1.4    generics_0.1.2     farver_2.1.0      
-## [33] jsonlite_1.8.0     magrittr_2.0.3     Matrix_1.4-1       Rcpp_1.0.8.3      
-## [37] munsell_0.5.0      fansi_1.0.3        GPfit_1.0-8        lifecycle_1.0.1   
-## [41] furrr_0.3.0        stringi_1.7.6      pROC_1.18.0        yaml_2.3.5        
-## [45] MASS_7.3-57        plyr_1.8.7         grid_4.2.0         parallel_4.2.0    
-## [49] listenv_0.8.0      crayon_1.5.1       lattice_0.20-45    splines_4.2.0     
-## [53] knitr_1.39         pillar_1.7.0       ranger_0.13.1      future.apply_1.9.0
-## [57] codetools_0.2-18   glue_1.6.2         evaluate_0.15      blogdown_1.9      
-## [61] vctrs_0.4.1        foreach_1.5.2      gtable_0.3.0       future_1.25.0     
-## [65] assertthat_0.2.1   xfun_0.30          gower_1.0.0        prodlim_2019.11.13
-## [69] class_7.3-20       survival_3.2-13    timeDate_3043.102  iterators_1.0.14  
-## [73] hardhat_0.2.0      lava_1.6.10        globals_0.14.0     ellipsis_0.3.2    
-## [77] ipred_0.9-12</code></pre>
-<p>Updated at 2022-06-08 15:22:06</p>
+##  [1] sass_0.4.5          foreach_1.5.2       jsonlite_1.8.4     
+##  [4] splines_4.2.2       prodlim_2019.11.13  bslib_0.4.2        
+##  [7] assertthat_0.2.1    highr_0.10          GPfit_1.0-8        
+## [10] yaml_2.3.7          globals_0.16.2      ipred_0.9-13       
+## [13] pillar_1.8.1        backports_1.4.1     lattice_0.20-45    
+## [16] glue_1.6.2          digest_0.6.31       hardhat_1.2.0      
+## [19] colorspace_2.1-0    htmltools_0.5.4     Matrix_1.5-1       
+## [22] timeDate_4022.108   pkgconfig_2.0.3     lhs_1.1.6          
+## [25] DiceDesign_1.9      listenv_0.9.0       bookdown_0.32      
+## [28] ranger_0.14.1       gower_1.0.1         lava_1.7.1         
+## [31] timechange_0.2.0    farver_2.1.1        generics_0.1.3     
+## [34] ellipsis_0.3.2      cachem_1.0.6        withr_2.5.0        
+## [37] furrr_0.3.1         nnet_7.3-18         cli_3.6.0          
+## [40] survival_3.5-3      magrittr_2.0.3      evaluate_0.20      
+## [43] future_1.31.0       fansi_1.0.4         parallelly_1.34.0  
+## [46] MASS_7.3-58.2       class_7.3-21        blogdown_1.16      
+## [49] tools_4.2.2         lifecycle_1.0.3     munsell_0.5.0      
+## [52] compiler_4.2.2      jquerylib_0.1.4     rlang_1.0.6        
+## [55] grid_4.2.2          iterators_1.0.14    rstudioapi_0.14    
+## [58] labeling_0.4.2      rmarkdown_2.20      gtable_0.3.1       
+## [61] codetools_0.2-19    DBI_1.1.3           R6_2.5.1           
+## [64] lubridate_1.9.1     knitr_1.42          fastmap_1.1.0      
+## [67] future.apply_1.10.0 utf8_1.2.2          parallel_4.2.2     
+## [70] Rcpp_1.0.10         vctrs_0.5.2         rpart_4.1.19       
+## [73] tidyselect_1.2.0    xfun_0.36</code></pre>
+<p>Updated at 2023-03-20 10:29:54</p>
 </div>

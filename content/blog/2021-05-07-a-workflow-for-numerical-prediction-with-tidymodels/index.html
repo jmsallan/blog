@@ -1,5 +1,5 @@
 ---
-title: A workflow for numerical prediction with tidymodels
+title: A workflow for Numerical Prediction with tidymodels
 author: Jose M Sallan
 date: '2021-05-07'
 slug: a-workflow-for-numerical-prediction-with-tidymodels
@@ -16,15 +16,15 @@ description: Description for the page
 
 <p><code>tidymodels</code> is a collection of packages for modelling and machine learning in R, drawing on the tools and approach of the <code>tidyverse</code>. In <a href="https://jmsallan.netlify.app/blog/a-workflow-for-binary-classification-with-tidymodels/">a recent post</a> I introduced the basic flow of <code>tidymodels</code> with a small classification example. In this post, I will present some additional features like:</p>
 <ul>
-<li>how to perform a <strong>regression</strong> or <strong>numerical prediction</strong> job,</li>
-<li>how to split data into <strong>train and test</strong> sets,</li>
-<li>how to assess the performance of competing models on the training set with <strong>cross validation</strong>.</li>
+<li>How to perform a <strong>regression</strong> or <strong>numerical prediction</strong> job.</li>
+<li>How to split data into <strong>train and test</strong> sets.</li>
+<li>How to assess the performance of competing models on the training set with <strong>cross validation</strong>.</li>
 </ul>
 <p>We will use the <code>BostonHousing</code> dataset, available from the <code>mlbench</code> package. The rest of functionalities used here come from <code>tidymodels</code>, although you may be requested to install <code>rpart</code> if you want to reproduce this code.</p>
 <pre class="r"><code>library(tidymodels)
 library(mlbench)
 data(&quot;BostonHousing&quot;)
-BostonHousing %&gt;% glimpse()</code></pre>
+BostonHousing |&gt; glimpse()</code></pre>
 <pre><code>## Rows: 506
 ## Columns: 14
 ## $ crim    &lt;dbl&gt; 0.00632, 0.02731, 0.02729, 0.03237, 0.06905, 0.02985, 0.08829,…
@@ -41,10 +41,10 @@ BostonHousing %&gt;% glimpse()</code></pre>
 ## $ b       &lt;dbl&gt; 396.90, 396.90, 392.83, 394.63, 396.90, 394.12, 395.60, 396.90…
 ## $ lstat   &lt;dbl&gt; 4.98, 9.14, 4.03, 2.94, 5.33, 5.21, 12.43, 19.15, 29.93, 17.10…
 ## $ medv    &lt;dbl&gt; 24.0, 21.6, 34.7, 33.4, 36.2, 28.7, 22.9, 27.1, 16.5, 18.9, 15…</code></pre>
-<p>Our job will be predicting the median value of owner-occupied homes in USD <code>medv</code> of each of the 508 Boston census tracts. This is a continous variable, so it is a numerical prediction or regression problem.</p>
+<p>Our job will be predicting the median value of owner-occupied homes in USD <code>medv</code> of each of the 508 Boston census tracts. This is a continuous variable, so it is a numerical prediction or regression problem.</p>
 <div id="creating-train-and-test-sets" class="section level2">
-<h2>Creating train and test sets</h2>
-<p>The aim of a predictive model is to perform well on unseen data, not used to train the model. To assess model perfomance, we need to split our dataset into two subsets:</p>
+<h2>Creating Train and Test Sets</h2>
+<p>The aim of a predictive model is to perform well on unseen data, not used to train the model. To assess model performance, we need to split our dataset into two subsets:</p>
 <ul>
 <li>a <strong>train set</strong> of observations used to obtain (train) the model,</li>
 <li>a <strong>test set</strong> of observations that will be used to assess model performance.</li>
@@ -64,19 +64,19 @@ BostonHousing %&gt;% glimpse()</code></pre>
 bh_split &lt;- initial_split(BostonHousing, prop = 0.7, strata = &quot;medv&quot;)</code></pre>
 </div>
 <div id="data-preprocessing" class="section level2">
-<h2>Data preprocessing</h2>
+<h2>Data Preprocessing</h2>
 <p>The recipe to pre process the dataset includes:</p>
 <ul>
 <li>the transformation of <code>chas</code> from factor to numeric with <code>step_dummy</code>. As the original chas value has only two levels, this steps generates a single dummy variable.</li>
 <li>looking for correlated predictors with <code>step_corr</code>, and for low-variability predictors with <code>step_nzv</code>.</li>
 </ul>
-<pre class="r"><code>bh_recipe &lt;- training(bh_split) %&gt;%
-  recipe(medv ~ .) %&gt;%
-  step_dummy(chas) %&gt;%
-  step_corr(all_predictors()) %&gt;%
+<pre class="r"><code>bh_recipe &lt;- training(bh_split) |&gt;
+  recipe(medv ~ .) |&gt;
+  step_dummy(chas) |&gt;
+  step_corr(all_predictors()) |&gt;
   step_nzv(all_predictors())</code></pre>
 <p>We can see the results of applying the recipe doing <code>prep()</code>:</p>
-<pre class="r"><code>bh_recipe %&gt;%
+<pre class="r"><code>bh_recipe |&gt;
   prep()</code></pre>
 <pre><code>## Recipe
 ## 
@@ -96,29 +96,29 @@ bh_split &lt;- initial_split(BostonHousing, prop = 0.7, strata = &quot;medv&quot
 <p>The recipe is removing the <code>tax</code> variable, highly correlated with other variables:</p>
 </div>
 <div id="defining-models-and-workflows" class="section level2">
-<h2>Defining models and workflows</h2>
-<p>We will train two models with this dataset:</p>
+<h2>Defining Models and Workflows</h2>
+<p>We will train two models:</p>
 <ul>
 <li>a <strong>linear regression</strong> model, using the R base <code>lm</code> function,</li>
 <li>a <a href="https://uc-r.github.io/regression_trees"><strong>regression tree</strong></a> model, using the <code>rpart</code> package.</li>
 </ul>
 <p>We will also define a workflow for each model so that we do the pre-processing with <code>bh_recipe</code>.</p>
-<pre class="r"><code>bh_lm &lt;- linear_reg(mode = &quot;regression&quot;) %&gt;%
+<pre class="r"><code>bh_lm &lt;- linear_reg(mode = &quot;regression&quot;) |&gt;
   set_engine(&quot;lm&quot;)
 
-bh_lm_wf &lt;- workflow() %&gt;%
-  add_recipe(bh_recipe) %&gt;%
+bh_lm_wf &lt;- workflow() |&gt;
+  add_recipe(bh_recipe) |&gt;
   add_model(bh_lm)
 
-bh_rt &lt;- decision_tree(mode = &quot;regression&quot;) %&gt;%
+bh_rt &lt;- decision_tree(mode = &quot;regression&quot;) |&gt;
   set_engine(&quot;rpart&quot;)
 
-bh_rt_wf &lt;- workflow() %&gt;%
-  add_recipe(bh_recipe) %&gt;%
+bh_rt_wf &lt;- workflow() |&gt;
+  add_recipe(bh_recipe) |&gt;
   add_model(bh_rt)</code></pre>
 </div>
 <div id="comparing-models-with-cross-validation" class="section level2">
-<h2>Comparing models with cross validation</h2>
+<h2>Comparing Models with Cross Validation</h2>
 <p>We need to compare the performance of regression tree and linear regression models, preferably with a dataset different to the used to train the model to avoid overfitting. As we cannot make any decision about the model using the test set, we can use a <strong>cross validation</strong> strategy:</p>
 <ul>
 <li>randomly split the data into <em>v</em> folds <em>f</em> of approximately equal size,</li>
@@ -131,7 +131,7 @@ bh_rt_wf &lt;- workflow() %&gt;%
 bh_folds &lt;- vfold_cv(training(bh_split), strata = &quot;medv&quot;, v = 3, repeats = 3)</code></pre>
 </div>
 <div id="model-performance-metrics" class="section level2">
-<h2>Model performance metrics</h2>
+<h2>Model Performance Metrics</h2>
 <p>We will use three metrics to assess model performance. These metrics examine how close are predictions <span class="math inline">\(\hat{y}_i\)</span> from observations <span class="math inline">\(y_i\)</span> across all <span class="math inline">\(n\)</span> observations.</p>
 <p>The <strong>root mean square error</strong> <code>rmse</code>:</p>
 <p><span class="math display">\[ \sqrt{\frac{\sum \left( \hat{y}_i - y_i \right)^2}{n}} \]</span></p>
@@ -144,21 +144,21 @@ bh_folds &lt;- vfold_cv(training(bh_split), strata = &quot;medv&quot;, v = 3, re
 <pre class="r"><code>metrics_regression &lt;- metric_set(rmse, mae, rsq)</code></pre>
 </div>
 <div id="selecting-a-model-with-cross-validation" class="section level2">
-<h2>Selecting a model with cross validation</h2>
+<h2>Selecting a Model with Cross Validation</h2>
 <p>We use <code>fit_resamples</code> to evaluate each workflow with the cross validation scheme defined in <code>bh_folds</code>. The function will return the values of <code>metrics_regression</code> averaged across all folds and repeats.</p>
 <p>The outputs have <code>tibble</code> format, so I am storing them and adding a column with the <code>model</code> description.</p>
 <pre class="r"><code>set.seed(1212)
-lm_fit &lt;- fit_resamples(bh_lm_wf, bh_folds, metrics = metrics_regression) %&gt;%
-  collect_metrics() %&gt;%
+lm_fit &lt;- fit_resamples(bh_lm_wf, bh_folds, metrics = metrics_regression) |&gt;
+  collect_metrics() |&gt;
   mutate(model = &quot;lm&quot;)
 
 set.seed(1212)
-rt_fit &lt;- fit_resamples(bh_rt_wf, bh_folds, metrics = metrics_regression) %&gt;%
-  collect_metrics() %&gt;%
+rt_fit &lt;- fit_resamples(bh_rt_wf, bh_folds, metrics = metrics_regression) |&gt;
+  collect_metrics() |&gt;
   mutate(model = &quot;rt&quot;)</code></pre>
 <p>Let’s visualise the metrics for each model:</p>
-<pre class="r"><code>bind_rows(lm_fit, rt_fit) %&gt;%
-  select(.metric, mean, std_err, model) %&gt;%
+<pre class="r"><code>bind_rows(lm_fit, rt_fit) |&gt;
+  select(.metric, mean, std_err, model) |&gt;
   ggplot(aes(x = model, y = mean, ymin = mean - 1.96*std_err, ymax = mean + 1.96*std_err)) +
   geom_pointrange() + 
   theme_bw() +
@@ -166,7 +166,7 @@ rt_fit &lt;- fit_resamples(bh_rt_wf, bh_folds, metrics = metrics_regression) %&g
   facet_grid(. ~ .metric)</code></pre>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
 <p>We observe that linear tree model has slightly better metrics than regression trees. Let’s present each of them in tabular form:</p>
-<pre class="r"><code>lm_fit %&gt;%
+<pre class="r"><code>lm_fit |&gt;
   select(model, .metric, mean, std_err)</code></pre>
 <pre><code>## # A tibble: 3 × 4
 ##   model .metric  mean std_err
@@ -174,7 +174,7 @@ rt_fit &lt;- fit_resamples(bh_rt_wf, bh_folds, metrics = metrics_regression) %&g
 ## 1 lm    mae     3.51   0.0765
 ## 2 lm    rmse    5.09   0.183 
 ## 3 lm    rsq     0.701  0.0183</code></pre>
-<pre class="r"><code>rt_fit %&gt;%
+<pre class="r"><code>rt_fit |&gt;
   select(model, .metric, mean, std_err)</code></pre>
 <pre><code>## # A tibble: 3 × 4
 ##   model .metric  mean std_err
@@ -183,18 +183,18 @@ rt_fit &lt;- fit_resamples(bh_rt_wf, bh_folds, metrics = metrics_regression) %&g
 ## 2 rt    rmse    5.15   0.158 
 ## 3 rt    rsq     0.698  0.0188</code></pre>
 </div>
-<div id="fitting-the-chosen-model-with-the-train-test" class="section level2">
-<h2>Fitting the chosen model with the train test</h2>
+<div id="fitting-the-chosen-model-with-the-train-set" class="section level2">
+<h2>Fitting the Chosen Model with the Train set</h2>
 <p>We have chosen regression trees to predict data. Let’s fit the model to the whole train set:</p>
-<pre class="r"><code>fitted_model &lt;- bh_lm_wf %&gt;%
+<pre class="r"><code>fitted_model &lt;- bh_lm_wf |&gt;
   fit(training(bh_split))</code></pre>
 <p>And evaluate the metrics on the same train set:</p>
-<pre class="r"><code>predict_train &lt;- fitted_model %&gt;%
-  predict(training(bh_split)) %&gt;%
-  bind_cols(training(bh_split)) %&gt;%
+<pre class="r"><code>predict_train &lt;- fitted_model |&gt;
+  predict(training(bh_split)) |&gt;
+  bind_cols(training(bh_split)) |&gt;
   mutate(sample = &quot;train&quot;)
 
-predict_train %&gt;%
+predict_train |&gt;
   metrics_regression(truth = medv, estimate = .pred)</code></pre>
 <pre><code>## # A tibble: 3 × 3
 ##   .metric .estimator .estimate
@@ -204,14 +204,14 @@ predict_train %&gt;%
 ## 3 rsq     standard       0.733</code></pre>
 </div>
 <div id="evaluating-performance-on-the-test-set" class="section level2">
-<h2>Evaluating performance on the test set</h2>
+<h2>Evaluating Performance on the Test Set</h2>
 <p>To check the performance on unseen data, we need to evaluate performance on the test set:</p>
-<pre class="r"><code>predict_test &lt;- fitted_model %&gt;%
-  predict(testing(bh_split)) %&gt;%
-  bind_cols(testing(bh_split)) %&gt;%
+<pre class="r"><code>predict_test &lt;- fitted_model |&gt;
+  predict(testing(bh_split)) |&gt;
+  bind_cols(testing(bh_split)) |&gt;
   mutate(sample = &quot;test&quot;)
 
-predict_test %&gt;%
+predict_test |&gt;
   metrics_regression(truth = medv, estimate = .pred)</code></pre>
 <pre><code>## # A tibble: 3 × 3
 ##   .metric .estimator .estimate
@@ -221,12 +221,14 @@ predict_test %&gt;%
 ## 3 rsq     standard       0.725</code></pre>
 <p>We observe that the metrics on the test set are worse than on the train set, so the chosen model has slight overfit.</p>
 <p>We can also visualize the <strong>predicted vs real</strong> value for each dataset. Ideally, most of the dots of these plots should be over the dashed line of intercept zero and slope one.</p>
-<pre class="r"><code>bind_rows(predict_train, predict_test) %&gt;%
+<pre class="r"><code>bind_rows(predict_train, predict_test) |&gt;
   ggplot(aes(medv, .pred)) +
   geom_point() +
   geom_abline(slope = 1, intercept = 0, size = 0.3, linetype = &quot;dashed&quot;) +
   facet_grid(. ~ sample) +
   theme_bw()</code></pre>
+<pre><code>## Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
+## ℹ Please use `linewidth` instead.</code></pre>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-14-1.png" width="672" /></p>
 <p>From the plots, we observe a similar pattern in the test and train sets.</p>
 </div>
@@ -237,13 +239,16 @@ predict_test %&gt;%
 <li>Harrison, D. and Rubinfeld, D.L. (1978). Hedonic prices and the demand for clean air. <em>Journal of Environmental Economics and Management</em>, 5, 81–102.</li>
 <li>Therneau, T. M. and Atkinson, E. J. (2019). <em>An Introduction to Recursive Partitioning Using the RPART Routines</em>. Available at: <a href="https://cran.r-project.org/web/packages/rpart/vignettes/longintro.pdf" class="uri">https://cran.r-project.org/web/packages/rpart/vignettes/longintro.pdf</a></li>
 </ul>
-<pre><code>## R version 4.2.0 (2022-04-22)
+</div>
+<div id="session-inof" class="section level2">
+<h2>Session Inof</h2>
+<pre><code>## R version 4.2.2 Patched (2022-11-10 r83330)
 ## Platform: x86_64-pc-linux-gnu (64-bit)
-## Running under: Linux Mint 19.2
+## Running under: Linux Mint 21.1
 ## 
 ## Matrix products: default
-## BLAS:   /usr/lib/x86_64-linux-gnu/openblas/libblas.so.3
-## LAPACK: /usr/lib/x86_64-linux-gnu/libopenblasp-r0.2.20.so
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
 ## 
 ## locale:
 ##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
@@ -257,31 +262,36 @@ predict_test %&gt;%
 ## [1] stats     graphics  grDevices utils     datasets  methods   base     
 ## 
 ## other attached packages:
-##  [1] rpart_4.1.16       mlbench_2.1-3      yardstick_0.0.9    workflowsets_0.2.1
-##  [5] workflows_0.2.6    tune_0.2.0         tidyr_1.2.0        tibble_3.1.6      
-##  [9] rsample_0.1.1      recipes_0.2.0      purrr_0.3.4        parsnip_0.2.1     
-## [13] modeldata_0.1.1    infer_1.0.0        ggplot2_3.3.5      dplyr_1.0.9       
-## [17] dials_0.1.1        scales_1.2.0       broom_0.8.0        tidymodels_0.2.0  
+##  [1] rpart_4.1.19       mlbench_2.1-3      yardstick_1.1.0    workflowsets_1.0.0
+##  [5] workflows_1.1.2    tune_1.0.1         tidyr_1.3.0        tibble_3.1.8      
+##  [9] rsample_1.1.1      recipes_1.0.4      purrr_1.0.1        parsnip_1.0.3     
+## [13] modeldata_1.1.0    infer_1.0.4        ggplot2_3.4.0      dplyr_1.0.10      
+## [17] dials_1.1.0        scales_1.2.1       broom_1.0.3        tidymodels_1.0.0  
 ## 
 ## loaded via a namespace (and not attached):
-##  [1] lubridate_1.8.0    DiceDesign_1.9     tools_4.2.0        backports_1.4.1   
-##  [5] bslib_0.3.1        utf8_1.2.2         R6_2.5.1           DBI_1.1.2         
-##  [9] colorspace_2.0-3   nnet_7.3-17        withr_2.5.0        tidyselect_1.1.2  
-## [13] compiler_4.2.0     cli_3.3.0          labeling_0.4.2     bookdown_0.26     
-## [17] sass_0.4.1         stringr_1.4.0      digest_0.6.29      rmarkdown_2.14    
-## [21] pkgconfig_2.0.3    htmltools_0.5.2    parallelly_1.31.1  lhs_1.1.5         
-## [25] highr_0.9          fastmap_1.1.0      rlang_1.0.2        rstudioapi_0.13   
-## [29] farver_2.1.0       jquerylib_0.1.4    generics_0.1.2     jsonlite_1.8.0    
-## [33] magrittr_2.0.3     Matrix_1.4-1       Rcpp_1.0.8.3       munsell_0.5.0     
-## [37] fansi_1.0.3        GPfit_1.0-8        lifecycle_1.0.1    furrr_0.3.0       
-## [41] stringi_1.7.6      pROC_1.18.0        yaml_2.3.5         MASS_7.3-57       
-## [45] plyr_1.8.7         grid_4.2.0         parallel_4.2.0     listenv_0.8.0     
-## [49] crayon_1.5.1       lattice_0.20-45    splines_4.2.0      knitr_1.39        
-## [53] pillar_1.7.0       future.apply_1.9.0 codetools_0.2-18   glue_1.6.2        
-## [57] evaluate_0.15      blogdown_1.9       vctrs_0.4.1        foreach_1.5.2     
-## [61] gtable_0.3.0       future_1.25.0      assertthat_0.2.1   xfun_0.30         
-## [65] gower_1.0.0        prodlim_2019.11.13 class_7.3-20       survival_3.2-13   
-## [69] timeDate_3043.102  iterators_1.0.14   hardhat_0.2.0      lava_1.6.10       
-## [73] globals_0.14.0     ellipsis_0.3.2     ipred_0.9-12</code></pre>
-<p>Updated at 2022-06-08 15:40:22.</p>
+##  [1] sass_0.4.5          foreach_1.5.2       jsonlite_1.8.4     
+##  [4] splines_4.2.2       prodlim_2019.11.13  bslib_0.4.2        
+##  [7] assertthat_0.2.1    highr_0.10          GPfit_1.0-8        
+## [10] yaml_2.3.7          globals_0.16.2      ipred_0.9-13       
+## [13] pillar_1.8.1        backports_1.4.1     lattice_0.20-45    
+## [16] glue_1.6.2          digest_0.6.31       hardhat_1.2.0      
+## [19] colorspace_2.1-0    htmltools_0.5.4     Matrix_1.5-1       
+## [22] timeDate_4022.108   pkgconfig_2.0.3     lhs_1.1.6          
+## [25] DiceDesign_1.9      listenv_0.9.0       bookdown_0.32      
+## [28] gower_1.0.1         lava_1.7.1          timechange_0.2.0   
+## [31] farver_2.1.1        generics_0.1.3      ellipsis_0.3.2     
+## [34] cachem_1.0.6        withr_2.5.0         furrr_0.3.1        
+## [37] nnet_7.3-18         cli_3.6.0           survival_3.5-3     
+## [40] magrittr_2.0.3      evaluate_0.20       future_1.31.0      
+## [43] fansi_1.0.4         parallelly_1.34.0   MASS_7.3-58.2      
+## [46] class_7.3-21        blogdown_1.16       tools_4.2.2        
+## [49] lifecycle_1.0.3     munsell_0.5.0       compiler_4.2.2     
+## [52] jquerylib_0.1.4     rlang_1.0.6         grid_4.2.2         
+## [55] iterators_1.0.14    rstudioapi_0.14     labeling_0.4.2     
+## [58] rmarkdown_2.20      gtable_0.3.1        codetools_0.2-19   
+## [61] DBI_1.1.3           R6_2.5.1            lubridate_1.9.1    
+## [64] knitr_1.42          fastmap_1.1.0       future.apply_1.10.0
+## [67] utf8_1.2.2          parallel_4.2.2      Rcpp_1.0.10        
+## [70] vctrs_0.5.2         tidyselect_1.2.0    xfun_0.36</code></pre>
+<p>Updated at 2023-03-20 10:34:04.</p>
 </div>
