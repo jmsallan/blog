@@ -17,7 +17,6 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidymodels)
 ```
 
-
 In [a previous post](https://jmsallan.netlify.app/blog/a-workflow-for-binary-classification-with-tidymodels/) I presented a small **binary classification problem**, consisting in finding if an observation of the `iris` dataset belongs to the versicolor species. Remember that the target variable must be a factor, with first level associated to the positive case:
 
 ```{r}
@@ -100,25 +99,24 @@ iris_rf <- bind_cols(iris, iris_pred_rf, iris_prob_rf)
 
 ## The ROC Curve
 
-To classify an observation as positive or negative class from  probabilities we need a **threshold value**, a value between 0 and 1 so that:
+To classify an observation as positive or negative class from probabilities we need a **threshold value**, a value between 0 and 1 so that:
 
-* If observation's probability of belonging to positive class is **below the threshold** the observation is labelled as **negative**.
-* If observation's probability of belonging to positive class is **above the threshold** the observation is labelled as **positive**.
+-   If observation's probability of belonging to positive class is **below the threshold** the observation is labelled as **negative**.
+-   If observation's probability of belonging to positive class is **above the threshold** the observation is labelled as **positive**.
 
 In a ROC curve we plot two performance metrics:
 
-* On the x axis we plot **1 - specificity**, the ratio of negative observations classified correctly.
-* On the x axis we plot **sensitivity**, the ratio of positive observations classified correctly.
+-   On the x axis we plot **1 - specificity**, the ratio of negative observations classified correctly.
+-   On the x axis we plot **sensitivity**, the ratio of positive observations classified correctly.
 
 In the ROC curve, **each point is the value of sensitivity and 1 - specificity for a specific threshold value**. The ROC curve allows us to assess the balance between sensitivity and specificity of a classifier.
 
 We will always have two points in every ROC curve:
 
-* If **threshold = 1**, all observations are classified as negative. Sensitivity is equal to 0 and specificity is equal to 1. This is the **(0, 0)** point of the ROC curve.
-* If **threshold = 0**, all observations are classified as positive. Sensitivity is equal to 1 and specificity is equal to 0. This is the **(1, 1)** point of the ROC curve.
+-   If **threshold = 1**, all observations are classified as negative. Sensitivity is equal to 0 and specificity is equal to 1. This is the **(0, 0)** point of the ROC curve.
+-   If **threshold = 0**, all observations are classified as positive. Sensitivity is equal to 1 and specificity is equal to 0. This is the **(1, 1)** point of the ROC curve.
 
 A perfect classifier has sensitivity and specificity equal to one, which corresponds with the **(0, 1)** point in the ROC curve.
-
 
 ```{r}
 roc_df <- data.frame(x_roc = c(0,0,1), 
@@ -250,7 +248,7 @@ With a bad classifier, if we want to increase sensitivity (the ability to predic
 
 ## References
 
-* *Understanding AUC/ROC curve*, by Sarang Narkhede <https://towardsdatascience.com/understanding-auc-roc-curve-68b2303cc9c5>
+-   *Understanding AUC/ROC curve*, by Sarang Narkhede <https://towardsdatascience.com/understanding-auc-roc-curve-68b2303cc9c5>
 
 ## Session Info
 

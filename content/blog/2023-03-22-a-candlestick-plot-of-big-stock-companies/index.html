@@ -1,0 +1,574 @@
+---
+title: A Candlestick Plot of Big Stock Companies
+author: Jose M Sallan
+date: '2023-03-22'
+slug: a-candlestick-plot-of-big-stock-companies
+categories:
+  - R
+tags:
+  - data visualization
+  - dplyr
+  - ggplot
+  - financial data
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>In this post, I will present visualizations of financial data presented in the tidytuesday challenge <strong>Big Tech Stock Prices</strong>. In addition to line plots, I will present how to do a candlestick plot using ggplot. I will be using the <code>geom_segment()</code> and <code>scale_x_date()</code> to do the plots.</p>
+<p>In addition to the tidyverse, I will use <code>kableExtra</code> to present tabular data.</p>
+<pre class="r"><code>library(tidyverse)
+library(kableExtra)</code></pre>
+<p>You can get the stock prices data from tidytuesday by doing:</p>
+<pre class="r"><code>tuesdata &lt;- tidytuesdayR::tt_load(&#39;2023-02-07&#39;)
+tuesdata &lt;- tidytuesdayR::tt_load(2023, week = 6)
+
+big_tech_stock_prices &lt;- tuesdata$big_tech_stock_prices
+big_tech_companies &lt;- tuesdata$big_tech_companies</code></pre>
+<p>The <code>big_tech_companies</code> table contains the stock sign and company name:</p>
+<pre class="r"><code>big_tech_companies |&gt;
+  kbl() |&gt;
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+stock_symbol
+</th>
+<th style="text-align:left;">
+company
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+AAPL
+</td>
+<td style="text-align:left;">
+Apple Inc. 
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+ADBE
+</td>
+<td style="text-align:left;">
+Adobe Inc. 
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AMZN
+</td>
+<td style="text-align:left;">
+Amazon.com, Inc. 
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+CRM
+</td>
+<td style="text-align:left;">
+Salesforce, Inc. 
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+CSCO
+</td>
+<td style="text-align:left;">
+Cisco Systems, Inc. 
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+GOOGL
+</td>
+<td style="text-align:left;">
+Alphabet Inc. 
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+IBM
+</td>
+<td style="text-align:left;">
+International Business Machines Corporation
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+INTC
+</td>
+<td style="text-align:left;">
+Intel Corporation
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+META
+</td>
+<td style="text-align:left;">
+Meta Platforms, Inc. 
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+MSFT
+</td>
+<td style="text-align:left;">
+Microsoft Corporation
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+NFLX
+</td>
+<td style="text-align:left;">
+Netflix, Inc. 
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+NVDA
+</td>
+<td style="text-align:left;">
+NVIDIA Corporation
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+ORCL
+</td>
+<td style="text-align:left;">
+Oracle Corporation
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+TSLA
+</td>
+<td style="text-align:left;">
+Tesla, Inc. 
+</td>
+</tr>
+</tbody>
+</table>
+<p>In <code>big_tech_stock_prices</code>, for each day stocks are traded, we have:</p>
+<ul>
+<li>The <code>high</code> and low price of the session.</li>
+<li>The <code>open</code> and <code>close</code> price of the session. <code>adj_close</code> is an adjusted closing price accounting for applicable splits and dividend distributions. I will be using <code>adj_close</code> as value of closing price as it is more representative.</li>
+</ul>
+<pre class="r"><code>big_tech_stock_prices |&gt;
+  slice(1:10) |&gt;
+  kbl() |&gt;
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+stock_symbol
+</th>
+<th style="text-align:left;">
+date
+</th>
+<th style="text-align:right;">
+open
+</th>
+<th style="text-align:right;">
+high
+</th>
+<th style="text-align:right;">
+low
+</th>
+<th style="text-align:right;">
+close
+</th>
+<th style="text-align:right;">
+adj_close
+</th>
+<th style="text-align:right;">
+volume
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+AAPL
+</td>
+<td style="text-align:left;">
+2010-01-04
+</td>
+<td style="text-align:right;">
+7.622500
+</td>
+<td style="text-align:right;">
+7.660714
+</td>
+<td style="text-align:right;">
+7.585000
+</td>
+<td style="text-align:right;">
+7.643214
+</td>
+<td style="text-align:right;">
+6.515213
+</td>
+<td style="text-align:right;">
+493729600
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AAPL
+</td>
+<td style="text-align:left;">
+2010-01-05
+</td>
+<td style="text-align:right;">
+7.664286
+</td>
+<td style="text-align:right;">
+7.699643
+</td>
+<td style="text-align:right;">
+7.616071
+</td>
+<td style="text-align:right;">
+7.656429
+</td>
+<td style="text-align:right;">
+6.526476
+</td>
+<td style="text-align:right;">
+601904800
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AAPL
+</td>
+<td style="text-align:left;">
+2010-01-06
+</td>
+<td style="text-align:right;">
+7.656429
+</td>
+<td style="text-align:right;">
+7.686786
+</td>
+<td style="text-align:right;">
+7.526786
+</td>
+<td style="text-align:right;">
+7.534643
+</td>
+<td style="text-align:right;">
+6.422664
+</td>
+<td style="text-align:right;">
+552160000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AAPL
+</td>
+<td style="text-align:left;">
+2010-01-07
+</td>
+<td style="text-align:right;">
+7.562500
+</td>
+<td style="text-align:right;">
+7.571429
+</td>
+<td style="text-align:right;">
+7.466071
+</td>
+<td style="text-align:right;">
+7.520714
+</td>
+<td style="text-align:right;">
+6.410790
+</td>
+<td style="text-align:right;">
+477131200
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AAPL
+</td>
+<td style="text-align:left;">
+2010-01-08
+</td>
+<td style="text-align:right;">
+7.510714
+</td>
+<td style="text-align:right;">
+7.571429
+</td>
+<td style="text-align:right;">
+7.466429
+</td>
+<td style="text-align:right;">
+7.570714
+</td>
+<td style="text-align:right;">
+6.453412
+</td>
+<td style="text-align:right;">
+447610800
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AAPL
+</td>
+<td style="text-align:left;">
+2010-01-11
+</td>
+<td style="text-align:right;">
+7.600000
+</td>
+<td style="text-align:right;">
+7.607143
+</td>
+<td style="text-align:right;">
+7.444643
+</td>
+<td style="text-align:right;">
+7.503929
+</td>
+<td style="text-align:right;">
+6.396483
+</td>
+<td style="text-align:right;">
+462229600
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AAPL
+</td>
+<td style="text-align:left;">
+2010-01-12
+</td>
+<td style="text-align:right;">
+7.471071
+</td>
+<td style="text-align:right;">
+7.491786
+</td>
+<td style="text-align:right;">
+7.372143
+</td>
+<td style="text-align:right;">
+7.418571
+</td>
+<td style="text-align:right;">
+6.323721
+</td>
+<td style="text-align:right;">
+594459600
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AAPL
+</td>
+<td style="text-align:left;">
+2010-01-13
+</td>
+<td style="text-align:right;">
+7.423929
+</td>
+<td style="text-align:right;">
+7.533214
+</td>
+<td style="text-align:right;">
+7.289286
+</td>
+<td style="text-align:right;">
+7.523214
+</td>
+<td style="text-align:right;">
+6.412922
+</td>
+<td style="text-align:right;">
+605892000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AAPL
+</td>
+<td style="text-align:left;">
+2010-01-14
+</td>
+<td style="text-align:right;">
+7.503929
+</td>
+<td style="text-align:right;">
+7.516429
+</td>
+<td style="text-align:right;">
+7.465000
+</td>
+<td style="text-align:right;">
+7.479643
+</td>
+<td style="text-align:right;">
+6.375781
+</td>
+<td style="text-align:right;">
+432894000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AAPL
+</td>
+<td style="text-align:left;">
+2010-01-15
+</td>
+<td style="text-align:right;">
+7.533214
+</td>
+<td style="text-align:right;">
+7.557143
+</td>
+<td style="text-align:right;">
+7.352500
+</td>
+<td style="text-align:right;">
+7.354643
+</td>
+<td style="text-align:right;">
+6.269228
+</td>
+<td style="text-align:right;">
+594067600
+</td>
+</tr>
+</tbody>
+</table>
+<div id="some-line-plots" class="section level2">
+<h2>Some Line Plots</h2>
+<p>The dataset allows visualizing how stock prices of big tech companies have risen during the last decades, and collapsed recently.</p>
+<pre class="r"><code>big_tech_stock_prices |&gt;
+  filter(stock_symbol == &quot;AMZN&quot;) |&gt;
+  ggplot(aes(date, adj_close)) +
+  geom_line(color = &quot;#606060&quot;) +
+  theme_minimal() +
+  scale_x_date(name = NULL, date_breaks = &quot;1 year&quot;, date_labels = &quot;%Y&quot;) +
+  labs(title = &quot;Evolution of AMZN price stock&quot;, y = NULL)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>We can pick a narrower range of dates to do the plot. Note that date is in Date format, so boundary values must be presented in that format.</p>
+<pre class="r"><code>start_date &lt;- as.Date(&quot;2022-02-01&quot;)
+end_date &lt;- as.Date(&quot;2022-03-31&quot;)</code></pre>
+<p>Here is the evolution of Amazon during February and March 2022.</p>
+<pre class="r"><code>big_tech_stock_prices |&gt;
+  filter(stock_symbol == &quot;AMZN&quot;, date &gt;= start_date, date &lt;= end_date) |&gt;
+  ggplot(aes(date, adj_close)) +
+  geom_point() +
+  geom_line(color = &quot;#606060&quot;) +
+  theme_minimal() +
+  scale_x_date(name = NULL, date_breaks = &quot;2 weeks&quot;) +
+  labs(title = &quot;Short-Term Evolution of AMZN&quot;, y = NULL)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+<p>Note that stock prices are not spaced evenly, as we have information for the days where stocks are traded.</p>
+</div>
+<div id="a-candlestick-plot" class="section level2">
+<h2>A Candlestick Plot</h2>
+<p>A candlestick plot is a type of financial chart used to represent the movement of an asset’s price over a specified period of time. It is commonly used in technical analysis to identify patterns and trends in the price behavior of financial instruments such as stocks, commodities, and currencies.</p>
+<p>The candlestick plot is composed of a series of rectangular bars, each representing a specific time interval (e.g. a day or an hour). Each bar has <strong>body</strong> and <strong>wicks</strong> (also called <em>shadows</em>). The body of the bar represents the <strong>opening and closing prices</strong> of the asset during that time interval, while the wicks represent the <strong>high and low prices</strong> reached.</p>
+<p>If the closing price is higher than the opening price, the body of the candlestick is typically colored <strong>green</strong> or white to indicate a <strong>bullish market</strong>. If the closing price is lower than the opening price, the body of the candlestick is typically colored <strong>red</strong> or black to indicate a <strong>bearish market</strong>.</p>
+<p>Here is schematic representation of the candlestick plot:</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Here is the example of candlestick plot. I am using two <code>geom_segment()</code>:</p>
+<ul>
+<li>The wicks of each day are defined in the first segment.</li>
+<li>The body of the plot is presented in the second segment. I have done it ticker doing <code>linewidth = 2</code>.</li>
+</ul>
+<p>To assign the color to each bar, I have defined an <code>ev</code> variable which indicates if the market is bullish with <code>ev = "up"</code> or bearish with <code>ev = "down"</code>. The real colors of the plot are defined in the <code>values</code> of <code>scale_color_manual</code>.</p>
+<pre class="r"><code>big_tech_stock_prices |&gt;
+  filter(stock_symbol == &quot;AMZN&quot;, date &gt;= start_date, date &lt;= end_date) |&gt;
+  mutate(ev = ifelse(open &lt; close, &quot;up&quot;, &quot;down&quot;)) |&gt;
+  ggplot(aes(date, adj_close)) +
+  geom_segment(aes(x = date, y = high, xend = date, yend = low, color = ev)) +
+  geom_segment(aes(x = date, y = open, xend = date, yend = close, color = ev), linewidth = 2) +
+  theme_minimal() +
+  theme(legend.position = &quot;none&quot;) +
+  scale_color_manual(values = c(&quot;#CC0000&quot;, &quot;#00CC00&quot;)) +
+  labs(title = &quot;Short-Term Evolution of AMZN&quot;, x=NULL, y=NULL)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Traders and investors use candlestick charts to analyze patterns and trends in the price movements of financial instruments, with the goal of making more informed trading decisions.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li><code>plotly</code> website <em>Candlestick Charts in R</em> <a href="https://plotly.com/r/candlestick-charts/" class="uri">https://plotly.com/r/candlestick-charts/</a>.</li>
+<li><em>Big Tech Stock Prices</em>, tidytuesday GitHub repo (2023-02-07) <a href="https://github.com/rfordatascience/tidytuesday/blob/master/data/2023/2023-02-07/readme.md" class="uri">https://github.com/rfordatascience/tidytuesday/blob/master/data/2023/2023-02-07/readme.md</a></li>
+<li>Dancho, Matt (2022). <em>Charting with tidyquant.</em> <a href="https://cran.r-project.org/web/packages/tidyquant/vignettes/TQ04-charting-with-tidyquant.html" class="uri">https://cran.r-project.org/web/packages/tidyquant/vignettes/TQ04-charting-with-tidyquant.html</a></li>
+<li>Ko Chiu Yu (2020). <em>Techincal Analysis with R (second edition)</em> <a href="https://bookdown.org/kochiuyu/technical-analysis-with-r-second-edition2/" class="uri">https://bookdown.org/kochiuyu/technical-analysis-with-r-second-edition2/</a></li>
+</ul>
+<p>All links retrieved on 2023-03-22.</p>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.2.3 (2023-03-15)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] kableExtra_1.3.4 forcats_0.5.2    stringr_1.5.0    dplyr_1.0.10    
+##  [5] purrr_1.0.1      readr_2.1.3      tidyr_1.3.0      tibble_3.1.8    
+##  [9] ggplot2_3.4.0    tidyverse_1.3.2 
+## 
+## loaded via a namespace (and not attached):
+##  [1] svglite_2.1.1       lubridate_1.9.1     assertthat_0.2.1   
+##  [4] digest_0.6.31       utf8_1.2.2          R6_2.5.1           
+##  [7] cellranger_1.1.0    backports_1.4.1     reprex_2.0.2       
+## [10] evaluate_0.20       highr_0.10          httr_1.4.4         
+## [13] blogdown_1.16       pillar_1.8.1        rlang_1.0.6        
+## [16] googlesheets4_1.0.1 readxl_1.4.1        rstudioapi_0.14    
+## [19] jquerylib_0.1.4     rmarkdown_2.20      labeling_0.4.2     
+## [22] webshot_0.5.4       googledrive_2.0.0   munsell_0.5.0      
+## [25] broom_1.0.3         compiler_4.2.3      modelr_0.1.10      
+## [28] xfun_0.36           pkgconfig_2.0.3     systemfonts_1.0.4  
+## [31] htmltools_0.5.4     tidyselect_1.2.0    bookdown_0.32      
+## [34] viridisLite_0.4.1   fansi_1.0.4         crayon_1.5.2       
+## [37] tzdb_0.3.0          dbplyr_2.3.0        withr_2.5.0        
+## [40] grid_4.2.3          jsonlite_1.8.4      gtable_0.3.1       
+## [43] lifecycle_1.0.3     DBI_1.1.3           magrittr_2.0.3     
+## [46] scales_1.2.1        cli_3.6.0           stringi_1.7.12     
+## [49] cachem_1.0.6        farver_2.1.1        fs_1.6.0           
+## [52] xml2_1.3.3          bslib_0.4.2         ellipsis_0.3.2     
+## [55] generics_0.1.3      vctrs_0.5.2         tools_4.2.3        
+## [58] glue_1.6.2          hms_1.1.2           fastmap_1.1.0      
+## [61] yaml_2.3.7          timechange_0.2.0    colorspace_2.1-0   
+## [64] gargle_1.2.1        rvest_1.0.3         knitr_1.42         
+## [67] haven_2.5.1         sass_0.4.5</code></pre>
+</div>

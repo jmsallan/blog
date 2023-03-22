@@ -1,0 +1,171 @@
+---
+title: A Candlestick Plot of Big Stock Companies
+author: Jose M Sallan
+date: '2023-03-22'
+slug: a-candlestick-plot-of-big-stock-companies
+categories:
+  - R
+tags:
+  - data visualization
+  - dplyr
+  - ggplot
+  - financial data
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post, I will present visualizations of financial data presented in the tidytuesday challenge **Big Tech Stock Prices**. In addition to line plots, I will present how to do a candlestick plot using ggplot. I will be using the `geom_segment()` and `scale_x_date()` to do the plots.
+
+In addition to the tidyverse, I will use `kableExtra` to present tabular data.
+
+```{r}
+library(tidyverse)
+library(kableExtra)
+```
+
+You can get the stock prices data from tidytuesday by doing:
+
+```{r, eval=FALSE}
+tuesdata <- tidytuesdayR::tt_load('2023-02-07')
+tuesdata <- tidytuesdayR::tt_load(2023, week = 6)
+
+big_tech_stock_prices <- tuesdata$big_tech_stock_prices
+big_tech_companies <- tuesdata$big_tech_companies
+```
+
+```{r, echo=FALSE}
+load("stock_prices.RData")
+```
+
+The `big_tech_companies` table contains the stock sign and company name:
+
+```{r}
+big_tech_companies |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+In `big_tech_stock_prices`, for each day stocks are traded, we have:
+
+* The `high` and low price of the session.
+* The `open` and `close` price of the session. `adj_close` is an adjusted closing price accounting for applicable splits and dividend distributions. I will be using `adj_close` as value of closing price as it is more representative. 
+
+```{r}
+big_tech_stock_prices |>
+  slice(1:10) |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+## Some Line Plots
+
+The dataset allows visualizing how stock prices of big tech companies have risen during the last decades, and collapsed recently.
+
+```{r, fig.align='center'}
+big_tech_stock_prices |>
+  filter(stock_symbol == "AMZN") |>
+  ggplot(aes(date, adj_close)) +
+  geom_line(color = "#606060") +
+  theme_minimal() +
+  scale_x_date(name = NULL, date_breaks = "1 year", date_labels = "%Y") +
+  labs(title = "Evolution of AMZN price stock", y = NULL)
+```
+
+We can pick a narrower range of dates to do the plot. Note that date is in Date format, so boundary values must be presented in that format.
+
+```{r}
+start_date <- as.Date("2022-02-01")
+end_date <- as.Date("2022-03-31")
+```
+
+Here is the evolution of Amazon during February and March 2022.
+
+```{r}
+big_tech_stock_prices |>
+  filter(stock_symbol == "AMZN", date >= start_date, date <= end_date) |>
+  ggplot(aes(date, adj_close)) +
+  geom_point() +
+  geom_line(color = "#606060") +
+  theme_minimal() +
+  scale_x_date(name = NULL, date_breaks = "2 weeks") +
+  labs(title = "Short-Term Evolution of AMZN", y = NULL)
+```
+
+Note that stock prices are not spaced evenly, as we have information for the days where stocks are traded.
+
+## A Candlestick Plot
+
+A candlestick plot is a type of financial chart used to represent the movement of an asset's price over a specified period of time. It is commonly used in technical analysis to identify patterns and trends in the price behavior of financial instruments such as stocks, commodities, and currencies.
+
+The candlestick plot is composed of a series of rectangular bars, each representing a specific time interval (e.g. a day or an hour). Each bar has **body** and **wicks** (also called *shadows*). The body of the bar represents the **opening and closing prices** of the asset during that time interval, while the wicks represent the **high and low prices** reached.
+
+If the closing price is higher than the opening price, the body of the candlestick is typically colored **green** or white to indicate a **bullish market**. If the closing price is lower than the opening price, the body of the candlestick is typically colored **red** or black to indicate a **bearish market**.
+
+Here is schematic representation of the candlestick plot:
+
+```{r, fig.align='center', echo=FALSE}
+candle <- tibble(min = c(10, 12),
+                 max = c(20, 18),
+                 open = c(12, 16),
+                 close = c(18, 14),
+                 x = c(1, 2),
+                 label = c("up", "down"))
+
+ggplot(candle, aes(x, close)) +
+  geom_segment(aes(x = x, y = max, xend = x, yend = min, color = label)) +
+  geom_segment(aes(x = x, y = open, xend = x, yend = close, color = label), linewidth = 6) +
+  scale_color_manual(values = c("#CC0000", "#00CC00")) +
+  xlim(0, 3) +
+  theme_void() +
+  theme(legend.position = "none") +
+  annotate("text", x = 1, y = 10, hjust = -1, label = "min", color = "#00CC00") +
+  annotate("text", x = 1, y = 20, hjust = -1, label = "max", color = "#00CC00") +
+  annotate("text", x = 1, y = 12, hjust = -1, label = "open", color = "#00CC00") +  
+  annotate("text", x = 1, y = 18, hjust = -1, label = "close", color = "#00CC00") +
+  annotate("text", x = 2, y = 12, hjust = -1, label = "min", color = "#CC0000") +
+  annotate("text", x = 2, y = 18, hjust = -1, label = "max", color = "#CC0000") +
+  annotate("text", x = 2, y = 16, hjust = -1, label = "open", color = "#CC0000") +
+  annotate("text", x = 2, y = 14, hjust = -1, label = "close", color = "#CC0000")
+```
+
+Here is the example of candlestick plot. I am using two `geom_segment()`:
+
+* The wicks of each day are defined in the first segment.
+* The body of the plot is presented in the second segment. I have done it ticker doing `linewidth = 2`.
+
+To assign the color to each bar, I have defined an `ev` variable which indicates if the market is bullish with `ev = "up"` or bearish with `ev = "down"`. The real colors of the plot are defined in the `values` of `scale_color_manual`.
+
+```{r, fig.align='center'}
+big_tech_stock_prices |>
+  filter(stock_symbol == "AMZN", date >= start_date, date <= end_date) |>
+  mutate(ev = ifelse(open < close, "up", "down")) |>
+  ggplot(aes(date, adj_close)) +
+  geom_segment(aes(x = date, y = high, xend = date, yend = low, color = ev)) +
+  geom_segment(aes(x = date, y = open, xend = date, yend = close, color = ev), linewidth = 2) +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  scale_color_manual(values = c("#CC0000", "#00CC00")) +
+  labs(title = "Short-Term Evolution of AMZN", x=NULL, y=NULL)
+  
+```
+
+Traders and investors use candlestick charts to analyze patterns and trends in the price movements of financial instruments, with the goal of making more informed trading decisions.
+
+## References
+
+* `plotly` website *Candlestick Charts in R* <https://plotly.com/r/candlestick-charts/>.
+* *Big Tech Stock Prices*, tidytuesday GitHub repo (2023-02-07) <https://github.com/rfordatascience/tidytuesday/blob/master/data/2023/2023-02-07/readme.md>
+* Dancho, Matt (2022). *Charting with tidyquant.* <https://cran.r-project.org/web/packages/tidyquant/vignettes/TQ04-charting-with-tidyquant.html>
+* Ko Chiu Yu (2020). *Techincal Analysis with R (second edition)* <https://bookdown.org/kochiuyu/technical-analysis-with-r-second-edition2/>
+
+All links retrieved on 2023-03-22.
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
