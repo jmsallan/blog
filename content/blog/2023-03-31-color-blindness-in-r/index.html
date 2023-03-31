@@ -1,0 +1,71 @@
+---
+title: Color Blindness in R
+author: Jose M Sallan
+date: '2023-03-31'
+slug: color-blindness-in-r
+categories:
+  - R
+tags:
+  - color
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p><strong>Color blindness</strong> or <strong>color vision deficiency (CVD)</strong> is the decreased ability to distinguish colors of differences between colors. The most common cause of color blindness is an inherited problem or variation in the functionality of one or more of the three classes of <strong>cone cells</strong> in the retina, which mediate color vision. We have three types of cone cells:</p>
+<ul>
+<li><strong>S-cones</strong>, sensitive to short-wavelength light.</li>
+<li><strong>M-cones</strong>, sensitive to medium-wavelength light.</li>
+<li><strong>L-cones</strong>, sensitive to high-wavelength light.</li>
+</ul>
+<p>The following figure shows the wavelengths perceived for each type of cone cells. M and L cones cover a similar range of wavelengths, so their malfunction leads to similar outcomes.</p>
+<div class="figure" style="text-align: center"><span style="display:block;" id="fig:unnamed-chunk-1"></span>
+<img src="cone-freqs.png" alt="Frequencies perceived by each cone cell type."  />
+<p class="caption">
+Figure 1: Frequencies perceived by each cone cell type.
+</p>
+</div>
+<p>There are two useful classifications of color blindness, by severity and by the type of cone cells affected. Regarding <strong>severity</strong> we have:</p>
+<ul>
+<li><strong>Monochromacy</strong> or total color blindness is the inability to see color. It can be rod monochromacy, caused by absence of cone cells in the retina, or cone monochromacy, caused by having a single type of functional cone cells. The only cone monochromacy described in the literature is <strong>blue cone monochromacy</strong>, caused by disfunction of L and M cones.</li>
+<li>People with <strong>dichromacy</strong> can just see a mixture of two primary colors. This is caused by the malfunction of one type of cell cones.</li>
+<li>People with <strong>trichromacy</strong> have a less severe malfunction of one type of cone cells. Ranges from almost dichromacy (strong) to almost normal trichromacy (mild).</li>
+</ul>
+<p>Regarding the affected cone, we can have three types of more or less severe color blindness:</p>
+<ul>
+<li><strong>Protan CVD</strong> is the total (protanopia) or partial (protanomaly) disfunction of L-cones. Protan CVD affects 2% of males. For protans, the brightness of red is much reduced than for non-protanopes, to the extent that red traffic lights seem to be extinguished.</li>
+<li><strong>Deutan CVD</strong> is the total (deuteranopia) or partial (deuteranomaly) disfunction of M-cones. Deutan CVD affects 6% of males. The experience of a deutan is similar to a protanope, without the extinction of high-wavelent light.</li>
+<li><strong>Tritan CVD</strong> is the total (tritanopia) or partial (tritanomaly) disfunction of S-cones. Affects less than 0,01% of individuals. Tritans see short-wavelength colors as greenish and drastically dimmed.</li>
+</ul>
+<p>Protan and deutan CVD is considered <strong>red-green color blindness</strong>, sometimes called <strong>daltonism</strong>, as both have a hard time distinguishing between red and green. Tritan CVD is considered a <strong>blue-yellow</strong> color blindness.</p>
+<div id="impact-of-color-blindness-in-a-visualization" class="section level2">
+<h2>Impact of Color Blindness in a Visualization</h2>
+<p>The <code>dychromat</code> R package collapses red-green or green-blue distinctions to simulate
+the effects of different types of color-blindness. We can use this package to examine if people with CVD can have a hard time distinguishing our color schemes.</p>
+<p>Here I am presenting a visualization using the three primary colors, and how is it perceived by people affected by protan, deutan and tritan CVD.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="100%" /></p>
+<p>We observe how the simulation for protan and deutan is quite similar, as the red and blue colors are hard to distinguish for both. For tritan, the confusion is between green and blue.</p>
+</div>
+<div id="diverging-brewer-scales" class="section level2">
+<h2>Diverging Brewer Scales</h2>
+<p>A usual resource to present a set of colors in visualizations are the diverging Brewer scales. Let’s see how are they affected by each type of CVD.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="100%" /></p>
+<p>We can see that some of these diverging scales are not convenient for protan and deutan, It is the case of <code>RdYlGn</code>, <code>RdGy</code> or <code>BrBG</code>. These should be avoided if needs of CVD people need to be taken into account.</p>
+</div>
+<div id="viridis-scales" class="section level2">
+<h2>Viridis Scales</h2>
+<p>According to authors of the viridis scales, these help make “plots that are pretty, better represent your data, easier to read by those with colorblindness, and print well in gray scale”.</p>
+<p>Let’s see how viridis scales are affected by each CVD.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="100%" /></p>
+<p>viridis scales seem to be less affected by CVD, remarkably viridis and cividis, although some loss of color variation is inevitable. Therefore, when presenting several colors in a plot, it is advisable to use the viridis scale family.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Cone cells <a href="https://en.wikipedia.org/wiki/Cone_cell" class="uri">https://en.wikipedia.org/wiki/Cone_cell</a></li>
+<li>Dichromacy <a href="https://en.wikipedia.org/wiki/Dichromacy" class="uri">https://en.wikipedia.org/wiki/Dichromacy</a></li>
+<li>Rudis, B.; Ross, N. &amp; Garnier, S. (2021). <em>Introduction to the viridis color maps.</em> <a href="https://cran.r-project.org/web/packages/viridis/vignettes/intro-to-viridis.html" class="uri">https://cran.r-project.org/web/packages/viridis/vignettes/intro-to-viridis.html</a></li>
+</ul>
+</div>
