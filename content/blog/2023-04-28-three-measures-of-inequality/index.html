@@ -1,0 +1,147 @@
+---
+title: Three Measures of Inequality
+author: Jose M Sallan
+date: '2023-04-28'
+slug: three-measures-of-inequality
+categories:
+  - economics
+tags:
+  - distributions
+  - inequality
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>Inequality of income is a relevant topic of political economics. Inequality matters for ethical reasons: as the fate of each individual affects us, the rich cannot disown the interest of the poor. And inequality can also be a source of unrest, as the poor tend to compare with the rich, rather than with the income they could have in the past (Milanovic, 2006).</p>
+<p>In this post, I will present three measures of inequality and illustrate them by examining three income distributions with a different degree of inequality. Those distributions have been modelled to be <strong>right-skewed</strong>, as the largest values of income have been owned by few people since the beginning of history. The histograms for each distribution are:</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-1-1.png" width="100%" /></p>
+<p>If we observe the ranges of values of income of each histogram, we can see that the first income distribution <code>r1</code> is the more egalitarian, and that the third distribution <code>r3</code> is the most unequal. Let’s see how can we measure inequality comparing those three distributions of income.</p>
+<div id="mean-to-median-ratio" class="section level2">
+<h2>Mean to Median Ratio</h2>
+<p>A first measure of inequality comes from comparing mean to median. In a perfectly equal distribution the mean is equal to the median. For distributions of equal median, we observe that the mean increases as unequality does. The <strong>mean to median ratio</strong> will be close to one for perfect equality and larger than one for unequal distributions.</p>
+<p>In the following table we can observe the mean to median ratio and its components for the three distributions.</p>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+name
+</th>
+<th style="text-align:right;">
+mean
+</th>
+<th style="text-align:right;">
+median
+</th>
+<th style="text-align:right;">
+ratio
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+r1
+</td>
+<td style="text-align:right;">
+9999.235
+</td>
+<td style="text-align:right;">
+9999.347
+</td>
+<td style="text-align:right;">
+1.000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+r2
+</td>
+<td style="text-align:right;">
+11130.645
+</td>
+<td style="text-align:right;">
+9979.472
+</td>
+<td style="text-align:right;">
+1.115
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+r3
+</td>
+<td style="text-align:right;">
+19376.763
+</td>
+<td style="text-align:right;">
+9911.144
+</td>
+<td style="text-align:right;">
+1.955
+</td>
+</tr>
+</tbody>
+</table>
+<p>We observe that for the first distribution the ratio is around one, while for the last one is closer to two. The larger the mean to median ratio, the more unequal the distribution of income will be.</p>
+</div>
+<div id="gini-index" class="section level2">
+<h2>Gini Index</h2>
+<p>An alternative measure of inequality is the <strong>Gini index</strong>. A Gini coefficient of zero reflects a situation of perfect equality where all incomes are equal among individuals. In the other extreme, a Gini coefficient equal to one means that all income is held by a single individual. The <strong>Gini coefficient</strong> is proportional to Gini index, but scaling from 0 a 100.</p>
+<p>The Gini index can be calculated as the relative mean absolute difference between individuals:</p>
+<p><span class="math display">\[.\frac{\displaystyle\sum_{i=1}^n \displaystyle\sum_{i=1}^n \vert x_i - x_j \vert}{2n^2\bar{x}} \]</span></p>
+<p>Let’s evaluate the Gini indices of the three distributions:</p>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+r1
+</th>
+<th style="text-align:right;">
+r2
+</th>
+<th style="text-align:right;">
+r3
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+0.006
+</td>
+<td style="text-align:right;">
+0.258
+</td>
+<td style="text-align:right;">
+0.587
+</td>
+</tr>
+</tbody>
+</table>
+<p>Gini indices range from near zero for <code>r1</code> to around 0.6 for <code>r3</code>. This late index would be associated to a quite extreme inequality at the country level.</p>
+</div>
+<div id="the-lorenz-curve" class="section level2">
+<h2>The Lorenz Curve</h2>
+<p>A visual approach to the Gini index is the <strong>Lorenz curve</strong>. It is the result of representing the cumulative share of people from lower to higher income versus the cumulative share of income earned. The area between the Lorenz curve and the line of perfect equality is equal to half the value of the Gini index.</p>
+<p>Let’s see the Lorenz curve for each distribution. The grey area is equal to half the value of the Gini index.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="100%" /></p>
+<p>I have introduced three different measures of inequality:</p>
+<ul>
+<li><strong>Mean to median ratio:</strong> the higher the mean to median ratio, the more inequality.</li>
+<li><strong>Gini index:</strong> the closer to zero, the more equal; the closer to one, the more unequal.</li>
+<li>The more detached is the <strong>Lorenz curve</strong> from the 45 degrees line of perfect equality, the more unequal the distribution.</li>
+</ul>
+<p>More measures of inequality can be found in the Lazovich et al. (2022) paper on inequality in social media.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Lazovich, T., Belli, L., Gonzales, A., Bower, A., Tantipongpipat, U., Lum, K., … &amp; Chowdhury, R. (2022). Measuring disparate outcomes of content recommendation algorithms with distributional inequality metrics. <em>Patterns</em>, 3(8), 100568. <a href="https://doi.org/10.1016/j.patter.2022.100568" class="uri">https://doi.org/10.1016/j.patter.2022.100568</a></li>
+<li>Milanovic, B. (2006). Global income inequality: What it is and why it matters. <em>World Bank Policy Research Working Paper</em>, (3865). <a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=922991" class="uri">https://papers.ssrn.com/sol3/papers.cfm?abstract_id=922991</a></li>
+<li>Wikipedia page of Gini coefficient <a href="https://en.wikipedia.org/wiki/Gini_coefficient" class="uri">https://en.wikipedia.org/wiki/Gini_coefficient</a></li>
+</ul>
+</div>
