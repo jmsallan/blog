@@ -1,0 +1,219 @@
+---
+title: Three Measures of Inequality (Making Of)
+author: Jose M Sallan
+date: '2023-05-08'
+slug: hree-measures-of-inequality-making-of
+categories:
+  - R
+  - economics
+tags:
+  - data visualization
+  - distributions
+  - dplyr
+  - ggplot
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+This post is the making of [the previous post about measures of inequality](https://jmsallan.netlify.app/blog/three-measures-of-inequality/). I will present how I have:
+
+* defined the three income distributions.
+* obtained the mean to median ratio for each distribution.
+* defined an efficient function to calculate the Gini index.
+* obtained the Lorenz curve plots.
+
+I have used the `tidyverse` to do all the jobs and `kableExtra` to present tables.
+
+```{r}
+library(tidyverse)
+library(kableExtra)
+```
+
+## Defining Income Distributions
+
+I start defining an `income` table with three distributions progressively more unequal. `r1` is a sample of a normal distribution, and `r2` and `r3` are samples of right skewed distributions obtaining powering 10 with the values of a normal distribution. The standard deviation of `r3` is higher than `r2`, resulting in higher inequality.
+
+```{r}
+set.seed(1111)
+income <- tibble(id = 1:10000,
+                 r1 = rnorm(10000, mean = 10000, sd = 100),
+                 r2 = 10^rnorm(10000, mean = 4, sd = 0.2),
+                 r3 = 10^rnorm(10000, mean = 4, sd = 0.5))
+```
+
+Let's define an `income_long` tidy table with `pivot_longer`:
+
+```{r}
+income_long <- income |>
+  pivot_longer(-id)
+income_long
+```
+
+## Plotting the Histograms
+
+The obvious choice to plot the three histograms is to use facet_grid:
+
+```{r, out.width='100%'}
+income_long |>
+  ggplot(aes(value)) +
+  geom_histogram(bins = 40, fill = "#A0A0A0") +
+      theme_minimal() +
+      labs(x = NULL, y = NULL) +
+      facet_grid(. ~ name)
+```
+
+This first draft is not adequate as the ranges of values for each distribution are different. To remedy that, I have set `scale = "free"` argument in `facet_grid`. I have also changed the size and angle of x axis labels to avoid overlap.
+
+```{r}
+income_long |>
+  ggplot(aes(value)) +
+  geom_histogram(bins = 40, fill = "#A0A0A0") +
+      facet_grid(. ~ name, scales = "free") +
+      theme_minimal() +
+      theme(axis.title = element_blank(), 
+            axis.text.x = element_text(size = 10, angle = -45))
+```
+
+## Mean to median Ratio
+
+To obtain the mean to median ratio I need to `summarise` the mean and median, and then obtain the ratio with `mutate`. I can adjust the decimals to show with `kbl`:
+
+```{r}
+income_long |>
+  group_by(name) |>
+  summarise(mean = mean(value), median = median(value)) |>
+  mutate(ratio = mean/median) |>
+  kbl(digits = 3) |>
+  kable_styling(full_width = FALSE)
+```
+
+## Calculating the Gini Index
+
+I need to define a function to implement this expression.
+
+\[\frac{\displaystyle\sum_{i=1}^n \displaystyle\sum_{i=1}^n \vert x_i - x_j \vert}{2n^2\bar{x}} \]
+
+The obvious path is the one defined in the `gini2` function, looping twice across each element of the vector:
+
+```{r}
+gini2 <- function(x){
+  n <- length(x)
+  sum <- 0
+  
+  for(i in 1:n)
+    for(j in 1:n)
+      sum <- sum + abs(x[i] - x[j])
+  
+  g <- sum / (2 * n^2 * mean(x))
+  return(g)
+}
+```
+
+But as R is a **vectorial language**, we can try an alternative to find all absolute differences without looping. I will define two square matrices: one with all rows equal and other with all columns equal. We can use the rep function to do this. We obtain the first matrix doing:
+
+```{r}
+matrix(rep(1:10, each = 10), 10, 10)
+```
+
+And the second:
+
+```{r}
+matrix(rep(1:10, times = 10), 10, 10)
+```
+
+So we obtain all differences doing:
+
+```{r}
+abs(matrix(rep(1:10, each = 10), 10, 10) - matrix(rep(1:10, times = 10), 10, 10))
+```
+
+And the summmation:
+
+```{r}
+sum(abs(matrix(rep(1:10, each = 10), 10, 10) - matrix(rep(1:10, times = 10), 10, 10)))
+```
+
+We can obtain the same result substracting the vectors used to build the matrices:
+
+```{r}
+sum(abs(rep(1:10, each = 10) - rep(1:10, times = 10)))
+```
+
+So we can construct the function:
+
+```{r}
+gini <- function(x){
+  n <- length(x)
+  g <- sum(abs(rep(x, times = n) - rep(x, each = n))) / (2 * n^2 * mean(x))
+  return(g)
+}
+```
+
+Let's examine the performance of each function with `rbenchmark`:
+
+```{r}
+rbenchmark::benchmark(replications = 10,
+                      gini(income$r3),
+                      gini2(income$r3),
+                      columns=c('test', 'elapsed', 'relative', 'replications'),
+                      order = 'elapsed')
+```
+
+The non-looping function has better performance, so I will use `gini` to calculate gini indices of each distribution:
+
+```{r}
+income |>
+  summarise(across(r1:r3, gini)) |>
+  kbl(digits = 3) |>
+  kable_styling(full_width = FALSE)
+```
+
+
+## Plotting Lorenz Curves
+
+The last job is plotting Lorenz curves. To do so I need to calculate:
+
+* the cumulative share of people from lower to higher income.
+* he cumulative share of income earned by each share.
+
+This can be achieved with `dplyr` functions:
+
+* `arrange` rows by `name` and `value` of income in decreasing order.
+* obtain the cumulative fraction of individuals `frac_ind`.
+* obtain the cumulative fraction of income using `cumsum`.
+
+```{r}
+income_long <- 
+  income_long |>
+  arrange(name, value) |>
+  group_by(name) |>
+  mutate(frac_ind =1:n()/n(),
+         frac_rent = cumsum(value)/sum(value), .groups = "drop")
+```
+
+Note that here I am combining `group_by` and `mutate`. As I am storing the result in income_long and I don't need a grouping table, I am doing `.groups = "drop"` in `mutate`.
+
+Now I am ready to plot the Lorenz curves. The area under the curve is filled with `geom_polygon` quite naturally in this case. For this plot, I have decided to use a pale yellow background to differentiate each curve visually adding a `panel.background` definition in `theme`.
+
+```{r, out.width='100%'}
+income_long |>
+  ggplot(aes(frac_ind, frac_rent)) +
+  geom_line() +
+  geom_polygon(fill = "#A0A0A0") +
+  theme_minimal() +
+  theme(panel.background = element_rect(fill = "#FFFFEE")) +
+  labs(x=NULL, y=NULL) +
+  facet_grid(. ~ name)
+```
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
