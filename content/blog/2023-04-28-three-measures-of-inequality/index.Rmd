@@ -15,7 +15,6 @@ description: Description for the page
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 library(tidyverse)
-library(gridExtra)
 library(kableExtra)
 ```
 
@@ -34,15 +33,13 @@ income <- tibble(id = 1:10000,
 income_long <- income |>
   pivot_longer(-id)
 
-plots <- lapply(c("r1", "r2", "r3"), \(x)
-  income_long |>
-    filter(name == x) |>
-    ggplot(aes(value)) +
-      geom_histogram(bins = 40, fill = "#A0A0A0") +
+income_long |>
+  ggplot(aes(value)) +
+  geom_histogram(bins = 40, fill = "#A0A0A0") +
+      facet_grid(. ~ name, scales = "free") +
       theme_minimal() +
-      labs(x = x, y = NULL))
-
-grid.arrange(grobs = plots, nrow = 1, ncol = 3)
+      theme(axis.title = element_blank(), 
+            axis.text.x = element_text(size = 10, angle = -45))
 ```
 
 If we observe the ranges of values of income of each histogram, we can see that the first income distribution `r1` is the more egalitarian, and that the third distribution `r3` is the most unequal. Let's see how can we measure inequality comparing those three distributions of income.
