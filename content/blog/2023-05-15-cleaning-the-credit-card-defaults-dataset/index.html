@@ -1,0 +1,1623 @@
+---
+title: Cleaning the Credit Card Defaults Dataset
+author: Jose M Sallan
+date: '2023-05-15'
+slug: cleaning-the-credit-card-defaults-dataset
+categories:
+  - R
+tags:
+  - dplyr
+  - machine learning
+  - data cleaning
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>In this post, I will present how have I prepared for analysis the <strong>default of credit card clients Data Set</strong> available from the <em>UCI Machine Learning Repository</em>. I will be using the tidyverse for data handling, the <code>readxl</code> package to read the Excel file, the <code>janitor</code> package for data cleaning, and <code>skimr</code> for dataset summary. The kableExtra package will be used to present tabular results:</p>
+<pre class="r"><code>library(tidyverse)
+library(readxl)
+library(janitor)
+library(skimr)
+library(kableExtra)</code></pre>
+<p>This dataset was used in the Yeh &amp; Lien (2009) paper of comparison of data mining techniques. The description of dataset variables presented in the <em>UCI Machine Learning repository</em> comes from that paper:</p>
+<p><em>This research employed a binary variable, default payment (Yes = 1, No = 0), as the response variable. This study reviewed the literature and used the following 23 variables as explanatory variables:</em></p>
+<p><em>X1: Amount of the given credit (NT dollar): it includes both the individual consumer credit and his/her family (supplementary) credit.</em></p>
+<p><em>X2: Gender (1 = male; 2 = female).</em></p>
+<p><em>X3: Education (1 = graduate school; 2 = university; 3 = high school; 4 = others).</em></p>
+<p><em>X4: Marital status (1 = married; 2 = single; 3 = others).</em></p>
+<p><em>X5: Age (year).</em></p>
+<p><em>X6 - X11: History of past payment. We tracked the past monthly payment records (from April to September, 2005) as follows: X6 = the repayment status in September, 2005; X7 = the repayment status in August, 2005; . . .;X11 = the repayment status in April, 2005. The measurement scale for the repayment status is: -1 = pay duly; 1 = payment delay for one month; 2 = payment delay for two months; . . .; 8 = payment delay for eight months; 9 = payment delay for nine months and above.</em></p>
+<p><em>X12-X17: Amount of bill statement (NT dollar). X12 = amount of bill statement in September, 2005; X13 = amount of bill statement in August, 2005; . . .; X17 = amount of bill statement in April, 2005.</em></p>
+<p><em>X18-X23: Amount of previous payment (NT dollar). X18 = amount paid in September, 2005; X19 = amount paid in August, 2005; . . .;X23 = amount paid in April, 2005.</em></p>
+<p>The dataset is delivered as an Excel file. The first row corresponds to the variables of the original paper, and the second row is a renaming of the variables presented above. In the Excel there is an additional first column of ID observations, so that variable X1 is in the second column of the file, and so on. As I don’t want to modify the original file, I will skip the first row of the file and keep the renamed variables.</p>
+<pre class="r"><code>ld &lt;- read_excel(&quot;default of credit card clients.xls&quot;, skip = 1)</code></pre>
+<p>I will save the resulting data frame as a RDS object. So the storage required goes from 5.8 MB to 1.2 MB:</p>
+<pre class="r"><code>saveRDS(ld, file = &quot;ld.RDS&quot;)</code></pre>
+<p>I will load the dataset from the RDS by doing:</p>
+<pre class="r"><code>cc_defaults &lt;- readRDS(&quot;ld.RDS&quot;)</code></pre>
+<p>Let’s examine the dataset with the <code>skim</code> summary function:</p>
+<pre class="r"><code>skim(cc_defaults)</code></pre>
+<table style="width: auto;" class="table table-condensed">
+<caption>
+<span id="tab:unnamed-chunk-5">Table 1: </span>Data summary
+</caption>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Name
+</td>
+<td style="text-align:left;">
+cc_defaults
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Number of rows
+</td>
+<td style="text-align:left;">
+30000
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Number of columns
+</td>
+<td style="text-align:left;">
+25
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+_______________________
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Column type frequency:
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+numeric
+</td>
+<td style="text-align:left;">
+25
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+________________________
+</td>
+<td style="text-align:left;">
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Group variables
+</td>
+<td style="text-align:left;">
+None
+</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: numeric</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left;">
+skim_variable
+</th>
+<th style="text-align:right;">
+n_missing
+</th>
+<th style="text-align:right;">
+complete_rate
+</th>
+<th style="text-align:right;">
+mean
+</th>
+<th style="text-align:right;">
+sd
+</th>
+<th style="text-align:right;">
+p0
+</th>
+<th style="text-align:right;">
+p25
+</th>
+<th style="text-align:right;">
+p50
+</th>
+<th style="text-align:right;">
+p75
+</th>
+<th style="text-align:right;">
+p100
+</th>
+<th style="text-align:left;">
+hist
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+ID
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+15000.50
+</td>
+<td style="text-align:right;">
+8660.40
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+7500.75
+</td>
+<td style="text-align:right;">
+15000.5
+</td>
+<td style="text-align:right;">
+22500.25
+</td>
+<td style="text-align:right;">
+30000
+</td>
+<td style="text-align:left;">
+▇▇▇▇▇
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+LIMIT_BAL
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+167484.32
+</td>
+<td style="text-align:right;">
+129747.66
+</td>
+<td style="text-align:right;">
+10000
+</td>
+<td style="text-align:right;">
+50000.00
+</td>
+<td style="text-align:right;">
+140000.0
+</td>
+<td style="text-align:right;">
+240000.00
+</td>
+<td style="text-align:right;">
+1000000
+</td>
+<td style="text-align:left;">
+▇▃▁▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+SEX
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1.60
+</td>
+<td style="text-align:right;">
+0.49
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.0
+</td>
+<td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:left;">
+▅▁▁▁▇
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+EDUCATION
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1.85
+</td>
+<td style="text-align:right;">
+0.79
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.0
+</td>
+<td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:left;">
+▆▇▃▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+MARRIAGE
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1.55
+</td>
+<td style="text-align:right;">
+0.52
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1.00
+</td>
+<td style="text-align:right;">
+2.0
+</td>
+<td style="text-align:right;">
+2.00
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:left;">
+▁▇▁▇▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+AGE
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+35.49
+</td>
+<td style="text-align:right;">
+9.22
+</td>
+<td style="text-align:right;">
+21
+</td>
+<td style="text-align:right;">
+28.00
+</td>
+<td style="text-align:right;">
+34.0
+</td>
+<td style="text-align:right;">
+41.00
+</td>
+<td style="text-align:right;">
+79
+</td>
+<td style="text-align:left;">
+▇▇▂▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PAY_0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+-0.02
+</td>
+<td style="text-align:right;">
+1.12
+</td>
+<td style="text-align:right;">
+-2
+</td>
+<td style="text-align:right;">
+-1.00
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:left;">
+▇▂▁▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PAY_2
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+-0.13
+</td>
+<td style="text-align:right;">
+1.20
+</td>
+<td style="text-align:right;">
+-2
+</td>
+<td style="text-align:right;">
+-1.00
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:left;">
+▇▁▁▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PAY_3
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+-0.17
+</td>
+<td style="text-align:right;">
+1.20
+</td>
+<td style="text-align:right;">
+-2
+</td>
+<td style="text-align:right;">
+-1.00
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:left;">
+▇▁▁▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PAY_4
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+-0.22
+</td>
+<td style="text-align:right;">
+1.17
+</td>
+<td style="text-align:right;">
+-2
+</td>
+<td style="text-align:right;">
+-1.00
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:left;">
+▇▁▁▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PAY_5
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+-0.27
+</td>
+<td style="text-align:right;">
+1.13
+</td>
+<td style="text-align:right;">
+-2
+</td>
+<td style="text-align:right;">
+-1.00
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:left;">
+▇▁▁▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PAY_6
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+-0.29
+</td>
+<td style="text-align:right;">
+1.15
+</td>
+<td style="text-align:right;">
+-2
+</td>
+<td style="text-align:right;">
+-1.00
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:left;">
+▇▁▁▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+BILL_AMT1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+51223.33
+</td>
+<td style="text-align:right;">
+73635.86
+</td>
+<td style="text-align:right;">
+-165580
+</td>
+<td style="text-align:right;">
+3558.75
+</td>
+<td style="text-align:right;">
+22381.5
+</td>
+<td style="text-align:right;">
+67091.00
+</td>
+<td style="text-align:right;">
+964511
+</td>
+<td style="text-align:left;">
+▇▃▁▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+BILL_AMT2
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+49179.08
+</td>
+<td style="text-align:right;">
+71173.77
+</td>
+<td style="text-align:right;">
+-69777
+</td>
+<td style="text-align:right;">
+2984.75
+</td>
+<td style="text-align:right;">
+21200.0
+</td>
+<td style="text-align:right;">
+64006.25
+</td>
+<td style="text-align:right;">
+983931
+</td>
+<td style="text-align:left;">
+▇▁▁▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+BILL_AMT3
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+47013.15
+</td>
+<td style="text-align:right;">
+69349.39
+</td>
+<td style="text-align:right;">
+-157264
+</td>
+<td style="text-align:right;">
+2666.25
+</td>
+<td style="text-align:right;">
+20088.5
+</td>
+<td style="text-align:right;">
+60164.75
+</td>
+<td style="text-align:right;">
+1664089
+</td>
+<td style="text-align:left;">
+▇▁▁▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+BILL_AMT4
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+43262.95
+</td>
+<td style="text-align:right;">
+64332.86
+</td>
+<td style="text-align:right;">
+-170000
+</td>
+<td style="text-align:right;">
+2326.75
+</td>
+<td style="text-align:right;">
+19052.0
+</td>
+<td style="text-align:right;">
+54506.00
+</td>
+<td style="text-align:right;">
+891586
+</td>
+<td style="text-align:left;">
+▇▃▁▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+BILL_AMT5
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+40311.40
+</td>
+<td style="text-align:right;">
+60797.16
+</td>
+<td style="text-align:right;">
+-81334
+</td>
+<td style="text-align:right;">
+1763.00
+</td>
+<td style="text-align:right;">
+18104.5
+</td>
+<td style="text-align:right;">
+50190.50
+</td>
+<td style="text-align:right;">
+927171
+</td>
+<td style="text-align:left;">
+▇▁▁▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+BILL_AMT6
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+38871.76
+</td>
+<td style="text-align:right;">
+59554.11
+</td>
+<td style="text-align:right;">
+-339603
+</td>
+<td style="text-align:right;">
+1256.00
+</td>
+<td style="text-align:right;">
+17071.0
+</td>
+<td style="text-align:right;">
+49198.25
+</td>
+<td style="text-align:right;">
+961664
+</td>
+<td style="text-align:left;">
+▁▇▁▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PAY_AMT1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+5663.58
+</td>
+<td style="text-align:right;">
+16563.28
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1000.00
+</td>
+<td style="text-align:right;">
+2100.0
+</td>
+<td style="text-align:right;">
+5006.00
+</td>
+<td style="text-align:right;">
+873552
+</td>
+<td style="text-align:left;">
+▇▁▁▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PAY_AMT2
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+5921.16
+</td>
+<td style="text-align:right;">
+23040.87
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+833.00
+</td>
+<td style="text-align:right;">
+2009.0
+</td>
+<td style="text-align:right;">
+5000.00
+</td>
+<td style="text-align:right;">
+1684259
+</td>
+<td style="text-align:left;">
+▇▁▁▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PAY_AMT3
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+5225.68
+</td>
+<td style="text-align:right;">
+17606.96
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+390.00
+</td>
+<td style="text-align:right;">
+1800.0
+</td>
+<td style="text-align:right;">
+4505.00
+</td>
+<td style="text-align:right;">
+896040
+</td>
+<td style="text-align:left;">
+▇▁▁▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PAY_AMT4
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+4826.08
+</td>
+<td style="text-align:right;">
+15666.16
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+296.00
+</td>
+<td style="text-align:right;">
+1500.0
+</td>
+<td style="text-align:right;">
+4013.25
+</td>
+<td style="text-align:right;">
+621000
+</td>
+<td style="text-align:left;">
+▇▁▁▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PAY_AMT5
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+4799.39
+</td>
+<td style="text-align:right;">
+15278.31
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+252.50
+</td>
+<td style="text-align:right;">
+1500.0
+</td>
+<td style="text-align:right;">
+4031.50
+</td>
+<td style="text-align:right;">
+426529
+</td>
+<td style="text-align:left;">
+▇▁▁▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PAY_AMT6
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+5215.50
+</td>
+<td style="text-align:right;">
+17777.47
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+117.75
+</td>
+<td style="text-align:right;">
+1500.0
+</td>
+<td style="text-align:right;">
+4000.00
+</td>
+<td style="text-align:right;">
+528666
+</td>
+<td style="text-align:left;">
+▇▁▁▁▁
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+default payment next month
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0.22
+</td>
+<td style="text-align:right;">
+0.42
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+<td style="text-align:right;">
+0.0
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:left;">
+▇▁▁▁▂
+</td>
+</tr>
+</tbody>
+</table>
+<p>In the summary, we can see that all variables are numerical. This can be a requirement of the software used by in the Yeh &amp; Lien (2009) paper, but using these variables as is can be misleading, as they are categorical variables. In R we can do better than that, so I will modify the dataset following four steps:</p>
+<ul>
+<li>Clean the names of the dataset with <code>janitor::clean_names</code>.</li>
+<li>Transform some features into factors with meaningful factor levels.</li>
+<li>Rename the target variable, and transform it into a factor with the positive case as first level.</li>
+<li>Rename some of the features to facilitate further analysis.</li>
+</ul>
+<div id="clean-names-of-dataset" class="section level2">
+<h2>Clean Names of Dataset</h2>
+<p>The original names of the dataset are:</p>
+<pre class="r"><code>colnames(cc_defaults)</code></pre>
+<pre><code>##  [1] &quot;ID&quot;                         &quot;LIMIT_BAL&quot;                 
+##  [3] &quot;SEX&quot;                        &quot;EDUCATION&quot;                 
+##  [5] &quot;MARRIAGE&quot;                   &quot;AGE&quot;                       
+##  [7] &quot;PAY_0&quot;                      &quot;PAY_2&quot;                     
+##  [9] &quot;PAY_3&quot;                      &quot;PAY_4&quot;                     
+## [11] &quot;PAY_5&quot;                      &quot;PAY_6&quot;                     
+## [13] &quot;BILL_AMT1&quot;                  &quot;BILL_AMT2&quot;                 
+## [15] &quot;BILL_AMT3&quot;                  &quot;BILL_AMT4&quot;                 
+## [17] &quot;BILL_AMT5&quot;                  &quot;BILL_AMT6&quot;                 
+## [19] &quot;PAY_AMT1&quot;                   &quot;PAY_AMT2&quot;                  
+## [21] &quot;PAY_AMT3&quot;                   &quot;PAY_AMT4&quot;                  
+## [23] &quot;PAY_AMT5&quot;                   &quot;PAY_AMT6&quot;                  
+## [25] &quot;default payment next month&quot;</code></pre>
+<p>Let’s clean the names of the dataset doing:</p>
+<pre class="r"><code>cc_defaults &lt;- clean_names(cc_defaults)</code></pre>
+<p>The dataset names are now:</p>
+<pre class="r"><code>colnames(cc_defaults)</code></pre>
+<pre><code>##  [1] &quot;id&quot;                         &quot;limit_bal&quot;                 
+##  [3] &quot;sex&quot;                        &quot;education&quot;                 
+##  [5] &quot;marriage&quot;                   &quot;age&quot;                       
+##  [7] &quot;pay_0&quot;                      &quot;pay_2&quot;                     
+##  [9] &quot;pay_3&quot;                      &quot;pay_4&quot;                     
+## [11] &quot;pay_5&quot;                      &quot;pay_6&quot;                     
+## [13] &quot;bill_amt1&quot;                  &quot;bill_amt2&quot;                 
+## [15] &quot;bill_amt3&quot;                  &quot;bill_amt4&quot;                 
+## [17] &quot;bill_amt5&quot;                  &quot;bill_amt6&quot;                 
+## [19] &quot;pay_amt1&quot;                   &quot;pay_amt2&quot;                  
+## [21] &quot;pay_amt3&quot;                   &quot;pay_amt4&quot;                  
+## [23] &quot;pay_amt5&quot;                   &quot;pay_amt6&quot;                  
+## [25] &quot;default_payment_next_month&quot;</code></pre>
+</div>
+<div id="features-transformation" class="section level2">
+<h2>Features Transformation</h2>
+<p>In the description of the dataset we see that some variables like <code>sex</code>, <code>education</code> and <code>marriage</code> are categorical, although they are coded as numerical. To see why is that misleading, let’s consider <code>sex</code>, which is equal to 1 for males and 2 for females. This labelling is arbitrary, so instead of describing a property larger for women than for men, is splitting the dataset into two different categories. We need to turn these variables into factors, and rename the levels of these factors adequately. This can be done with <code>forcats::fct_recode</code>.</p>
+<pre class="r"><code>cc_defaults &lt;- cc_defaults |&gt;
+  mutate(sex = factor(sex)) |&gt;
+  mutate(sex = fct_recode(sex, male = &quot;1&quot;, female = &quot;2&quot;))</code></pre>
+<p>The transformation of <code>education</code> is more complex. From the summary, we observe that goes from 0 to 6, but it is defined from 1 to 4. Let’s count how many observations have for each level using a <code>janitor::tabyl</code> function:</p>
+<pre class="r"><code>cc_defaults |&gt;
+  tabyl(education) |&gt;
+  adorn_pct_formatting() |&gt;
+  kbl() |&gt;
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+education
+</th>
+<th style="text-align:right;">
+n
+</th>
+<th style="text-align:left;">
+percent
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+14
+</td>
+<td style="text-align:left;">
+0.0%
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+10585
+</td>
+<td style="text-align:left;">
+35.3%
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+14030
+</td>
+<td style="text-align:left;">
+46.8%
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+4917
+</td>
+<td style="text-align:left;">
+16.4%
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+123
+</td>
+<td style="text-align:left;">
+0.4%
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+280
+</td>
+<td style="text-align:left;">
+0.9%
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+51
+</td>
+<td style="text-align:left;">
+0.2%
+</td>
+</tr>
+</tbody>
+</table>
+<p>The proportion of odd values of the variable is small, so it is safer to group them into an <code>unknown</code> level:</p>
+<pre class="r"><code>cc_defaults &lt;- cc_defaults |&gt;
+  mutate(education = factor(education)) |&gt;
+  mutate(education = fct_recode(education, graduate = &quot;1&quot;, university = &quot;2&quot;, high_school = &quot;3&quot;, others = &quot;4&quot;, unknown = &quot;0&quot;, unknown = &quot;5&quot;, unknown = &quot;6&quot;))</code></pre>
+<p>The resulting levels of the factor are:</p>
+<pre class="r"><code>levels(cc_defaults$education)</code></pre>
+<pre><code>## [1] &quot;unknown&quot;     &quot;graduate&quot;    &quot;university&quot;  &quot;high_school&quot; &quot;others&quot;</code></pre>
+<p>And the new counting of levels is:</p>
+<pre class="r"><code>cc_defaults |&gt;
+  tabyl(education) |&gt;
+  adorn_pct_formatting() |&gt;
+  kbl() |&gt;
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+education
+</th>
+<th style="text-align:right;">
+n
+</th>
+<th style="text-align:left;">
+percent
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+unknown
+</td>
+<td style="text-align:right;">
+345
+</td>
+<td style="text-align:left;">
+1.1%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+graduate
+</td>
+<td style="text-align:right;">
+10585
+</td>
+<td style="text-align:left;">
+35.3%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+university
+</td>
+<td style="text-align:right;">
+14030
+</td>
+<td style="text-align:left;">
+46.8%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+high_school
+</td>
+<td style="text-align:right;">
+4917
+</td>
+<td style="text-align:left;">
+16.4%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+others
+</td>
+<td style="text-align:right;">
+123
+</td>
+<td style="text-align:left;">
+0.4%
+</td>
+</tr>
+</tbody>
+</table>
+<p>Something similar happens with the ’marriage` variable, which has more levels than the ones defined in Yeh &amp; Lien (2009):</p>
+<pre class="r"><code>cc_defaults |&gt;
+  tabyl(marriage) |&gt;
+  adorn_pct_formatting() |&gt;
+  kbl() |&gt;
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+marriage
+</th>
+<th style="text-align:right;">
+n
+</th>
+<th style="text-align:left;">
+percent
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+54
+</td>
+<td style="text-align:left;">
+0.2%
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+13659
+</td>
+<td style="text-align:left;">
+45.5%
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+15964
+</td>
+<td style="text-align:left;">
+53.2%
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+323
+</td>
+<td style="text-align:left;">
+1.1%
+</td>
+</tr>
+</tbody>
+</table>
+<p>When transforming <code>marriage</code> into a factor, I will be coding the zero level as <code>unknown</code>:</p>
+<pre class="r"><code>cc_defaults &lt;- cc_defaults |&gt;
+  mutate(marriage = factor(marriage)) |&gt;
+  mutate(marriage = fct_recode(marriage, unknown = &quot;0&quot;, unknown = &quot;3&quot;, married = &quot;1&quot;, single = &quot;2&quot;))</code></pre>
+</div>
+<div id="transforming-the-target-variable" class="section level2">
+<h2>Transforming the Target Variable</h2>
+<p>The target variable <code>default_payment_next_month</code> must be transformed into a factor, with the positive case as first level. I will use <code>dplyr::rename</code> to give the variable a shorter name and <code>fct_relevel</code> to reorder the levels of variables.</p>
+<pre class="r"><code>cc_defaults &lt;- cc_defaults |&gt;
+  rename(&quot;default&quot; = default_payment_next_month) |&gt;
+  mutate(default = factor(default)) |&gt;
+  mutate(default = fct_relevel(default, &quot;1&quot;)) |&gt;
+  mutate(default = fct_recode(default, yes = &quot;1&quot;, &quot;no&quot; = &quot;0&quot;))</code></pre>
+<p>Counting the observations of each level, we observe that the dataset is <strong>imbalanced</strong>, as there are much more observations with no default:</p>
+<pre class="r"><code>cc_defaults |&gt;
+  tabyl(default) |&gt;
+  adorn_pct_formatting() |&gt;
+  kbl() |&gt;
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+default
+</th>
+<th style="text-align:right;">
+n
+</th>
+<th style="text-align:left;">
+percent
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+yes
+</td>
+<td style="text-align:right;">
+6636
+</td>
+<td style="text-align:left;">
+22.1%
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+no
+</td>
+<td style="text-align:right;">
+23364
+</td>
+<td style="text-align:left;">
+77.9%
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="rename-features" class="section level2">
+<h2>Rename Features</h2>
+<p>The family of <code>pay_*</code>, <code>bill_amt*</code> and <code>pay_amt*</code> variables are labelled inconsistently, and the names do not provide information about the month they are describing. We are trying to predict if a customer will default in October by examining her/his behavior in the previous six months, April to September. So I will relabel the variables accordingly using <code>dplyr::rename</code>:</p>
+<pre class="r"><code>cc_defaults &lt;- cc_defaults |&gt;
+  rename(&quot;pay_sep&quot; = pay_0,
+         &quot;pay_aug&quot; = pay_2,
+         &quot;pay_jul&quot; = pay_3,
+         &quot;pay_jun&quot; = pay_4,
+         &quot;pay_may&quot; = pay_5,
+         &quot;pay_apr&quot; = pay_6,
+         &quot;bill_amt_sep&quot; = bill_amt1,
+         &quot;bill_amt_aug&quot; = bill_amt2,
+         &quot;bill_amt_jul&quot; = bill_amt3,
+         &quot;bill_amt_jun&quot; = bill_amt4,
+         &quot;bill_amt_may&quot; = bill_amt5,
+         &quot;bill_amt_apr&quot; = bill_amt6,
+         &quot;pay_amt_sep&quot; = pay_amt1,
+         &quot;pay_amt_aug&quot; = pay_amt2,
+         &quot;pay_amt_jul&quot; = pay_amt3,
+         &quot;pay_amt_jun&quot; = pay_amt4,
+         &quot;pay_amt_may&quot; = pay_amt5,
+         &quot;pay_amt_apr&quot; = pay_amt6)</code></pre>
+</div>
+<div id="significance-of-pay-variables" class="section level2">
+<h2>Significance of pay Variables</h2>
+<p>The original meaning of the <code>pay_apr:pay_sep</code> variables is:</p>
+<p><em>X6 - X11: History of past payment. We tracked the past monthly payment records (from April to September, 2005) as follows: X6 = the repayment status in September, 2005; X7 = the repayment status in August, 2005; . . .;X11 = the repayment status in April, 2005. The measurement scale for the repayment status is: -1 = pay duly; 1 = payment delay for one month; 2 = payment delay for two months; . . .; 8 = payment delay for eight months; 9 = payment delay for nine months and above.</em></p>
+<p>Nevertheless, we observe that there are other variable values around. Let’s see for instance <code>pay_sep</code>:</p>
+<pre class="r"><code>cc_defaults |&gt;
+  tabyl(pay_sep) |&gt;
+  adorn_pct_formatting() |&gt;
+  kbl() |&gt;
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+pay_sep
+</th>
+<th style="text-align:right;">
+n
+</th>
+<th style="text-align:left;">
+percent
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+-2
+</td>
+<td style="text-align:right;">
+2759
+</td>
+<td style="text-align:left;">
+9.2%
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+5686
+</td>
+<td style="text-align:left;">
+19.0%
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+14737
+</td>
+<td style="text-align:left;">
+49.1%
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+3688
+</td>
+<td style="text-align:left;">
+12.3%
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:right;">
+2667
+</td>
+<td style="text-align:left;">
+8.9%
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+322
+</td>
+<td style="text-align:left;">
+1.1%
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:right;">
+76
+</td>
+<td style="text-align:left;">
+0.3%
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+26
+</td>
+<td style="text-align:left;">
+0.1%
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+11
+</td>
+<td style="text-align:left;">
+0.0%
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+7
+</td>
+<td style="text-align:right;">
+9
+</td>
+<td style="text-align:left;">
+0.0%
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:right;">
+19
+</td>
+<td style="text-align:left;">
+0.1%
+</td>
+</tr>
+</tbody>
+</table>
+<p>This fact has caught the attention of other users. In a Kaggle discussion forum, we are informed that the authors of the paper provided further clarification about the meaning of this variable:</p>
+<p><em>-2: No consumption; -1: Paid in full; 0: The use of revolving credit; 1 = payment delay for one month; 2 = payment delay for two months; . . .; 8 = payment delay for eight months; 9 = payment delay for nine months and above.</em></p>
+<p>This means that the <code>pay_*</code> variables have a different meaning when they are positive than when they are zero or negative. Further analysis must take this into account.</p>
+</div>
+<div id="the-importance-of-data-cleaning" class="section level2">
+<h2>The Importance of Data Cleaning</h2>
+<p>Data cleaning is a relevant tasks in data analysis. As quoted in the <code>janitor</code> website:</p>
+<p><em>Data scientists, according to interviews and expert estimates, spend from 50 percent to 80 percent of their time mired in this more mundane labor of collecting and preparing unruly digital data, before it can be explored for useful nuggets.</em></p>
+<p>The <code>skimr::skim</code> function helps to take a first look of a dataset with an exhaustive summary report. The <code>janitor</code> package helps to simplify this cumbersome task in the context of R, reproducing with <code>janitor::tabyl</code> some of the results of counting the number of elements of each level using Excel dynamic tables. The use of a programming language like R helps to make this data cleaning task reproducible.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li><em>default of credit card clients Data Set</em> <a href="https://archive.ics.uci.edu/ml/datasets/default+of+credit+card+clients#" class="uri">https://archive.ics.uci.edu/ml/datasets/default+of+credit+card+clients#</a> UCI Machine Learning Repository.</li>
+<li><em>Default of Credit Card Clients Dataset: Answer to missing values (-2, 0) not in measurement scale.</em> <a href="https://www.kaggle.com/datasets/uciml/default-of-credit-card-clients-dataset/discussion/34608" class="uri">https://www.kaggle.com/datasets/uciml/default-of-credit-card-clients-dataset/discussion/34608</a></li>
+<li><code>janitor</code> website <a href="https://sfirke.github.io/janitor/index.html" class="uri">https://sfirke.github.io/janitor/index.html</a></li>
+<li>Yeh, I. C., &amp; Lien, C. H. (2009). The comparisons of data mining techniques for the predictive accuracy of probability of default of credit card clients. <em>Expert Systems with Applications</em>, 36(2), 2473-2480. <a href="https://doi.org/10.1016/j.eswa.2007.12.020" class="uri">https://doi.org/10.1016/j.eswa.2007.12.020</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.3.0 (2023-04-21)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] kableExtra_1.3.4 skimr_2.1.5      janitor_2.2.0    readxl_1.4.2    
+##  [5] lubridate_1.9.2  forcats_1.0.0    stringr_1.5.0    dplyr_1.1.2     
+##  [9] purrr_1.0.1      readr_2.1.4      tidyr_1.3.0      tibble_3.2.1    
+## [13] ggplot2_3.4.2    tidyverse_2.0.0 
+## 
+## loaded via a namespace (and not attached):
+##  [1] sass_0.4.5        utf8_1.2.3        generics_0.1.3    xml2_1.3.3       
+##  [5] blogdown_1.16     stringi_1.7.12    hms_1.1.3         digest_0.6.31    
+##  [9] magrittr_2.0.3    evaluate_0.20     grid_4.3.0        timechange_0.2.0 
+## [13] bookdown_0.33     fastmap_1.1.1     cellranger_1.1.0  jsonlite_1.8.4   
+## [17] httr_1.4.5        rvest_1.0.3       fansi_1.0.4       viridisLite_0.4.1
+## [21] scales_1.2.1      jquerylib_0.1.4   cli_3.6.1         rlang_1.1.0      
+## [25] munsell_0.5.0     base64enc_0.1-3   repr_1.1.6        withr_2.5.0      
+## [29] cachem_1.0.7      yaml_2.3.7        tools_4.3.0       tzdb_0.3.0       
+## [33] colorspace_2.1-0  webshot_0.5.4     vctrs_0.6.2       R6_2.5.1         
+## [37] lifecycle_1.0.3   snakecase_0.11.0  pkgconfig_2.0.3   pillar_1.9.0     
+## [41] bslib_0.4.2       gtable_0.3.3      glue_1.6.2        systemfonts_1.0.4
+## [45] highr_0.10        xfun_0.39         tidyselect_1.2.0  rstudioapi_0.14  
+## [49] knitr_1.42        htmltools_0.5.5   svglite_2.1.1     rmarkdown_2.21   
+## [53] compiler_4.3.0</code></pre>
+</div>

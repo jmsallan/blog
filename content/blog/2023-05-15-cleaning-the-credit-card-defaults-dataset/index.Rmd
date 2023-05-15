@@ -1,0 +1,255 @@
+---
+title: Cleaning the Credit Card Defaults Dataset
+author: Jose M Sallan
+date: '2023-05-15'
+slug: cleaning-the-credit-card-defaults-dataset
+categories:
+  - R
+tags:
+  - dplyr
+  - machine learning
+  - data cleaning
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post, I will present how have I prepared for analysis the **default of credit card clients Data Set** available from the *UCI Machine Learning Repository*. I will be using the tidyverse for data handling, the `readxl` package to read the Excel file, the `janitor` package for data cleaning, and `skimr` for dataset summary. The kableExtra package will be used to present tabular results:
+
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(janitor)
+library(skimr)
+library(kableExtra)
+```
+
+This dataset was used in the Yeh & Lien (2009) paper of comparison of data mining techniques. The description of dataset variables presented in the *UCI Machine Learning repository* comes from that paper:
+
+*This research employed a binary variable, default payment (Yes = 1, No = 0), as the response variable. This study reviewed the literature and used the following 23 variables as explanatory variables:*
+
+*X1: Amount of the given credit (NT dollar): it includes both the individual consumer credit and his/her family (supplementary) credit.*
+
+*X2: Gender (1 = male; 2 = female).*
+
+*X3: Education (1 = graduate school; 2 = university; 3 = high school; 4 = others).*
+
+*X4: Marital status (1 = married; 2 = single; 3 = others).*
+
+*X5: Age (year).*
+
+*X6 - X11: History of past payment. We tracked the past monthly payment records (from April to September, 2005) as follows: X6 = the repayment status in September, 2005; X7 = the repayment status in August, 2005; . . .;X11 = the repayment status in April, 2005. The measurement scale for the repayment status is: -1 = pay duly; 1 = payment delay for one month; 2 = payment delay for two months; . . .; 8 = payment delay for eight months; 9 = payment delay for nine months and above.*
+
+*X12-X17: Amount of bill statement (NT dollar). X12 = amount of bill statement in September, 2005; X13 = amount of bill statement in August, 2005; . . .; X17 = amount of bill statement in April, 2005.*
+
+*X18-X23: Amount of previous payment (NT dollar). X18 = amount paid in September, 2005; X19 = amount paid in August, 2005; . . .;X23 = amount paid in April, 2005.*
+
+The dataset is delivered as an Excel file. The first row corresponds to the variables of the original paper, and the second row is a renaming of the variables presented above. In the Excel there is an additional first column of ID observations, so that variable X1 is in the second column of the file, and so on. As I don't want to modify the original file, I will skip the first row of the file and keep the renamed variables.
+
+```{r, eval=FALSE}
+ld <- read_excel("default of credit card clients.xls", skip = 1)
+```
+
+I will save the resulting data frame as a RDS object. So the storage required goes from 5.8 MB to 1.2 MB:
+
+```{r, eval=FALSE}
+saveRDS(ld, file = "ld.RDS")
+```
+
+I will load the dataset from the RDS by doing:
+
+```{r}
+cc_defaults <- readRDS("ld.RDS")
+```
+
+Let's examine the dataset with the `skim` summary function:
+
+```{r}
+skim(cc_defaults)
+```
+
+In the summary, we can see that all variables are numerical. This can be a requirement of the software used by in the Yeh & Lien (2009) paper, but using these variables as is can be misleading, as they are categorical variables. In R we can do better than that, so I will modify the dataset following four steps:
+
+* Clean the names of the dataset with `janitor::clean_names`.
+* Transform some features into factors with meaningful factor levels.
+* Rename the target variable, and transform it into a factor with the positive case as first level.
+* Rename some of the features to facilitate further analysis.
+
+## Clean Names of Dataset
+
+The original names of the dataset are:
+
+```{r}
+colnames(cc_defaults)
+```
+
+Let's clean the names of the dataset doing:
+
+```{r}
+cc_defaults <- clean_names(cc_defaults)
+```
+
+The dataset names are now:
+
+```{r}
+colnames(cc_defaults)
+```
+
+## Features Transformation
+
+In the description of the dataset we see that some variables like `sex`, `education` and `marriage` are categorical, although they are coded as numerical. To see why is that misleading, let's consider `sex`, which is equal to 1 for males and 2 for females. This labelling is arbitrary, so instead of describing a property larger for women than for men, is splitting the dataset into two different categories. We need to turn these variables into factors, and rename the levels of these factors adequately. This can be done with `forcats::fct_recode`.
+
+```{r}
+cc_defaults <- cc_defaults |>
+  mutate(sex = factor(sex)) |>
+  mutate(sex = fct_recode(sex, male = "1", female = "2"))
+```
+
+The transformation of `education` is more complex. From the summary, we observe that goes from 0 to 6, but it is defined from 1 to 4. Let's count how many observations have for each level using a `janitor::tabyl` function:
+
+```{r}
+cc_defaults |>
+  tabyl(education) |>
+  adorn_pct_formatting() |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+The proportion of odd values of the variable is small, so it is safer to group them into an `unknown` level:
+
+```{r}
+cc_defaults <- cc_defaults |>
+  mutate(education = factor(education)) |>
+  mutate(education = fct_recode(education, graduate = "1", university = "2", high_school = "3", others = "4", unknown = "0", unknown = "5", unknown = "6"))
+```
+
+The resulting levels of the factor are:
+
+```{r}
+levels(cc_defaults$education)
+```
+
+And the new counting of levels is:
+
+```{r}
+cc_defaults |>
+  tabyl(education) |>
+  adorn_pct_formatting() |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+Something similar happens with the 'marriage` variable, which has more levels than the ones defined in Yeh & Lien (2009):
+
+```{r}
+cc_defaults |>
+  tabyl(marriage) |>
+  adorn_pct_formatting() |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+When transforming `marriage` into a factor, I will be coding the zero level as `unknown`:
+
+```{r}
+cc_defaults <- cc_defaults |>
+  mutate(marriage = factor(marriage)) |>
+  mutate(marriage = fct_recode(marriage, unknown = "0", unknown = "3", married = "1", single = "2"))
+```
+
+## Transforming the Target Variable
+
+The target variable `default_payment_next_month` must be transformed into a factor, with the positive case as first level. I will use `dplyr::rename` to give the variable a shorter name and `fct_relevel` to reorder the levels of variables. 
+
+```{r}
+cc_defaults <- cc_defaults |>
+  rename("default" = default_payment_next_month) |>
+  mutate(default = factor(default)) |>
+  mutate(default = fct_relevel(default, "1")) |>
+  mutate(default = fct_recode(default, yes = "1", "no" = "0"))
+```
+
+Counting the observations of each level, we observe that the dataset is **imbalanced**, as there are much more observations with no default:
+
+```{r}
+cc_defaults |>
+  tabyl(default) |>
+  adorn_pct_formatting() |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+## Rename Features
+
+The family of `pay_*`, `bill_amt*` and `pay_amt*` variables are labelled inconsistently, and the names do not provide information about the month they are describing. We are trying to predict if a customer will default in October by examining her/his behavior in the previous six months, April to September. So I will relabel the variables accordingly using `dplyr::rename`:
+
+```{r}
+cc_defaults <- cc_defaults |>
+  rename("pay_sep" = pay_0,
+         "pay_aug" = pay_2,
+         "pay_jul" = pay_3,
+         "pay_jun" = pay_4,
+         "pay_may" = pay_5,
+         "pay_apr" = pay_6,
+         "bill_amt_sep" = bill_amt1,
+         "bill_amt_aug" = bill_amt2,
+         "bill_amt_jul" = bill_amt3,
+         "bill_amt_jun" = bill_amt4,
+         "bill_amt_may" = bill_amt5,
+         "bill_amt_apr" = bill_amt6,
+         "pay_amt_sep" = pay_amt1,
+         "pay_amt_aug" = pay_amt2,
+         "pay_amt_jul" = pay_amt3,
+         "pay_amt_jun" = pay_amt4,
+         "pay_amt_may" = pay_amt5,
+         "pay_amt_apr" = pay_amt6)
+```
+
+## Significance of pay Variables
+
+The original meaning of the `pay_apr:pay_sep` variables is:
+
+*X6 - X11: History of past payment. We tracked the past monthly payment records (from April to September, 2005) as follows: X6 = the repayment status in September, 2005; X7 = the repayment status in August, 2005; . . .;X11 = the repayment status in April, 2005. The measurement scale for the repayment status is: -1 = pay duly; 1 = payment delay for one month; 2 = payment delay for two months; . . .; 8 = payment delay for eight months; 9 = payment delay for nine months and above.*
+
+Nevertheless, we observe that there are other variable values around. Let's see for instance `pay_sep`:
+
+```{r}
+cc_defaults |>
+  tabyl(pay_sep) |>
+  adorn_pct_formatting() |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+This fact has caught the attention of other users. In a Kaggle discussion forum, we are informed that the authors of the paper provided further clarification about the meaning of this variable:
+
+*-2: No consumption; -1: Paid in full; 0: The use of revolving credit; 1 = payment delay for one month; 2 = payment delay for two months; . . .; 8 = payment delay for eight months; 9 = payment delay for nine months and above.*
+
+This means that the `pay_*` variables have a different meaning when they are positive than when they are zero or negative. Further analysis must take this into account.
+
+## The Importance of Data Cleaning
+
+Data cleaning is a relevant tasks in data analysis. As quoted in the `janitor` website:
+
+*Data scientists, according to interviews and expert estimates, spend from 50 percent to 80 percent of their time mired in this more mundane labor of collecting and preparing unruly digital data, before it can be explored for useful nuggets.*
+
+The `skimr::skim` function helps to take a first look of a dataset with an exhaustive summary report. The `janitor` package helps to simplify this cumbersome task in the context of R, reproducing with `janitor::tabyl` some of the results of counting the number of elements of each level using Excel dynamic tables. The use of a programming language like R helps to make this data cleaning task reproducible.
+
+## References
+
+* *default of credit card clients Data Set* <https://archive.ics.uci.edu/ml/datasets/default+of+credit+card+clients#> UCI Machine Learning Repository.
+* *Default of Credit Card Clients Dataset: Answer to missing values (-2, 0) not in measurement scale.* <https://www.kaggle.com/datasets/uciml/default-of-credit-card-clients-dataset/discussion/34608>
+* `janitor` website <https://sfirke.github.io/janitor/index.html>
+* Yeh, I. C., & Lien, C. H. (2009). The comparisons of data mining techniques for the predictive accuracy of probability of default of credit card clients. *Expert Systems with Applications*, 36(2), 2473-2480. <https://doi.org/10.1016/j.eswa.2007.12.020>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
