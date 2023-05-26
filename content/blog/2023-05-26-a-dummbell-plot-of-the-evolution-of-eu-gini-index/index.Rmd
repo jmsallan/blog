@@ -1,0 +1,149 @@
+---
+title: A Dummbell Plot of the Evolution of EU Gini Index
+author: Jose M Sallan
+date: '2023-05-26'
+slug: a-dummbell-plot-of-the-evolution-of-eu-gini-index
+categories:
+  - R
+  - economics
+tags:
+  - data visualization
+  - ggplot
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post I present how to visualize the evolution of two sets of variables from the same individuals. I have used data of the Gini index obtained from the World Bank with the `wbstats` package to show the evolution of inequality of the current members of the European Union between 2010 and 2018. I rely on the `tidyverse` for data handling and visualization, with additional elements from `ggimage`.
+
+```{r}
+library(tidyverse)
+library(wbstats)
+library(ggimage)
+```
+
+I start retrieving the Gini index from the World Bank, which is presented in the series `SI.POV.GINI`, with `wbstats::wb_data`. The vector `eu_iso2c` contains the Alpha 2 codes (ISO 3166) of the current members of the European Union.
+
+```{r}
+gini <- wb_data("SI.POV.GINI", start_date = 2000, end_date = 2020)
+
+eu_iso2c <- c("AT", "BE", "BG", "HR", "CY", "CZ",
+              "DK", "EE", "FI", "FR", "DE", "GR",
+              "HU", "IE", "IT", "LV", "LU", "MT",
+              "NL", "PL", "PT", "RO", "SK", "SI",
+              "ES", "SE")
+
+gini_eu <- gini |>
+  filter(iso2c %in% eu_iso2c, date %in% c(2010, 2018)) |>
+  select(iso2c, date, SI.POV.GINI)
+```
+
+The `gini_eu` table contains the Gini indices of EU countries of 2010 and 2018:
+
+```{r}
+gini_eu
+```
+
+With this table, I have created an **horizontal bar chart** presenting the Gini indices for each country in 2010 and 2018. The character variable `iso2c` is mutated into a factor, with levels reordered with `forcats::fct_reorder2` by the value of two variables: year and  Gini index. Then, countries are ordered by value of Gini index in 2018.
+
+```{r, out.width='100%'}
+gini_eu |>
+  mutate(iso2c = fct_reorder2(iso2c, date, -SI.POV.GINI)) |>
+  ggplot(aes(SI.POV.GINI, iso2c, fill = factor(date))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  scale_fill_manual(name = "year", values = c("#66B2FF", "#004C99")) +
+  theme(legend.position = "top") +
+  labs(title = "Evolution of inequality in EU", x = "Gini index", y = NULL)
+```
+
+This bar chart is useful to present absolute values of Gini index, but can become somewhat cluttered to observe variation. Let's present the same information with a **dumbbell plot**.
+
+To create the dumbbell plot, we need to plot a segment for each of the countries with `geom_segment()`. As I need the values of Gini index for 2010 and 2018 for each country in the same row, I have created a `gini_eu_wide` with `tidyr::pivot_wider()`. I have also ordered countries by decreasing value of Gini index in 2018 using `forcats::fct_reorder()`.
+
+As I am focusing in visualizing variations, it can be of interest to show if Gini index has increased or decreased. That's why I have created an `ev` variable, equal to the year when Gini index is higher.
+
+```{r}
+gini_eu_wide <- gini_eu |>
+  select(iso2c, date, SI.POV.GINI) |>
+  pivot_wider(names_from = "date", values_from = "SI.POV.GINI") |>
+  mutate(iso2c = as.factor(iso2c)) |>
+  mutate(iso2c = fct_reorder(iso2c, `2018`)) |>
+  mutate(ev = ifelse(`2018` > `2010`, "2018", "2010"))
+```
+
+That's how `gini_eu_wide` looks like:
+
+```{r}
+gini_eu_wide
+```
+
+Let's do a **first draft** of the dumbbell plot:
+
+* I have ordered the levels of `iso2c` in the same way as in the previous plot, which is also the ordering of `gini_eu_wide`.
+* In the x axis is presented the Gini index value `SI.POV.GINI`, and in the y axis the countries.
+* The plates of the dumbbell are created with `geom_point()`. I have used different colors for values of 2010 and 2018 so we can see if the index increases or decreases.
+* The bars of the dumbbell are created with `geom_segment()`, and with the `gini_eu_wide` table. The color of the segments is assigned with the `ev` variable.
+* To give an additional cue for Gini index increasing or decreasing, I have added an arrow to the segment, pointing at the value of 2018.
+
+```{r, out.width='100%'}
+gini_eu |>
+  mutate(iso2c = fct_reorder2(iso2c, date, -SI.POV.GINI)) |>
+  ggplot(aes(SI.POV.GINI, iso2c)) +
+  geom_point(aes(color = as.factor(date))) +
+  geom_segment(data = gini_eu_wide, 
+               mapping = aes(y = as.numeric(iso2c), 
+                             yend = as.numeric(iso2c), 
+                             x = `2010`, 
+                             xend = `2018`,
+                             color = ev), arrow = arrow(length = unit(0.02, "npc"))) +
+  theme_minimal()
+```
+
+The resulting plot presents the required information: the red points are values of Gini index in 2010 and the blue ones of 2018. Blue segments present an increase of Gini index and red segments a decrease. Let's do some additional aesthetic improvements:
+
+* **Title and caption** are added with `labs()`. I have also removed the label of the x axis.
+* **Countries axis:** I have replaced country names with **flags**. I have removed default labels and axis name with `scale_y_discrete()`and added the flags with `geom_flag()` from `ggimage`.
+* **Colors:** I have changed the default colors with the same blues of the barplot with `scale_color_manual()`.
+* **Background color and legend position:** in the `theme()` I have changed the position of the legend, and changed the color background default by a light yellow, so that the flags can be perceived better.
+
+
+```{r, out.width='100%'}
+gini_eu |>
+  mutate(iso2c = fct_reorder2(iso2c, date, -SI.POV.GINI)) |>
+  ggplot(aes(SI.POV.GINI, iso2c)) +
+  geom_point(aes(color = as.factor(date))) +
+  geom_segment(data = gini_eu_wide, 
+               mapping = aes(y = as.numeric(iso2c), 
+                             yend = as.numeric(iso2c), 
+                             x = `2010`, 
+                             xend = `2018`,
+                             color = ev), arrow = arrow(length = unit(0.02, "npc"))) +
+  labs(title = "Evolution of inequality in EU",
+       caption = "Source: World Bank",
+       x = NULL) +
+  geom_flag(mapping = aes(x = 24, y = as.numeric(iso2c), image = iso2c),
+            data = gini_eu_wide, size = 0.03) +
+  scale_color_manual(name = "year", values = c("#66B2FF", "#004C99")) +
+  scale_y_discrete(name = element_blank(), labels = element_blank()) +
+  theme_minimal() +
+  theme(plot.background = element_rect(fill = "#FFFFDD"), legend.position = "top")
+```
+
+An **horizontal bar chart** is useful to compare absolute values of a set of observations, although it can become too cluttered to present the evolution of two sets of observations. The **dumbbell plot** is a good alternative to visualize this evolution. It is not included by default in ggplot, but here I have presented how to draw it using plots and segments.
+
+## References
+
+* *Three measures of inequality* <https://jmsallan.netlify.app/blog/three-measures-of-inequality/> (includes Gini index explanation).
+* Gini index in World Bank Data <https://data.worldbank.org/indicator/SI.POV.GINI>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
