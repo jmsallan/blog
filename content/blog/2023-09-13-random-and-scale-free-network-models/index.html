@@ -1,0 +1,262 @@
+---
+title: Random and Scale-Free Network Models
+author: Jose M Sallan
+date: '2023-09-13'
+slug: random-and-scale-free-network-models
+categories:
+  - R
+tags:
+  - complex networks
+  - ggraph
+  - tidygraph
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>In this post, I will use <code>tidygraph</code> and <code>ggraph</code> to introduce two relevant network models: the Erdős-Renyi model of random networks, and the Barabási-Albert of scale-free networks. I will also use <code>dplyr</code> for tabular data manipulation and <code>igraphdata</code> to get an example of real world network.</p>
+<pre class="r"><code>library(dplyr)
+library(tidygraph)
+library(ggraph)
+library(igraphdata)</code></pre>
+<div id="the-erdős-rényi-model" class="section level2">
+<h2>The Erdős-Rényi Model</h2>
+<p>One of the earliest models of random networks is the <strong>Erdős-Rényi (ER)</strong> model. There are two equivalent ways of defining the graph of an ER model:</p>
+<ul>
+<li>In the <span class="math inline">\(G\left(n, m \right)\)</span> model, we choose uniformly an element of the set of all graphs of <span class="math inline">\(n\)</span> nodes and <span class="math inline">\(m\)</span> edges.</li>
+<li>In the <span class="math inline">\(G\left(n, p\right)\)</span> modeol, each edge of a complete graph of <span class="math inline">\(n\)</span> nodes can be added with a probability <span class="math inline">\(p\)</span>.</li>
+</ul>
+<p>In both formulations nodes are labelled, so that graphs obtained permuting the nodes are considered to be distinct.</p>
+<p>We can generate ER graphs with <code>tidygraph</code> using the <code>play_erdos_renyi</code> function. We need to fix <code>n</code>, and we can specify either <code>m</code> or <code>p</code>. We can define an undirected graph of 20 nodes and 100 edges doing:</p>
+<pre class="r"><code>set.seed(1111)
+er &lt;- play_erdos_renyi(n = 20, m = 100, directed = FALSE)</code></pre>
+<p>Here is the representation of <code>er</code> using <code>ggraph</code>.</p>
+<pre class="r"><code>ggraph(er, layout = &quot;kk&quot;) +
+  geom_node_point(size = 4) +
+  geom_edge_link(alpha = 0.5) +
+  theme_graph()</code></pre>
+<pre><code>## Warning: Using the `size` aesthetic in this geom was deprecated in ggplot2 3.4.0.
+## ℹ Please use `linewidth` in the `default_aes` field and elsewhere instead.
+## This warning is displayed once every 8 hours.
+## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
+## generated.</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="80%" style="display: block; margin: auto;" /></p>
+</div>
+<div id="the-degree-distribution-of-a-er-network" class="section level2">
+<h2>The Degree Distribution of a ER Network</h2>
+<p>One relevant property of nodes of a graph is the number of nodes to which is connected, known as <strong>node degree</strong>. The degree of a node <span class="math inline">\(i\)</span> is usually represented as <span class="math inline">\(k_i\)</span>. Node degree is a relevant measure of centrality or relevance of a node. In a social network, a node with high degree is connected with many nodes of the network and it is supposed to be central or relevant.</p>
+<p>The statistical distribution of degree across the nodes of the graph is the **degree *distribution.** This is a relevant property of networks, as it is supposed to be related with network properties, such as connectivity and robustness.</p>
+<p>For ER networks, degree distribution follows a binomial distribution of parameters <span class="math inline">\(n\)</span> and <span class="math inline">\(p\)</span>. For <span class="math inline">\(n \rightarrow \infty\)</span> and <span class="math inline">\(np\)</span> finite, node degree tends to a Poisson distribution.</p>
+<p>To illustrate this, I have defined a <code>er_deg_distribution</code> function. I am obtaining the degree of each node with <code>contrality_degree()</code>. In the dd table, I am obtaining the probability of each value of degree <code>prob</code> and the probability obtained with a Poisson distribution <code>t_prob</code>. With ggplot I represent the real distribution with a barplot and the theoretical distribution with a line.</p>
+<pre class="r"><code>er_deg_distribution &lt;- function(graph){
+  
+  degree &lt;- graph |&gt;
+    activate(nodes) |&gt;
+    mutate(deg = centrality_degree()) |&gt;
+    as_tibble()
+  
+  av_deg &lt;- mean(degree$deg)
+  n_nodes &lt;- nrow(degree)
+  n_edges &lt;- graph |&gt; activate(edges) |&gt; as_tibble() |&gt; nrow()
+  p &lt;- 2*n_edges/(n_nodes*(n_nodes-1))
+  
+  dd &lt;- degree |&gt;
+    count(deg) |&gt;
+    mutate(prob = n/sum(n),
+           t_prob = dbinom(deg, n_nodes, p))
+  
+   dd |&gt;
+    ggplot(aes(deg, prob)) +
+    geom_bar(stat = &quot;identity&quot;, alpha = 0.5) +
+    geom_line(aes(deg, t_prob), linewidth = 1.5) +
+    theme_minimal() +
+    labs(x = &quot;node degree&quot;, y = &quot;probability&quot;)
+  
+}</code></pre>
+<p>Let’s define a large ER network <code>er2</code>:</p>
+<pre class="r"><code>set.seed(1111)
+er2 &lt;- play_erdos_renyi(n = 1000, p = 0.3, directed = FALSE)</code></pre>
+<p>The real and theoretical degree distributions are:</p>
+<pre class="r"><code>er_deg_distribution(er2)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="80%" style="display: block; margin: auto;" /></p>
+<p>From the figure, we observe that the real and theoretical probability distributions are reasonably similar. From this result, we can describe two relevant properties of degree distribution of ER networks:</p>
+<ul>
+<li><strong>Node homogeneity:</strong> In the way ER networks are defined, all nodes have similar properties. Each node of a ER network has a degree around to average degree <span class="math inline">\(\langle k \rangle\)</span>.</li>
+<li><strong>Exponential decay:</strong> As node degree follows a binomial distribution, we cannot expect values of degree much higher than the average. That is what we mean when we say that node degree decays exponentially.</li>
+</ul>
+</div>
+<div id="the-barabási-albert-model-of-scale-free-networks" class="section level2">
+<h2>The Barabási-Albert Model of Scale-Free Networks</h2>
+<p>Many networked system we observe in nature or society have nodes with high degree together with nodes of a small degree. In an airport network, large airports like Frankfurt of Charles de Gaulle have much more connections than regional airports. In a social network, some individuals have much more relationships than the rest of the population. To account for this phenomenon of degree heterogeneity, Barabási and Albert suggested a model of scale-free networks (SF).</p>
+<p>SF networks are constructed through two mechanisms: growth and preferential attachment. While the number of nodes and edges of a ER network is fixed beforehand, a SF starts with a complete graph of <span class="math inline">\(n_0\)</span> nodes, the <strong>growth</strong> mechanism adds a new node at each stage with <span class="math inline">\(m \leq n_0\)</span> edges linking it with pre-existing nodes. The <strong>preferential attachment</strong> mechanism makes the probability of connecting with pre-existing nodes be proportional to node degree. The probability of a new node to connect to a node <span class="math inline">\(i\)</span> is defined as <span class="math inline">\(p_i \sim k_i^\alpha + a\)</span>. We call <span class="math inline">\(\alpha\)</span> the power of the preferential attachment and <span class="math inline">\(a\)</span> the appeal of a node of degree zero.</p>
+<p>In <code>tidygraph</code> we can generate a SF network with the <code>play_barabasi_albert</code> function, with the following parameters:</p>
+<ul>
+<li><code>n</code>: number of nodes.</li>
+<li><code>growth</code>: number of edges m to add at each stage.</li>
+<li><code>power</code>: the value of <span class="math inline">\(\alpha\)</span>.</li>
+<li><code>appeal_zero</code>: the value of <span class="math inline">\(a\)</span>.</li>
+</ul>
+<p>With the following code we have defined a SF network ba with 20 nodes. Then, I have used <code>centrality_degree()</code> to calculate node degree <code>deg</code>.</p>
+<pre class="r"><code>set.seed(1111)
+ba &lt;- play_barabasi_albert(n = 20, power = 1, 
+                           appeal_zero = 0, growth = 5, 
+                           directed = FALSE)
+
+ba &lt;- ba |&gt;
+  activate(nodes) |&gt;
+  mutate(deg = centrality_degree())</code></pre>
+<p>Networks built with growth and preferential attachment mechanisms will have <strong>node heterogeneity</strong>. Nades added in earlier stages will have more probability to be linked with new nodes, and this probability is increased by preferential attachment. In a SF network, a small number of nodes with high degree will coexist with nodes of smaller degree. In this representation of the ba network made with <code>ggraph</code> we observe that all nodes have a degree of at least five, but some nodes have a higher degree.</p>
+<pre class="r"><code>ggraph(ba, layout = &quot;kk&quot;) +
+  geom_node_point(aes(size = deg)) +
+  geom_edge_link(alpha = 0.5) +
+  theme_graph() +
+  theme(legend.position = &quot;none&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="80%" style="display: block; margin: auto;" /></p>
+</div>
+<div id="the-degree-distribution-of-a-sf-network" class="section level2">
+<h2>The Degree Distribution of a SF Network</h2>
+<p>SF networks have a fat-tailed degree distribution, where the probability of finding nodes of high degree is larger than with ER networks. To examine this, I have defined a ba2 network of 1000 nodes:</p>
+<pre class="r"><code>ba2 &lt;- play_barabasi_albert(n = 1000, power = 1, 
+                            appeal_zero = 0, growth = 5, 
+                            directed = FALSE)</code></pre>
+<p>If we compare the degree distribution of ba2 with the theoretical degree distribution of a ER network, we observe the existence of highly-connected nodes not predicted by the ER model:</p>
+<pre class="r"><code>er_deg_distribution(ba2)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="80%" style="display: block; margin: auto;" /></p>
+<p>The degree distribution of a SF network is better modeled with a power law, so that the probability of finding nodes of degree k is of the form <span class="math inline">\(P\left(k\right) \sim k^\gamma\)</span>. Power laws are called <strong>scale</strong> free because they look the same no matter what scale we are examining them. Power laws look as a straight line in a log-log plot, so I have defined a <code>ba_deg_distribution</code> function to represent them.</p>
+<pre class="r"><code>ba_deg_distribution &lt;- function(graph){
+  
+  degree &lt;- graph |&gt;
+    activate(nodes) |&gt;
+    mutate(deg = centrality_degree()) |&gt;
+    as_tibble()
+  
+  dd &lt;- degree |&gt;
+    count(deg) |&gt;
+    mutate(prob = n / sum(n))
+  
+  dd |&gt;
+    ggplot(aes(deg, prob)) +
+    geom_point() +
+    theme_minimal() +
+    scale_x_log10() +
+    scale_y_log10() +
+    labs(x = &quot;k&quot;, y = &quot;P(k)&quot;)
+  
+}</code></pre>
+<p>That’s how the degree distribution of <code>ba2</code> looks like in the log-log plot:</p>
+<pre class="r"><code>ba_deg_distribution(ba2)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-12-1.png" width="80%" style="display: block; margin: auto;" /></p>
+<p>While for low values of degree the distribution looks pretty much like a straight line, for high values of degree the output looks noisy. To remedy this, we usually plot the <strong>cumulative degree</strong> distribution, defined as <span class="math inline">\(P_{cum}\left(k\right) = P\left(k&#39; \geq k\right)\)</span>. <code>ba_cum_distribution</code> makes the cumulative distribution plot in a log-log scale.</p>
+<pre class="r"><code>ba_cum_distribution &lt;- function(graph){
+  
+  degree &lt;- graph |&gt;
+    activate(nodes) |&gt;
+    mutate(deg = centrality_degree()) |&gt;
+    as_tibble()
+  
+  dd &lt;- degree |&gt;
+    count(deg) |&gt;
+    arrange(-deg) |&gt;
+    mutate(prob = n / sum(n),
+           cumprob = cumsum(prob))
+  
+  dd |&gt;
+    ggplot(aes(deg, cumprob)) +
+    geom_point() +
+    theme_minimal() +
+    scale_x_log10() +
+    scale_y_log10() +
+    labs(x = &quot;k&quot;, y = bquote(P[cum](k)))
+  
+}</code></pre>
+<p>That is how the cumulative degree distribution of <code>ba2</code> looks like:</p>
+<pre class="r"><code>ba_cum_distribution(ba2)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-14-1.png" width="80%" style="display: block; margin: auto;" /></p>
+<p>We observe that cumulative degree distribution looks like a straight line with slope <span class="math inline">\(\gamma_{cum} = \gamma-1\)</span>. Those slopes cannot be obtained with least squares regression. If necessary, <span class="math inline">\(\gamma\)</span> can be calculated using the <code>poweRlaw</code> package.</p>
+</div>
+<div id="degree-distribution-of-a-real-world-network" class="section level2">
+<h2>Degree Distribution of a Real World Network</h2>
+<p>Let’s see how is the degree distribution of a real world network. I will examine the <code>USairports</code> network from <code>igraphdata</code>.</p>
+<pre class="r"><code>data(&quot;USairports&quot;)</code></pre>
+<p>In the code below I prepare the data for the analysis using <code>tidygraph</code>:</p>
+<ul>
+<li>Defining a <code>tidygraph</code> object <code>us_airports</code> from an <code>igraph</code> object <code>USairports</code> using <code>as_tbl_graph()</code>.</li>
+<li>The original data included several connections for each pair of airports, so there can be multiple edges between a pair of nodes. We collapse them into a single edge between each pair of nodes with direct connections using <code>to_simple</code> with <code>convert()</code>.</li>
+<li>The graph has several connected components, and we will analyze the largest connected component <code>us_airports_lcc</code>. We have obtained the nodes belonging to each component with <code>group_components()</code>. We have excluded from the largest connected component the nodes with degree zero.</li>
+</ul>
+<pre class="r"><code>us_airports &lt;- as_tbl_graph(USairports)
+
+us_airports &lt;- us_airports |&gt;
+  convert(to_simple)
+
+us_airports &lt;- us_airports |&gt;
+  activate(nodes) |&gt;
+  mutate(comp = group_components(),
+         d = centrality_degree())
+
+us_airports_lcc &lt;- us_airports |&gt;
+  convert(to_subgraph, comp == 1, d &gt; 0)</code></pre>
+<p>Here is the cumulative degree distribution of the largest connected component of <code>USairports</code>.</p>
+<pre class="r"><code>ba_cum_distribution(us_airports_lcc)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-17-1.png" width="80%" style="display: block; margin: auto;" /></p>
+<p>We observe that the degree distribution of the US airport network fits a power law for low values of degree, although we observe a exponential decay for values of degree slightly smaller than 100. This exponential decay appears because the degree predicted for the power law for highly connected nodes is too large for the commercial of technical capabilities of large airports.</p>
+</div>
+<div id="two-network-models" class="section level2">
+<h2>Two Network Models</h2>
+<p>The Erdős-Rényi (ER) model corresponds with the idea that most of us have of a random network, as any pair of nodes can be connected with the same probability. This means that all network nodes have similar statistical properties, one of them being node degree, or the number of nodes to which a node is connected. Many real world networks have node heterogeneity. A network model accounting for node heterogeneity is the scale-free (SF) model. SF networks are created with the mechanisms of growth and preferential attachment, and have a degree distribution that follows a power law. In this scale-free, fat-tailed distribution, there are nodes with a degree much higher than the predicted by the ER model.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Adamic, L. <em>Power-laws “scale-free” networks.</em> <a href="https://cs.brynmawr.edu/Courses/cs380/spring2013/section02/slides/10_ScaleFreeNetworks.pdf" class="uri">https://cs.brynmawr.edu/Courses/cs380/spring2013/section02/slides/10_ScaleFreeNetworks.pdf</a></li>
+<li>Barabási, A. L., &amp; Albert, R. (1999). Emergence of scaling in random networks. <em>Science</em>, 286(5439), 509-512.</li>
+<li>Erdős, P., &amp; Rényi, A. (1960). On the evolution of random graphs. <em>Publ. Math. Inst. Hung. Acad. Sci</em>, 5(1), 17-60.</li>
+<li><em><code>poweRlaw</code>: Analysis of Heavy Tailed Distributions.</em> <a href="https://cran.r-project.org/web/packages/poweRlaw/index.html" class="uri">https://cran.r-project.org/web/packages/poweRlaw/index.html</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre class="r"><code>sessionInfo()</code></pre>
+<pre><code>## R version 4.3.1 (2023-06-16)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] igraphdata_1.0.1 ggraph_2.1.0     ggplot2_3.4.2    tidygraph_1.2.3 
+## [5] dplyr_1.1.2     
+## 
+## loaded via a namespace (and not attached):
+##  [1] viridis_0.6.2      sass_0.4.5         utf8_1.2.3         generics_0.1.3    
+##  [5] tidyr_1.3.0        blogdown_1.16      digest_0.6.31      magrittr_2.0.3    
+##  [9] evaluate_0.20      grid_4.3.1         bookdown_0.33      fastmap_1.1.1     
+## [13] jsonlite_1.8.4     ggrepel_0.9.3      gridExtra_2.3      purrr_1.0.1       
+## [17] fansi_1.0.4        viridisLite_0.4.1  scales_1.2.1       tweenr_2.0.2      
+## [21] jquerylib_0.1.4    cli_3.6.1          crayon_1.5.2       graphlayouts_0.8.4
+## [25] rlang_1.1.0        polyclip_1.10-4    munsell_0.5.0      withr_2.5.0       
+## [29] cachem_1.0.7       yaml_2.3.7         tools_4.3.1        colorspace_2.1-0  
+## [33] vctrs_0.6.2        R6_2.5.1           lifecycle_1.0.3    MASS_7.3-60       
+## [37] pkgconfig_2.0.3    pillar_1.9.0       bslib_0.5.0        gtable_0.3.3      
+## [41] glue_1.6.2         Rcpp_1.0.10        ggforce_0.4.1      highr_0.10        
+## [45] xfun_0.39          tibble_3.2.1       tidyselect_1.2.0   rstudioapi_0.14   
+## [49] knitr_1.42         farver_2.1.1       htmltools_0.5.5    igraph_1.4.2      
+## [53] labeling_0.4.2     rmarkdown_2.21     compiler_4.3.1</code></pre>
+</div>
