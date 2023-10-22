@@ -1,0 +1,427 @@
+---
+title: The Small-World Property of Complex Networks
+author: Jose M Sallan
+date: '2023-10-22'
+slug: he-small-world-property-of-complex-networks
+categories:
+  - R
+tags:
+  - complex networks
+  - ggraph
+  - R
+  - tidygraph
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>In this post, I will introduce the small world property of complex networks. Besides <code>tidyverse</code>, <code>patchwork</code> and <code>kableExtra</code> to handle data and to present tables and graphs, I will be using <code>igraphdata</code> to get a sample of the US airport network, and <code>tidygraph</code> and <code>ggraph</code> to handle network data.</p>
+<pre class="r"><code>library(tidygraph)
+library(ggraph)
+library(igraphdata)
+library(tidyverse)
+library(patchwork)
+library(kableExtra)</code></pre>
+<p>Behind the concept of small-world networks (Watts &amp; Strogatz, 1998), lies the observation that the global and local properties of real world networks are in a middle ground between regular networks and random networks. Watts and Strogatz used as global property the characteristic path length, and as local property the average clustering coefficient. Let’s describe these two properties, and see how to calculate them.</p>
+<div id="characteristic-path-length" class="section level2">
+<h2>Characteristic Path Length</h2>
+<p>In an unewighted graph, the <em>distance</em> between two nodes is equal to the minimum number of edges required to reach the second node fromt the first. The <em>characteristic path lenght</em> or <em>average shortest path length</em> <span class="math inline">\(L\)</span> of a network is equal to the average value of distances between network nodes. For an undirected graph is equal to:</p>
+<p><span class="math display">\[ L = \frac{2}{N\left(N-1\right)} \sum_{i&gt;j} d_{ij}\]</span></p>
+<p>If two nodes of the network are disconnected, the distance between these nodes is infinite, so <span class="math inline">\(L\)</span> diverges to infinity.</p>
+</div>
+<div id="average-clustering-coefficient" class="section level2">
+<h2>Average Clustering Coefficient</h2>
+<p>The clustering coefficient measures the cliqueness of a node, that is, the number of edges between the neighbours of a node. If the number of neighbors of a node <span class="math inline">\(i\)</span> is equal to its degree <span class="math inline">\(k_i\)</span> and the number of edges between neighbours of <span class="math inline">\(i\)</span> is equal to <span class="math inline">\(e_i\)</span>, the local clustering coefficient is equal to:</p>
+<p><span class="math display">\[c_i. = \frac{2e_i}{k_i\left(k_i - 1\right)}\]</span></p>
+<p>By definition, <span class="math inline">\(c_i\)</span> is set to zero for nodees with only one neighbour.</p>
+<p>and the <strong>average clustering coefficient</strong> <span class="math inline">\(C\)</span> is equal to the mean <span class="math inline">\(c_i\)</span> across network nodes:</p>
+<p><span class="math display">\[C = \frac{1}{N} \sum_{i=1}^N c_i\]</span></p>
+<p>Let’s illustrate clustering coefficient with a <code>star</code> graph (left) and a clustered star <code>star_clust</code> graph (right):</p>
+<pre class="r"><code>star_plot &lt;- function(table){
+  
+  g &lt;- as_tbl_graph(table)
+  
+  ggraph(g, layout = &quot;star&quot;) +
+    geom_node_text(aes(label = name), size = 7) +
+    geom_edge_link(alpha = 0.5, 
+                   start_cap = circle(3, &quot;mm&quot;), end_cap = circle(3, &quot;mm&quot;),
+                   edge_width = 2) +
+    theme_graph()
+  
+}
+
+star &lt;- data.frame(org = rep(1, 6),
+               dst = 2:7)
+
+star_clust &lt;- data.frame(org = c(rep(1,6), 2, 3, 2),
+                     dst = c(2:7, 3, 4, 4))
+
+star_plot(star) + star_plot(star_clust)</code></pre>
+<pre><code>## Warning: Using the `size` aesthetic in this geom was deprecated in ggplot2 3.4.0.
+## ℹ Please use `linewidth` in the `default_aes` field and elsewhere instead.
+## This warning is displayed once every 8 hours.
+## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
+## generated.</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="100%" /></p>
+<p>In the <code>star</code> graph, there are no edges between the neighbours of any node. For nodes 2 to 7 <span class="math inline">\(c_i\)</span> is zer because they have only one neighbour. For node 1 <span class="math inline">\(c_i\)</span> is also zero as there is no edges between nodes 2 through 7.</p>
+<p>For <code>star_clust</code>, <span class="math inline">\(c_i = 0\)</span> for nodes 5 to 7. As node 1 has six neighbours, and there are three edges between nodes to 2 to 7, we have:</p>
+<p><span class="math display">\[c_1 = \frac{2 \times 3}{6 \times 5} = 0.2\]</span></p>
+<p>And for nodes 2 to 4 <span class="math inline">\(c_i = 1\)</span> as their neighbourhoods are fully connected. Therefore, for <code>star_clust</code> <span class="math inline">\(C = 0.457\)</span>.</p>
+</div>
+<div id="the-small-world-property-of-regular-and-random-networks" class="section level2">
+<h2>The Small-World Property of Regular and Random Networks</h2>
+<p>Regular and random networks have distinct behaviors regarding the evolution of <span class="math inline">\(L\)</span> and <span class="math inline">\(C\)</span> with network size <span class="math inline">\(N\)</span>:</p>
+<ul>
+<li>In random networks, characteristic path length grows logartihmically with <span class="math inline">\(N\)</span>, <span class="math inline">\(L \sim ln N / ln \langle k \rangle\)</span>, where <span class="math inline">\(\langle k \rangle\)</span> is the average degree. Clustering coefficient vanishes with size <span class="math inline">\(C \sim \langle k \rangle/ N\)</span>.</li>
+<li>In regular networks, characteristic path length grows linearly with <span class="math inline">\(N\)</span> while clustering coefficient remains constant with <span class="math inline">\(N\)</span>.</li>
+</ul>
+<pre class="r"><code>meas_lattice &lt;- function(av_degree, size){
+  
+  lattice &lt;- play_smallworld(n_dim = 1, dim_size = size, order = round(av_degree/2), p = 0)
+  
+  meas &lt;- lattice |&gt;
+    activate(nodes) |&gt;
+    mutate(L = graph_mean_dist(),
+           C = local_transitivity()) |&gt;
+    as_tibble() |&gt;
+    summarise(across(everything(), mean))
+  
+  meas &lt;- meas |&gt;
+    mutate(N = size,
+           graph = &quot;regular&quot;) |&gt;
+    select(graph, N, L, C)
+  
+  return(meas)
+  
+}
+
+meas_random &lt;- function(av_degree, size, sample){
+  
+  m &lt;- map_dfr(1:sample, ~{
+    random &lt;- play_erdos_renyi(n = size, m = size*av_degree/2, directed = FALSE)
+    
+    t &lt;- random |&gt;
+      activate(nodes) |&gt;
+      mutate(L = graph_mean_dist(),
+             C = local_transitivity()) |&gt;
+      as_tibble() |&gt;
+      summarise(across(everything(), mean))
+    
+  })
+  
+  meas &lt;- m |&gt;
+    summarise(across(everything(), mean)) |&gt;
+    mutate(N = size,
+           graph = &quot;random&quot;) |&gt;
+    select(graph, N, L, C)
+  
+  return(meas)
+}
+
+Ns &lt;- seq(100, 1000, by = 100)
+
+table_lattice &lt;- map_dfr(Ns, ~ meas_lattice(av_degree = 4, size = .))
+table_random &lt;- map_dfr(Ns, ~meas_random(av_degree = 4, size = ., sample = 10))
+
+table_all &lt;- rbind(table_lattice, table_random)</code></pre>
+<p>In the following plot we can see how <span class="math inline">\(L\)</span> and <span class="math inline">\(C\)</span> scale with <span class="math inline">\(N\)</span> for networks of average degree equal to 8. Note the difference of scaling of <span class="math inline">\(L\)</span> and <span class="math inline">\(C\)</span> for both graph models, and how <span class="math inline">\(C\)</span> decreases in random nodes while remains constant in regular nodes.</p>
+<pre class="r"><code>plotL &lt;- table_all |&gt;
+  mutate(graph = fct_relevel(graph, &quot;regular&quot;, &quot;random&quot;)) |&gt;
+  ggplot(aes(N, L)) +
+  geom_point() +
+  scale_x_continuous(breaks = seq(100, 1000, by = 100)) +
+  facet_grid(graph ~  ., scales = &quot;free&quot;) +
+  theme_bw()
+
+plotC &lt;- table_all |&gt;
+  mutate(graph = fct_relevel(graph, &quot;regular&quot;, &quot;random&quot;)) |&gt;
+  ggplot(aes(N, C)) +
+  geom_point() +
+  scale_x_continuous(breaks = seq(100, 1000, by = 100)) +
+  facet_grid(graph ~  ., scales = &quot;free&quot;) +
+  theme_bw()
+
+plotL + plotC</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="100%" /></p>
+</div>
+<div id="modelling-small-world-networks" class="section level2">
+<h2>Modelling Small-World Networks</h2>
+<p>As real-world networks lie somewhere in between regular and random networks, Watts and Strogatz proposed modelling those networks as regular lattices with nodes reconnected at random with a rewiring mechanism.</p>
+<pre class="r"><code>plot_ws &lt;- function(dim_size, order, p){
+  
+  g &lt;- play_smallworld(n_dim = 1, dim_size = dim_size, order = order, p = p)
+  
+  ggraph(g, layout = &quot;circle&quot;) +
+    geom_node_point(size = 2) +
+    geom_edge_link(alpha = 0.4) +
+    ggtitle(paste0(&quot;p = &quot;, p)) +
+    theme_graph() +
+    theme(plot.title = element_text(hjust = 0.5, size = 10))
+}
+
+set.seed(1111)
+plot_ws(20, 4, 0) + plot_ws(20, 4, 0.05) + plot_ws(20, 4, 1)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="100%" /></p>
+<p>When the probability of rewiring is <span class="math inline">\(p=0\)</span> we have a regular network, and when <span class="math inline">\(p=1\)</span> a random network. For intermediate values of <span class="math inline">\(p\)</span> we have a <strong>Watts-Strogatz (WS) network</strong>.</p>
+<p>For even small values of <span class="math inline">\(p\)</span>, the rewired edges reduce largely <span class="math inline">\(L\)</span> while maintaining the high value of <span class="math inline">\(C\)</span> of a regular network. In the following chart, which reproduces the results of the original Watts &amp; Strogatz (1998) paper, we observe the range of values of p with low <span class="math inline">\(L\)</span> and high <span class="math inline">\(C\)</span>. The values of <span class="math inline">\(L\)</span> and <span class="math inline">\(C\)</span> are scaled to the values with <span class="math inline">\(p=0\)</span>.</p>
+<pre class="r"><code>meas_ws &lt;- function(n, order, p_rewiring){
+  
+  g &lt;- play_smallworld(n_dim = 1, dim_size = n, order = order, p = p_rewiring)
+  
+  meas &lt;- g |&gt;
+    activate(nodes) |&gt;
+    mutate(l = graph_mean_dist(),
+           c = local_transitivity()) |&gt;
+    as_tibble() |&gt;
+    summarise(L = mean(l), C = mean(c))
+  
+  meas &lt;- meas |&gt;
+    mutate(p = p_rewiring) |&gt;
+    select(p, L, C)
+  
+  return(meas)
+  
+}
+
+p &lt;- c(0, rep(10^{seq(-4, 0, length.out = 15)}, 20))
+
+sm_values &lt;- map_dfr(p, ~ meas_ws(n = 1000, order = 5, p_rewiring = .))
+
+scale_sm_values &lt;- sm_values |&gt;
+  filter(p == 0)
+
+sm_values |&gt;
+  group_by(p) |&gt;
+  summarise(across(L:C, mean)) |&gt;
+  mutate(L = L/scale_sm_values$L,
+         C = C/scale_sm_values$C) |&gt;
+  filter(p != 0) |&gt;
+  pivot_longer(-p) |&gt;
+  ggplot(aes(p, value, color = name)) +
+  scale_x_log10() +
+  geom_point(size = 2) +
+  scale_color_manual(name = &quot;measure&quot;, labels = c(&quot;C/C(0)&quot;, &quot;L/L(0)&quot;), values = c(&quot;#FF8000&quot;, &quot;#0080FF&quot;)) +
+  theme_minimal() +
+  labs(y = element_blank()) +
+  theme(legend.position = c(0.9, 0.9))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="100%" /></p>
+</div>
+<div id="the-small-world-property-of-real-world-networks" class="section level2">
+<h2>The Small-World Property of Real World Networks</h2>
+<p>Let’s examine how <span class="math inline">\(L\)</span> and <span class="math inline">\(C\)</span> behave in the <code>USairports</code> real-world network from the <code>igraphdata</code> package. To avoid divergence of <span class="math inline">\(L\)</span>, I have examined the largest connected component of this network.</p>
+<pre class="r"><code>data(&quot;USairports&quot;)
+
+us_airports &lt;- as_tbl_graph(USairports)
+
+us_airports &lt;- us_airports |&gt;
+  convert(to_simple)
+
+us_airports &lt;- us_airports |&gt;
+  activate(nodes) |&gt;
+  mutate(comp = group_components(),
+         d = centrality_degree())
+
+us_airports_lcc &lt;- us_airports |&gt;
+  convert(to_subgraph, comp == 1, d &gt; 0)
+
+meas_us_airports_lcc &lt;- us_airports_lcc |&gt;
+  activate(nodes) |&gt;
+  mutate(N = graph_order(),
+         E = graph_size(),
+         L = graph_mean_dist(),
+         C = local_transitivity()) |&gt;
+  as_tibble() |&gt;
+  select(N:C) |&gt;
+  summarise(across(everything(), mean)) |&gt;
+  mutate(graph = &quot;US airports&quot;) |&gt;
+  relocate(graph)
+
+meas_us_airports_lcc |&gt;
+  kbl(digits = 3) |&gt;
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+graph
+</th>
+<th style="text-align:right;">
+N
+</th>
+<th style="text-align:right;">
+E
+</th>
+<th style="text-align:right;">
+L
+</th>
+<th style="text-align:right;">
+C
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+US airports
+</td>
+<td style="text-align:right;">
+740
+</td>
+<td style="text-align:right;">
+8215
+</td>
+<td style="text-align:right;">
+3.52
+</td>
+<td style="text-align:right;">
+0.554
+</td>
+</tr>
+</tbody>
+</table>
+<p>The behaviour of this real-world network is in a middle ground: it has a value of C similar to a regular graph, and a value of L similar to a random graph. This is the <strong>small-world property</strong> of real world networks: a low characteristic path length and a high clustering coefficient. To evaluate if a network has the small-world property, it is common to compare its values of L and C with a random graph of the same value of nodes and edges. In this case we have:</p>
+<pre class="r"><code>meas_usairp_random &lt;- map_dfr(1:10, ~ {
+  g &lt;- play_erdos_renyi(n = meas_us_airports_lcc$N, m = meas_us_airports_lcc$E, directed = FALSE)
+meas &lt;- g |&gt; 
+  activate(nodes) |&gt;
+    mutate(N = graph_order(),
+         E = graph_size(),
+         L = graph_mean_dist(),
+         C = local_transitivity()) |&gt;
+  as_tibble()
+})
+
+av_meas_usairp_random &lt;- meas_usairp_random |&gt;
+  summarise(across(everything(), mean)) |&gt;
+  mutate(graph = &quot;random&quot;) |&gt;
+  relocate(graph)  
+
+ws_airp &lt;- rbind(meas_us_airports_lcc, av_meas_usairp_random)
+
+ws_airp |&gt;
+    kbl(digits = 3) |&gt;
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+graph
+</th>
+<th style="text-align:right;">
+N
+</th>
+<th style="text-align:right;">
+E
+</th>
+<th style="text-align:right;">
+L
+</th>
+<th style="text-align:right;">
+C
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+US airports
+</td>
+<td style="text-align:right;">
+740
+</td>
+<td style="text-align:right;">
+8215
+</td>
+<td style="text-align:right;">
+3.520
+</td>
+<td style="text-align:right;">
+0.554
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+random
+</td>
+<td style="text-align:right;">
+740
+</td>
+<td style="text-align:right;">
+8215
+</td>
+<td style="text-align:right;">
+2.468
+</td>
+<td style="text-align:right;">
+0.030
+</td>
+</tr>
+</tbody>
+</table>
+<p>While the values of <span class="math inline">\(L\)</span> for both graphs are of the same order of magnitude, the value of <span class="math inline">\(C\)</span> of the random newtwork is much smaller. Therefore, we can confirm that the US airport network has the small-world property.</p>
+</div>
+<div id="modelling-the-small-world-property" class="section level2">
+<h2>Modelling the Small-World Property</h2>
+<p>The WS model is a network model that reproduces the small-world network behaviour of real networks, but that does not reproduce the heterogeneous degree distribution modelled by Barabási-Albert (BA) networks. So real-word networks:</p>
+<ul>
+<li>Have the small-world property as WS network models.</li>
+<li>Have a heterogeneous degree distribution similar to BA models.</li>
+</ul>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Watts, D. J. &amp; Strogatz, S. H. (1998). Collective dynamics of “small-world” networks. <em>Nature</em>, 393(6684), 440–442. <a href="https://doi.org/10.1038/30918" class="uri">https://doi.org/10.1038/30918</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.3.1 (2023-06-16)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] kableExtra_1.3.4 patchwork_1.1.2  lubridate_1.9.2  forcats_1.0.0   
+##  [5] stringr_1.5.0    dplyr_1.1.2      purrr_1.0.1      readr_2.1.4     
+##  [9] tidyr_1.3.0      tibble_3.2.1     tidyverse_2.0.0  igraphdata_1.0.1
+## [13] ggraph_2.1.0     ggplot2_3.4.2    tidygraph_1.2.3 
+## 
+## loaded via a namespace (and not attached):
+##  [1] gtable_0.3.3       xfun_0.39          bslib_0.5.0        ggrepel_0.9.3     
+##  [5] tzdb_0.3.0         vctrs_0.6.2        tools_4.3.1        generics_0.1.3    
+##  [9] fansi_1.0.4        highr_0.10         pkgconfig_2.0.3    webshot_0.5.4     
+## [13] lifecycle_1.0.3    compiler_4.3.1     farver_2.1.1       munsell_0.5.0     
+## [17] ggforce_0.4.1      graphlayouts_0.8.4 htmltools_0.5.5    sass_0.4.5        
+## [21] yaml_2.3.7         crayon_1.5.2       pillar_1.9.0       jquerylib_0.1.4   
+## [25] MASS_7.3-60        cachem_1.0.7       viridis_0.6.2      tidyselect_1.2.0  
+## [29] rvest_1.0.3        digest_0.6.31      stringi_1.7.12     bookdown_0.33     
+## [33] labeling_0.4.2     polyclip_1.10-4    fastmap_1.1.1      grid_4.3.1        
+## [37] colorspace_2.1-0   cli_3.6.1          magrittr_2.0.3     utf8_1.2.3        
+## [41] withr_2.5.0        scales_1.2.1       timechange_0.2.0   rmarkdown_2.21    
+## [45] httr_1.4.5         igraph_1.4.2       gridExtra_2.3      blogdown_1.16     
+## [49] hms_1.1.3          evaluate_0.20      knitr_1.42         viridisLite_0.4.1 
+## [53] rlang_1.1.0        Rcpp_1.0.10        glue_1.6.2         xml2_1.3.4        
+## [57] tweenr_2.0.2       svglite_2.1.1      rstudioapi_0.14    jsonlite_1.8.4    
+## [61] R6_2.5.1           systemfonts_1.0.4</code></pre>
+</div>

@@ -1,0 +1,322 @@
+---
+title: The Small-World Property of Complex Networks
+author: Jose M Sallan
+date: '2023-10-22'
+slug: he-small-world-property-of-complex-networks
+categories:
+  - R
+tags:
+  - complex networks
+  - ggraph
+  - R
+  - tidygraph
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post, I will introduce the small world property of complex networks. Besides `tidyverse`, `patchwork` and `kableExtra` to handle data and to present tables and graphs, I will be using `igraphdata` to get a sample of the US airport network, and `tidygraph` and `ggraph` to handle network data.
+
+```{r}
+library(tidygraph)
+library(ggraph)
+library(igraphdata)
+library(tidyverse)
+library(patchwork)
+library(kableExtra)
+```
+
+Behind the concept of small-world networks (Watts & Strogatz, 1998), lies the observation that the global and local properties of real world networks are in a middle ground between regular networks and random networks. Watts and Strogatz used as global property the characteristic path length, and as local property the average clustering coefficient. Let's describe these two properties, and see how to calculate them.
+
+## Characteristic Path Length
+
+In an unewighted graph, the *distance* between two nodes is equal to the minimum number of edges required to reach the second node fromt the first. The *characteristic path lenght* or *average shortest path length* $L$ of a network is equal to the average value of distances between network nodes. For an undirected graph is equal to:
+
+\[ L = \frac{2}{N\left(N-1\right)} \sum_{i>j} d_{ij}\]
+
+If two nodes of the network are disconnected, the distance between these nodes is infinite, so $L$ diverges to infinity.
+
+## Average Clustering Coefficient
+
+The clustering coefficient measures the cliqueness of a node, that is, the number of edges between the neighbours of a node. If the number of neighbors of a node $i$ is equal to its degree $k_i$ and the number of edges between neighbours of $i$ is equal to $e_i$, the local clustering coefficient is equal to:
+
+\[c_i. = \frac{2e_i}{k_i\left(k_i - 1\right)}\]
+
+By definition, $c_i$ is set to zero for nodees with only one neighbour.
+
+and the **average clustering coefficient** $C$ is equal to the mean $c_i$ across network nodes:
+
+\[C = \frac{1}{N} \sum_{i=1}^N c_i\]
+
+Let's illustrate clustering coefficient with a `star` graph (left) and a clustered star `star_clust` graph (right):
+
+```{r, out.width='100%', fig.height=3.5}
+star_plot <- function(table){
+  
+  g <- as_tbl_graph(table)
+  
+  ggraph(g, layout = "star") +
+    geom_node_text(aes(label = name), size = 7) +
+    geom_edge_link(alpha = 0.5, 
+                   start_cap = circle(3, "mm"), end_cap = circle(3, "mm"),
+                   edge_width = 2) +
+    theme_graph()
+  
+}
+
+star <- data.frame(org = rep(1, 6),
+               dst = 2:7)
+
+star_clust <- data.frame(org = c(rep(1,6), 2, 3, 2),
+                     dst = c(2:7, 3, 4, 4))
+
+star_plot(star) + star_plot(star_clust)
+```
+
+In the `star` graph, there are no edges between the neighbours of any node. For nodes 2 to 7 $c_i$ is zer because they have only one neighbour. For node 1 $c_i$ is also zero as there is no edges between nodes 2 through 7.
+
+For `star_clust`, $c_i = 0$ for nodes 5 to 7. As node 1 has six neighbours, and there are three edges between nodes to 2 to 7, we have:
+
+\[c_1 = \frac{2 \times 3}{6 \times 5} = 0.2\]
+
+And for nodes 2 to 4 $c_i = 1$ as their neighbourhoods are fully connected. Therefore, for `star_clust` $C = 0.457$.
+
+## The Small-World Property of Regular and Random Networks
+
+Regular and random networks have distinct behaviors regarding the evolution of $L$ and $C$ with network size $N$:
+
+* In random networks, characteristic path length grows logartihmically with $N$, $L \sim ln N / ln \langle k \rangle$, where $\langle k \rangle$ is the average degree. Clustering coefficient vanishes with size $C \sim \langle k \rangle/ N$.
+* In regular networks, characteristic path length grows linearly with $N$ while clustering coefficient remains constant with $N$.
+
+```{r}
+meas_lattice <- function(av_degree, size){
+  
+  lattice <- play_smallworld(n_dim = 1, dim_size = size, order = round(av_degree/2), p = 0)
+  
+  meas <- lattice |>
+    activate(nodes) |>
+    mutate(L = graph_mean_dist(),
+           C = local_transitivity()) |>
+    as_tibble() |>
+    summarise(across(everything(), mean))
+  
+  meas <- meas |>
+    mutate(N = size,
+           graph = "regular") |>
+    select(graph, N, L, C)
+  
+  return(meas)
+  
+}
+
+meas_random <- function(av_degree, size, sample){
+  
+  m <- map_dfr(1:sample, ~{
+    random <- play_erdos_renyi(n = size, m = size*av_degree/2, directed = FALSE)
+    
+    t <- random |>
+      activate(nodes) |>
+      mutate(L = graph_mean_dist(),
+             C = local_transitivity()) |>
+      as_tibble() |>
+      summarise(across(everything(), mean))
+    
+  })
+  
+  meas <- m |>
+    summarise(across(everything(), mean)) |>
+    mutate(N = size,
+           graph = "random") |>
+    select(graph, N, L, C)
+  
+  return(meas)
+}
+
+Ns <- seq(100, 1000, by = 100)
+
+table_lattice <- map_dfr(Ns, ~ meas_lattice(av_degree = 4, size = .))
+table_random <- map_dfr(Ns, ~meas_random(av_degree = 4, size = ., sample = 10))
+
+table_all <- rbind(table_lattice, table_random)
+```
+
+In the following plot we can see how $L$ and $C$ scale with $N$ for networks of average degree equal to 8. Note the difference of scaling of $L$ and $C$ for both graph models, and how $C$ decreases in random nodes while remains constant in regular nodes.
+
+```{r, out.width= '100%'}
+plotL <- table_all |>
+  mutate(graph = fct_relevel(graph, "regular", "random")) |>
+  ggplot(aes(N, L)) +
+  geom_point() +
+  scale_x_continuous(breaks = seq(100, 1000, by = 100)) +
+  facet_grid(graph ~  ., scales = "free") +
+  theme_bw()
+
+plotC <- table_all |>
+  mutate(graph = fct_relevel(graph, "regular", "random")) |>
+  ggplot(aes(N, C)) +
+  geom_point() +
+  scale_x_continuous(breaks = seq(100, 1000, by = 100)) +
+  facet_grid(graph ~  ., scales = "free") +
+  theme_bw()
+
+plotL + plotC
+```
+
+
+## Modelling Small-World Networks
+
+As real-world networks lie somewhere in between regular and random networks, Watts and Strogatz proposed modelling those networks as regular lattices with nodes reconnected at random with a rewiring mechanism. 
+
+```{r, out.width='100%', fig.height=3}
+plot_ws <- function(dim_size, order, p){
+  
+  g <- play_smallworld(n_dim = 1, dim_size = dim_size, order = order, p = p)
+  
+  ggraph(g, layout = "circle") +
+    geom_node_point(size = 2) +
+    geom_edge_link(alpha = 0.4) +
+    ggtitle(paste0("p = ", p)) +
+    theme_graph() +
+    theme(plot.title = element_text(hjust = 0.5, size = 10))
+}
+
+set.seed(1111)
+plot_ws(20, 4, 0) + plot_ws(20, 4, 0.05) + plot_ws(20, 4, 1)
+```
+
+When the probability of rewiring is $p=0$ we have a regular network, and when $p=1$ a random network. For intermediate values of $p$ we have a **Watts-Strogatz (WS) network**.
+
+For even small values of $p$, the rewired edges reduce largely $L$ while maintaining the high value of $C$ of a regular network. In the following chart, which reproduces the results of the original Watts & Strogatz (1998) paper, we observe the range of values of p with low $L$ and high $C$. The values of $L$ and $C$ are scaled to the values with $p=0$.
+
+```{r, out.width='100%'}
+meas_ws <- function(n, order, p_rewiring){
+  
+  g <- play_smallworld(n_dim = 1, dim_size = n, order = order, p = p_rewiring)
+  
+  meas <- g |>
+    activate(nodes) |>
+    mutate(l = graph_mean_dist(),
+           c = local_transitivity()) |>
+    as_tibble() |>
+    summarise(L = mean(l), C = mean(c))
+  
+  meas <- meas |>
+    mutate(p = p_rewiring) |>
+    select(p, L, C)
+  
+  return(meas)
+  
+}
+
+p <- c(0, rep(10^{seq(-4, 0, length.out = 15)}, 20))
+
+sm_values <- map_dfr(p, ~ meas_ws(n = 1000, order = 5, p_rewiring = .))
+
+scale_sm_values <- sm_values |>
+  filter(p == 0)
+
+sm_values |>
+  group_by(p) |>
+  summarise(across(L:C, mean)) |>
+  mutate(L = L/scale_sm_values$L,
+         C = C/scale_sm_values$C) |>
+  filter(p != 0) |>
+  pivot_longer(-p) |>
+  ggplot(aes(p, value, color = name)) +
+  scale_x_log10() +
+  geom_point(size = 2) +
+  scale_color_manual(name = "measure", labels = c("C/C(0)", "L/L(0)"), values = c("#FF8000", "#0080FF")) +
+  theme_minimal() +
+  labs(y = element_blank()) +
+  theme(legend.position = c(0.9, 0.9))
+
+```
+
+## The Small-World Property of Real World Networks
+
+Let's examine how $L$ and $C$ behave in the `USairports` real-world network from the `igraphdata` package. To avoid divergence of $L$, I have examined the largest connected component of this network.
+
+```{r}
+data("USairports")
+
+us_airports <- as_tbl_graph(USairports)
+
+us_airports <- us_airports |>
+  convert(to_simple)
+
+us_airports <- us_airports |>
+  activate(nodes) |>
+  mutate(comp = group_components(),
+         d = centrality_degree())
+
+us_airports_lcc <- us_airports |>
+  convert(to_subgraph, comp == 1, d > 0)
+
+meas_us_airports_lcc <- us_airports_lcc |>
+  activate(nodes) |>
+  mutate(N = graph_order(),
+         E = graph_size(),
+         L = graph_mean_dist(),
+         C = local_transitivity()) |>
+  as_tibble() |>
+  select(N:C) |>
+  summarise(across(everything(), mean)) |>
+  mutate(graph = "US airports") |>
+  relocate(graph)
+
+meas_us_airports_lcc |>
+  kbl(digits = 3) |>
+  kable_styling(full_width = FALSE)
+```
+
+The behaviour of this real-world network is in a middle ground: it has a value of C similar to a regular graph, and a value of L similar to a random graph. This is the **small-world property** of real world networks: a low characteristic path length and a high clustering coefficient. To evaluate if a network has the small-world property, it is common to compare its values of L and C with a random graph of the same value of nodes and edges. In this case we have:
+
+```{r}
+meas_usairp_random <- map_dfr(1:10, ~ {
+  g <- play_erdos_renyi(n = meas_us_airports_lcc$N, m = meas_us_airports_lcc$E, directed = FALSE)
+meas <- g |> 
+  activate(nodes) |>
+    mutate(N = graph_order(),
+         E = graph_size(),
+         L = graph_mean_dist(),
+         C = local_transitivity()) |>
+  as_tibble()
+})
+
+av_meas_usairp_random <- meas_usairp_random |>
+  summarise(across(everything(), mean)) |>
+  mutate(graph = "random") |>
+  relocate(graph)  
+
+ws_airp <- rbind(meas_us_airports_lcc, av_meas_usairp_random)
+
+ws_airp |>
+    kbl(digits = 3) |>
+  kable_styling(full_width = FALSE)
+```
+
+While the values of $L$ for both graphs are of the same order of magnitude, the value of $C$ of the random newtwork is much smaller. Therefore, we can confirm that the US airport network has the small-world property.
+
+## Modelling the Small-World Property
+
+The WS model is a network model that reproduces the small-world network behaviour of real networks, but that does not reproduce the heterogeneous degree distribution modelled by Barabási-Albert (BA) networks. So real-word networks:
+
+* Have the small-world property as WS network models.
+* Have a heterogeneous degree distribution similar to BA models.
+
+## References
+
+* Watts, D. J. & Strogatz, S. H. (1998). Collective dynamics of “small-world” networks. *Nature*, 393(6684), 440–442. <https://doi.org/10.1038/30918>
+
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
