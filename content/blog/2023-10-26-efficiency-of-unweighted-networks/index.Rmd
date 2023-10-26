@@ -1,0 +1,13 @@
+---
+title: Efficiency of Unweighted Networks
+author: Jose M Sallan
+date: '2023-10-26'
+slug: efficiency-of-unweighted-networks
+categories:
+  - R
+tags:
+  - complex networks
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
