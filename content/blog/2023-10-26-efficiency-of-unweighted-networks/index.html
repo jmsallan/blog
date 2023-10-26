@@ -12,5 +12,323 @@ meta_img: images/image.png
 description: Description for the page
 ---
 
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
 
 
+<p>In a previous post, I recalled the Watts and Strogatz (1998) paper describing the small-world property of real world networks using average shortest path length as global property and clustering coefficient as local property. Using those parameters, we define the small world property as having a low average shortest path length and a high average clustering coefficient.</p>
+<p>A few years after, Latora &amp; Marchiori (2001) provided a new conceptualization of the small-world property based on how efficient is the transmission of information through the network. In an unweighted network, we consider that the efficiency of transmission of information between two nodes <span class="math inline">\(i\)</span> and <span class="math inline">\(j\)</span> is the reciprocal of <span class="math inline">\(d_{ij}\)</span>, the minimal number of edges required to connect <span class="math inline">\(i\)</span> and <span class="math inline">\(j\)</span>. Two nodes with a direct connection will have a contribution to efficiency equal to one, and two unconnected nodes a contribution of zero.</p>
+<p>The <strong>global efficiency</strong> is equal to the sum of reciprocals of <span class="math inline">\(d_{ij}\)</span> between node pairs, scaled by the maximum number of edges:</p>
+<p><span class="math display">\[E_{glob} = E\left(G\right) = \frac{1}{N\left(N-1\right)}\sum_{i \neq j}\frac{1}{d_{ij}}\]</span></p>
+<p>The scaling term makes global efficiency range between one for a complete graph and zero for a totally disconnected graph.</p>
+<p>For each node of the network <span class="math inline">\(i\)</span> we can define its local subgraph <span class="math inline">\(G_i\)</span>, including the neighbours of node <span class="math inline">\(i\)</span> and the edges connecting them. We can define <strong>local efficiency</strong> as the average efficiency of the local subgraphs:</p>
+<p><span class="math display">\[E_{loc} = \frac{1}{N}\sum_{i \in G} E\left(G_i\right)\]</span></p>
+<p>Global efficiency examines how efficiently information is exchanged over the network. Local efficiency examines how the network is fault tolerant, that is, how efficiently is information transmitted locally when a node is removed. Networks with the small-world property will have a high global and local efficiency.</p>
+<div id="computing-efficiency-using-igraph" class="section level2">
+<h2>Computing Efficiency using <code>igraph</code></h2>
+<p>Let’s use the <code>igraph</code> library, together with <code>igraphdata</code> to retrieve sample networks and the tidyverse for data handling and plotting.</p>
+<pre class="r"><code>library(igraph)
+library(igraphdata)
+library(tidyverse)
+library(patchwork)
+library(kableExtra)</code></pre>
+<p>The efficiency of a network graph can be obtained with the <code>igraph::global_efficiency()</code> function. We can use this function to calculate local efficiency as the average efficiency of neighbour subgraphs of network nodes with the <code>lm_average_local_efficiency</code> function.</p>
+<pre class="r"><code>lm_average_local_efficiency &lt;- function(g){
+  
+  nodes &lt;- V(g)
+  
+  node_ef &lt;- sapply(nodes, \(x){
+    sg &lt;- subgraph(g, neighbors(g, x))
+    e0 &lt;- global_efficiency(sg)
+    e &lt;- ifelse(is.nan(e0), 0, e0)
+    return(e)
+  })
+  
+  lm_e &lt;- mean(node_ef)
+  
+  return(lm_e)
+  
+}</code></pre>
+<p>The <code>igraph::average_local_efficiency()</code> function computes local efficiency with the definition of the Vragovic et al. (2005) paper. These authors define the efficiency of the neighbour subgraph of node <span class="math inline">\(i\)</span> with paths including the full network topology cutting off only node <span class="math inline">\(i\)</span>.</p>
+</div>
+<div id="efficiency-of-lattices-and-random-networks" class="section level2">
+<h2>Efficiency of Lattices and Random Networks</h2>
+<p>Let’s examine how evolves network efficiency for networks of the same average degree as network size increases. To calculate network parameters for lattice, Watts-Strogatz and random networks I will be using the <code>network_measures()</code> function, that uses the <code>lm_average_local_efficiency()</code> defined previously.</p>
+<pre class="r"><code>network_measures &lt;- function(type = &quot;random&quot;, n, av_degree, sample, p_rewiring = 0){
+  
+  m &lt;- map_dfr(1:sample, ~{
+    
+    if(type == &quot;random&quot;)
+      g &lt;- erdos.renyi.game(n = n, p.or.m = av_degree*n/2, type = &quot;gnm&quot;, directed = FALSE)
+    
+    if(type == &quot;ws&quot;)
+      g &lt;- sample_smallworld(dim = 1, size = n, nei = round(av_degree/2), p = all_of(p_rewiring))
+    
+    t &lt;-  data.frame(L = mean_distance(g, unconnected = TRUE),
+                     C = transitivity(g, type = &quot;average&quot;),
+                     E_global = global_efficiency(g, directed = FALSE),
+                     E_locallm = lm_average_local_efficiency(g))
+    return(t)
+  })
+  
+  meas &lt;- m |&gt;
+    summarise(across(everything(), mean)) |&gt;
+    mutate(N = n,
+           E = av_degree*n/2,
+           graph = type,
+           p = p_rewiring) |&gt;
+    select(graph, N, E, p, L, C, E_global, E_locallm)
+  
+  return(meas)
+  
+}</code></pre>
+<p>Let’s calculate network parameters for a set of networks of average degree equal to 4 and various network sizes. The values for random networks are averages across ten samples for each network size.</p>
+<pre class="r"><code>Ns &lt;- seq(100, 1000, by = 100)
+
+table_lattice &lt;- map_dfr(Ns, ~ network_measures(type = &quot;ws&quot;, n = ., av_degree = 4, sample = 1))</code></pre>
+<pre><code>## Warning: Using `all_of()` outside of a selecting function was deprecated in tidyselect
+## 1.2.0.
+## ℹ See details at
+##   &lt;https://tidyselect.r-lib.org/reference/faq-selection-context.html&gt;
+## This warning is displayed once every 8 hours.
+## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
+## generated.</code></pre>
+<pre class="r"><code>table_lattice &lt;- table_lattice |&gt;
+  mutate(graph = &quot;regular&quot;)
+
+set.seed(1111)
+table_random &lt;- map_dfr(Ns, ~ network_measures(type = &quot;random&quot;, n = ., av_degree = 4, sample = 10))
+
+table_all &lt;- bind_rows(table_lattice, table_random)</code></pre>
+<p>With this plot, I am recalling the behaviour of <span class="math inline">\(L\)</span> and <span class="math inline">\(C\)</span> as network size grows for regular and random networks:</p>
+<ul>
+<li>In random networks, characteristic path length grows logartihmically with <span class="math inline">\(N\)</span>, <span class="math inline">\(L \sim ln N / ln \langle k \rangle\)</span>, where <span class="math inline">\(\langle k \rangle\)</span> is the average degree. Clustering coefficient vanishes with size <span class="math inline">\(C \sim \langle k \rangle/ N\)</span>.</li>
+<li>In regular networks, characteristic path length grows linearly with <span class="math inline">\(N\)</span> while clustering coefficient remains constant with <span class="math inline">\(N\)</span>.</li>
+</ul>
+<pre class="r"><code>plotL &lt;- table_all |&gt;
+  mutate(graph = fct_relevel(graph, &quot;regular&quot;, &quot;random&quot;)) |&gt;
+  ggplot(aes(N, L)) +
+  geom_point() +
+  scale_x_continuous(breaks = seq(100, 1000, by = 100)) +
+  facet_grid(graph ~  ., scales = &quot;free&quot;) +
+  theme_bw()
+
+plotC &lt;- table_all |&gt;
+  mutate(graph = fct_relevel(graph, &quot;regular&quot;, &quot;random&quot;)) |&gt;
+  ggplot(aes(N, C)) +
+  geom_point() +
+  scale_x_continuous(breaks = seq(100, 1000, by = 100)) +
+  facet_grid(graph ~  ., scales = &quot;free&quot;) +
+  theme_bw()
+
+plotL + plotC</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="100%" /></p>
+<p>Here we have an analogous plot with global and local efficiency:</p>
+<ul>
+<li>In random networks, global and local efficiency tends to zero as network size increases.</li>
+<li>In regular networks, global efficiency tends to zero as network size increases. Note how the starting value of efficiency for regular networks is higher than for random networks. Local efficiency remains independent of network size.</li>
+</ul>
+<pre class="r"><code>plot_global &lt;- table_all |&gt;
+  mutate(graph = fct_relevel(graph, &quot;regular&quot;, &quot;random&quot;)) |&gt;
+  ggplot(aes(N, E_global)) +
+  geom_point() +
+  scale_x_continuous(breaks = seq(100, 1000, by = 100)) +
+  facet_grid(graph ~  ., scales = &quot;free&quot;) +
+  theme_bw()
+
+plot_local &lt;- table_all |&gt;
+  mutate(graph = fct_relevel(graph, &quot;regular&quot;, &quot;random&quot;)) |&gt;
+  ggplot(aes(N, E_locallm)) +
+  geom_point() +
+  scale_x_continuous(breaks = seq(100, 1000, by = 100)) +
+  facet_grid(graph ~  ., scales = &quot;free&quot;) +
+  theme_bw()
+
+plot_global + plot_local</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+</div>
+<div id="modelling-the-small-world-property" class="section level2">
+<h2>Modelling the Small-World Property</h2>
+<p>Let’s reoproduce the experiment of Watts &amp; Strogatz (1998) to see how probabilistic rewiring of a regular lattice can produce networks with the small-world property.</p>
+<pre class="r"><code>p &lt;- c(0, rep(10^{seq(-4, 0, length.out = 15)}, 20))
+
+sm_values &lt;- map_dfr(p, ~ network_measures(type = &quot;ws&quot;, n = 1000, av_degree = 10, sample = 1, p_rewiring = .))</code></pre>
+<p>Here is a replication of the original Watts &amp; Strogatz (1998) plot with values of <span class="math inline">\(L\)</span> and <span class="math inline">\(C\)</span> normalized to values for <span class="math inline">\(p=0\)</span>. We can observe a range of values of probability of rewiring with low values of <span class="math inline">\(L\)</span> and high clustering coefficient <span class="math inline">\(C\)</span>.</p>
+<pre class="r"><code>scale_sm_values &lt;- sm_values |&gt;
+  filter(p == 0)
+
+sm_values |&gt;
+  group_by(p) |&gt;
+  summarise(across(L:C, mean)) |&gt;
+  mutate(L = L/scale_sm_values$L,
+         C = C/scale_sm_values$C) |&gt;
+  filter(p != 0) |&gt;
+  pivot_longer(-p) |&gt;
+  ggplot(aes(p, value, color = name)) +
+  scale_x_log10() +
+  geom_point(size = 2) +
+  scale_color_manual(name = &quot;measure&quot;, labels = c(&quot;C/C(0)&quot;, &quot;L/L(0)&quot;), values = c(&quot;#FF8000&quot;, &quot;#0080FF&quot;)) +
+  theme_minimal() +
+  labs(y = element_blank()) +
+  theme(legend.position = c(0.9, 0.9))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+<p>In the following plot, I am presenting the values of global and local efficiency for the same networks. For <span class="math inline">\(p \sim 0.1\)</span> we observe how are coexisting high values of global and local efficiency.</p>
+<pre class="r"><code>sm_values |&gt;
+  filter(p != 0) |&gt;
+  group_by(p) |&gt;
+  summarise(across(E_global:E_locallm, mean)) |&gt;
+  pivot_longer(-p) |&gt;
+  ggplot(aes(p, value, color = name)) +
+  scale_x_log10() +
+  geom_point(size = 2) +
+  scale_color_manual(name = &quot;measure&quot;, labels = c(expression(E[global]), expression(E[local])), values = c(&quot;#FF8000&quot;, &quot;#0080FF&quot;)) +
+  theme_minimal() +
+  labs(y = element_blank()) +
+  theme(legend.position = c(0.9, 0.9))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
+</div>
+<div id="efficiency-of-real-world-networks" class="section level2">
+<h2>Efficiency of Real-World Networks</h2>
+<p>We can use global and local efficiency to examine if real-world networks have the small-world property. Here I will be examining the USairports network in igraphdata. As efficiency can be computed for unconnected networks, here I will retain the whole network. I will use <code>igraph::simplify()</code> to remove multiple edges between nodes and <code>igraph::as.undirected()</code> to make the network undirected.</p>
+<pre class="r"><code>data(&quot;USairports&quot;)
+us_airports &lt;- igraph::simplify(USairports)
+us_airports &lt;- as.undirected(us_airports)</code></pre>
+<p>As a benchmark, I will compute global and local efficiency for a sample of random networks with the same value of nodes and edges.</p>
+<pre class="r"><code>us_airports_nodes &lt;- length(V(us_airports))
+us_airports_edges &lt;- length(E(us_airports))
+us_airports_av_degree &lt;- 2*us_airports_edges/us_airports_nodes
+
+
+us_airports_random &lt;- network_measures(type = &quot;random&quot;, n = us_airports_nodes, av_degree = us_airports_av_degree, sample = 10)
+
+us_airports_random &lt;- us_airports_random |&gt;
+  select(graph, N, E, E_global, E_locallm)
+
+us_airports_eff &lt;- data.frame(graph = &quot;US airports&quot;,
+                              N = length(V(us_airports)),
+                              E = length(E(us_airports)),
+                              E_global = global_efficiency(us_airports),
+                              E_locallm = lm_average_local_efficiency(us_airports))
+
+us_airports_table &lt;- bind_rows(us_airports_eff, us_airports_random)
+
+us_airports_table |&gt;
+  kbl(digits = 3) |&gt;
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+graph
+</th>
+<th style="text-align:right;">
+N
+</th>
+<th style="text-align:right;">
+E
+</th>
+<th style="text-align:right;">
+E_global
+</th>
+<th style="text-align:right;">
+E_locallm
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+US airports
+</td>
+<td style="text-align:right;">
+755
+</td>
+<td style="text-align:right;">
+4623
+</td>
+<td style="text-align:right;">
+0.318
+</td>
+<td style="text-align:right;">
+0.642
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+random
+</td>
+<td style="text-align:right;">
+755
+</td>
+<td style="text-align:right;">
+4623
+</td>
+<td style="text-align:right;">
+0.365
+</td>
+<td style="text-align:right;">
+0.017
+</td>
+</tr>
+</tbody>
+</table>
+<p>We can see how the unweighted, undirected US airport network has a global efficiency of similar magnitude of a random netwok, but much higher local efficiency. Thus we can conclude that the US airport network has the small-world property.</p>
+</div>
+<div id="global-and-local-efficiency-of-unweighted-networks" class="section level2">
+<h2>Global and Local Efficiency of Unweighted Networks</h2>
+<p>Watts &amp; Strogatz (1998) defined the small-world property as having a small average path length and a high average clustering coefficient. The coexistence of this global and local property was not present in regular or random networks, so they defined the Watts and Strogatz network model, consisting of rewiring randomly some edges of a regular network. For a range of values of the probability or rewiring, the Watts and Strogatz model has the small-world property.</p>
+<p>Latora &amp; Marchiori (2001) offered an alternative definition of the small-world property based on the global and local efficiency of transmission of information: global efficiency measures how good is the network transmitting information, and local efficiency how fault tolerant to the removal of a single node is the network. Networks with the small-world property will have high values of global and local efficiency. While average path lenght diverges for unconnected networks, global and local efficiency do not, so these metrics can be used for unconnected, unweighted networks.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Latora, V. &amp; Marchiori, M. (2001). Efficient behavior of small-world networks. <em>Physical Review Letters</em>, 87, 198701. <a href="https://doi.org/10.1103/PhysRevLett.87.198701" class="uri">https://doi.org/10.1103/PhysRevLett.87.198701</a></li>
+<li>Vragović, I., Louis, E &amp; Díaz-Guilera, A. (2005). Efficiency of informational transfer in regular and complex networks. <em>Physical Review E</em>, 71, 036122. <a href="https://doi.org/10.1103/PhysRevE.71.036122" class="uri">https://doi.org/10.1103/PhysRevE.71.036122</a></li>
+<li>Watts, D. J., &amp; Strogatz, S. H. (1998). Collective dynamics of “small-world” networks. <em>Nature</em>, 393(6684), 440–442. <a href="https://doi.org/10.1038/30918" class="uri">https://doi.org/10.1038/30918</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.3.1 (2023-06-16)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] kableExtra_1.3.4 patchwork_1.1.2  lubridate_1.9.2  forcats_1.0.0   
+##  [5] stringr_1.5.0    dplyr_1.1.2      purrr_1.0.1      readr_2.1.4     
+##  [9] tidyr_1.3.0      tibble_3.2.1     ggplot2_3.4.2    tidyverse_2.0.0 
+## [13] igraphdata_1.0.1 igraph_1.4.2    
+## 
+## loaded via a namespace (and not attached):
+##  [1] sass_0.4.5        utf8_1.2.3        generics_0.1.3    xml2_1.3.4       
+##  [5] blogdown_1.16     stringi_1.7.12    hms_1.1.3         digest_0.6.31    
+##  [9] magrittr_2.0.3    timechange_0.2.0  evaluate_0.20     grid_4.3.1       
+## [13] bookdown_0.33     fastmap_1.1.1     jsonlite_1.8.4    httr_1.4.5       
+## [17] rvest_1.0.3       fansi_1.0.4       viridisLite_0.4.1 scales_1.2.1     
+## [21] jquerylib_0.1.4   cli_3.6.1         crayon_1.5.2      rlang_1.1.0      
+## [25] munsell_0.5.0     withr_2.5.0       cachem_1.0.7      yaml_2.3.7       
+## [29] tools_4.3.1       tzdb_0.3.0        colorspace_2.1-0  webshot_0.5.4    
+## [33] vctrs_0.6.2       R6_2.5.1          lifecycle_1.0.3   pkgconfig_2.0.3  
+## [37] pillar_1.9.0      bslib_0.5.0       gtable_0.3.3      glue_1.6.2       
+## [41] systemfonts_1.0.4 highr_0.10        xfun_0.39         tidyselect_1.2.0 
+## [45] rstudioapi_0.14   knitr_1.42        farver_2.1.1      htmltools_0.5.5  
+## [49] labeling_0.4.2    svglite_2.1.1     rmarkdown_2.21    compiler_4.3.1</code></pre>
+</div>
