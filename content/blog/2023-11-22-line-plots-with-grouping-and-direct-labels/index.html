@@ -1,0 +1,222 @@
+---
+title: Line Plots with Grouping and Direct Labels
+author: Jose M Sallan
+date: '2023-11-22'
+slug: line-plots-with-grouping-and-direct-labels
+categories:
+  - R
+tags:
+  - data visualization
+  - ggplot
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>In this post, I will present some insights on the evolution of the gross domestic product (GDP) per capita of of European Union (EU) countries in the 2000-2022 period, using data from the World Bank. While doing it, I will present some of the possibilities of ggplot to visualize information with a line graph.</p>
+<p>In addition to the <code>tidyverse</code>, I have used <code>wbstats</code> to retrieve information from the World Bank, and <code>ggrepel</code> to present overlapping text labels.</p>
+<pre class="r"><code>library(tidyverse)
+library(wbstats)
+library(ggrepel) # https://ggrepel.slowkow.com/</code></pre>
+<p>Of all metrics of GDP per capita provided by the World Bank, I have chosen the <em>NY.GDP.PCAP.PP.KD</em> indicator. We can obtain the description of the indicator from <code>wbstats::wbsearch()</code>:</p>
+<pre class="r"><code>wb_search(&quot;NY.GDP.PCAP.PP.KD&quot;)</code></pre>
+<pre><code>## # A tibble: 2 × 3
+##   indicator_id         indicator                                  indicator_desc
+##   &lt;chr&gt;                &lt;chr&gt;                                      &lt;chr&gt;         
+## 1 NY.GDP.PCAP.PP.KD    GDP per capita, PPP (constant 2017 intern… GDP per capit…
+## 2 NY.GDP.PCAP.PP.KD.ZG GDP per capita, PPP annual growth (%)      Annual percen…</code></pre>
+<pre class="r"><code>wb_search(&quot;NY.GDP.PCAP.PP.KD&quot;)$indicator_desc[1]</code></pre>
+<pre><code>## [1] &quot;GDP per capita based on purchasing power parity (PPP). PPP GDP is gross domestic product converted to international dollars using purchasing power parity rates. An international dollar has the same purchasing power over GDP as the U.S. dollar has in the United States. GDP at purchaser&#39;s prices is the sum of gross value added by all resident producers in the country plus any product taxes and minus any subsidies not included in the value of the products. It is calculated without making deductions for depreciation of fabricated assets or for depletion and degradation of natural resources. Data are in constant 2017 international dollars.&quot;</code></pre>
+<p>This metric allows comparing across countries as it uses international dollars, and account the effect of inflation as it is presented in 2017 international dollars. We retrieve the data doing:</p>
+<pre class="r"><code>gdp_pc &lt;- wb_data(&quot;NY.GDP.PCAP.PP.KD&quot;, start_date = 2000, end_date = 2023)</code></pre>
+<p>Let’s pick the <code>iso3c</code> (ISO 3166-1 alpha-3) encoding of EU countries in a vector <code>eu_iso3c</code>, and use them to obtain the GDP per capita of EU countries in <code>gdp_pc_eu</code>.</p>
+<pre class="r"><code>eu_iso3c &lt;- c(&quot;DEU&quot;, &quot;AUT&quot;, &quot;BEL&quot;, &quot;BGR&quot;, &quot;CYP&quot;, &quot;HRV&quot;, &quot;DNK&quot;, &quot;SVK&quot;, &quot;SVN&quot;, &quot;ESP&quot;,
+              &quot;EST&quot;, &quot;FIN&quot;, &quot;FRA&quot;, &quot;GRC&quot;, &quot;HUN&quot;, &quot;IRL&quot;, &quot;ITA&quot;, &quot;LVA&quot;, &quot;LTU&quot;, &quot;LUX&quot;,
+              &quot;MLT&quot;, &quot;NLD&quot;, &quot;POL&quot;, &quot;PRT&quot;, &quot;CZE&quot;, &quot;ROU&quot;, &quot;SWE&quot;)
+
+gdp_pc_eu &lt;- gdp_pc |&gt;
+  filter(iso3c %in% eu_iso3c) |&gt;
+  select(iso3c, country, date, NY.GDP.PCAP.PP.KD)</code></pre>
+<p>Let’s present the evolution of all EU countries in a line graph:</p>
+<pre class="r"><code>gdp_pc_eu |&gt;
+  ggplot(aes(date, NY.GDP.PCAP.PP.KD, color = iso3c)) +
+  geom_line()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="100%" /></p>
+<p>Aside from Luxembourg and Ireland, the evolution of the rest of countries is hard to tell, as there are too many countries represented in the same graph. This is an example of a <strong>spaghetti graph</strong>, a line graph with too many lines in it. Let’s see how can be modify this graph to convey relevant information.</p>
+<div id="evolution-of-a-specific-country" class="section level1">
+<h1>Evolution of a Specific Country</h1>
+<p>A first strategy to present relevant information in a line graph is to emphasize one of the lines. In ggplot, we do this assigning a thicker line width to a specific observation. Here we emphasize the evolution of Ireland:</p>
+<pre class="r"><code>gdp_pc_eu |&gt;
+  mutate(mark = ifelse(iso3c == &quot;IRL&quot;, &quot;a&quot;, &quot;b&quot;)) |&gt;
+  ggplot(aes(date, NY.GDP.PCAP.PP.KD, group = iso3c, linewidth = mark)) +
+  geom_line() +
+  scale_discrete_manual(aesthetic = &quot;linewidth&quot;, 
+                        values = c(a = 2, b = 0.3))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="100%" /></p>
+<p>To emphasize Ireland from the rest, we need to do two things:</p>
+<ul>
+<li>Create a <code>mark</code> variable with one value from IRL and the same value for the rest of observations. This variable will be used to assign the linewidth inside the aesthetic. The thickness of the lines is controlled by <code>scale_discrete_manual()</code>.</li>
+<li>Now <code>country</code> is not related to a property of the lines, but we need to draw one line for each country. We achieve this using <code>group</code> inside the aesthetic.</li>
+</ul>
+<p>Let’s remove some clutter from the graph:</p>
+<ul>
+<li>Removing the legend by making <code>guide = "none"</code> in the scale.</li>
+<li>Using <code>theme_minimal()</code>.</li>
+<li>Removing axis labels and adding a title with <code>labs</code>.</li>
+</ul>
+<pre class="r"><code>gdp_pc_eu |&gt;
+  mutate(mark = ifelse(iso3c == &quot;IRL&quot;, &quot;a&quot;, &quot;b&quot;)) |&gt;
+  ggplot(aes(date, NY.GDP.PCAP.PP.KD, group = iso3c, linewidth = mark)) +
+  geom_line() +
+  scale_discrete_manual(aesthetic = &quot;linewidth&quot;, 
+                        values = c(a = 2, b = 0.3), 
+                        guide = &quot;none&quot;) +
+  theme_minimal() +
+  labs(title = &quot;Evolution of Irish GDP along EU countries&quot;, 
+       x = NULL, y = NULL)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="100%" /></p>
+<p>In this plot, we observe how the GDP per capita of Ireland has increased abruptly since the mid 2010s. According to this indicator, Ireland is the richest country on the EU after Luxembourg.</p>
+</div>
+<div id="groups-of-selected-countries" class="section level1">
+<h1>Groups of Selected Countries</h1>
+<p>Let’s focus on a set of selected EU countries, listed in <code>selected_countries</code>:</p>
+<pre class="r"><code>selected_countries &lt;- c(&quot;EST&quot;, &quot;LVA&quot;, &quot;LTU&quot;,
+                        &quot;DEU&quot;, &quot;FRA&quot;, &quot;ITA&quot;, &quot;NLD&quot;,
+                        &quot;ESP&quot;, &quot;GRE&quot;, &quot;PRT&quot;) 
+
+gdp_pc_sel &lt;- gdp_pc_eu |&gt;
+  filter(iso3c %in% selected_countries)
+
+gdp_pc_sel |&gt;
+  ggplot(aes(date, NY.GDP.PCAP.PP.KD, color = iso3c)) +
+  geom_line()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="100%" /></p>
+<p>Although we have ten lines instead of twenty-seven, the resulting plot for ten countries is still hard to read. Let’s try to improve this defining three sets of Baltic, Southern and Northern countries. I am using <code>case_when()</code> to obtain the <code>gr_country</code> variable for each country:</p>
+<pre class="r"><code>gdp_pc_sel &lt;- gdp_pc_sel |&gt;
+  mutate(gr_country = case_when(
+    iso3c %in% c(&quot;EST&quot;, &quot;LVA&quot;, &quot;LTU&quot;) ~ &quot;baltic&quot;,
+    iso3c %in% c(&quot;ESP&quot;, &quot;ITA&quot;, &quot;GRE&quot;, &quot;PRT&quot;) ~ &quot;southern&quot;,
+    iso3c %in% c(&quot;DEU&quot;, &quot;FRA&quot;, &quot;NLD&quot;) ~ &quot;northern&quot;
+  ))</code></pre>
+<p>Now we can assign to each country the color of its group of countries. This means that we need to define an aesthetic for the <code>color</code>, and other aesthetic to <code>group</code> to define which lines to plot. Colors are defined by <code>gr_country</code>, and lines by <code>country</code>.</p>
+<pre class="r"><code>gdp_pc_sel |&gt;
+  ggplot(aes(date, NY.GDP.PCAP.PP.KD, group = country, color = gr_country)) +
+  geom_line()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-11-1.png" width="100%" /></p>
+<p>Let’s reduce clutter from the plot using <code>theme_minimal()</code>, redefining the legend and placing it at the bottom, removing axis labels and adding a title:</p>
+<pre class="r"><code>gdp_pc_sel |&gt;
+  ggplot(aes(date, NY.GDP.PCAP.PP.KD, group = country, color = gr_country)) +
+  geom_line() +
+  theme_minimal() +
+  labs(title = &quot;Evolution of GDP per capita of selected EU countries&quot;, 
+       x = NULL, y = NULL) +
+  scale_color_manual(name = &quot;groups&quot;, 
+                     values = c(&quot;#0080FF&quot;, &quot;#00CC00&quot;, &quot;#CC0000&quot;)) +
+  theme(legend.position = &quot;bottom&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-12-1.png" width="100%" /></p>
+<div id="placing-direct-labels" class="section level2">
+<h2>Placing Direct Labels</h2>
+<p>In this graph, we don’t know which are the countries represented in each line. Let’s try to add <strong>direct labels</strong> at the end of each line to present the country. Instead of relying on the <code>directlabels</code> package, I will create the labels from scratch.</p>
+<p>The first step is to locate the labels. To do so, we need the values of GDP per capita of the last year of the series <code>max_date</code>. They are stored in <code>gdp_pc_sel_ly</code>.</p>
+<pre class="r"><code>max_date &lt;- max(gdp_pc_sel$date)
+
+gdp_pc_sel_ly &lt;- gdp_pc_sel |&gt;
+  filter(date == max_date)</code></pre>
+<p>Now we can place the direct labels doing the following:</p>
+<ul>
+<li>Enlarging the x axis with <code>xlim()</code>, so there is place for the country names at the right of the graph.</li>
+<li>Using <code>geom_text()</code> to plot the labels, using <code>gdp_pc_sel_ly</code> as data. Values of date and NY.GDP.PCAP.PP.KD from that table give the position of the text, the color comes from <code>gr_country</code> and the text from <code>country</code>.</li>
+</ul>
+<pre class="r"><code>gdp_pc_sel |&gt;
+  ggplot(aes(date, NY.GDP.PCAP.PP.KD, group = country, color = gr_country)) +
+  geom_line(linewidth = 1) +
+  theme_minimal(base_size = 9) +
+  labs(title = &quot;Evolution of GDP per capita of selected EU countries&quot;, 
+       x = NULL, y = NULL) +
+  scale_color_manual(name = &quot;groups&quot;, 
+                     values = c(&quot;#0080FF&quot;, &quot;#00CC00&quot;, &quot;#CC0000&quot;)) +
+  xlim(2000, 2028) +
+  geom_text(data = gdp_pc_sel_ly, 
+             aes(date, NY.GDP.PCAP.PP.KD, color = gr_country, label = country),
+             hjust = 0, show.legend = FALSE) +
+  theme(legend.position = &quot;bottom&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-14-1.png" width="100%" /></p>
+<p>As the GDP per capita of EU countries has been converging in the last years, the labels are overlapping. To remedy this we can use <code>ggprepel::geom_text_repel()</code> instead of <code>geom_text()</code>. To separate labels only along the y axis I have set <code>direction = "y"</code>.</p>
+<pre class="r"><code>gdp_pc_sel |&gt;
+  ggplot(aes(date, NY.GDP.PCAP.PP.KD, group = country, color = gr_country)) +
+  geom_line(linewidth = 1) +
+  theme_minimal(base_size = 9) +
+  labs(title = &quot;Evolution of GDP per capita of selected EU countries&quot;, 
+       x = NULL, y = NULL) +
+  scale_color_manual(name = &quot;groups&quot;, 
+                     values = c(&quot;#0080FF&quot;, &quot;#00CC00&quot;, &quot;#CC0000&quot;)) +
+  xlim(2000, 2025) +
+  geom_text_repel(data = gdp_pc_sel_ly, 
+                  aes(date, NY.GDP.PCAP.PP.KD, color = gr_country, label = country),
+                  hjust = 0, direction = &quot;y&quot;, show.legend = FALSE) +
+  theme(legend.position = &quot;bottom&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-15-1.png" width="100%" /></p>
+<p>From the resulting plot, we can conclude that:</p>
+<ul>
+<li>The spread of values of GDP per capita across countries in 2000 is much larger than in 2022. This means that in the last twenty-two years the GDP per capita has converged across the selected sample of EU countries.</li>
+<li>The three Northern countries (The Netherlands, Germany and France) have the highest values of GDP per capita during most of the examined period.</li>
+<li>The fate of the four Southern countries is diverse: Italy seems to separate from France and getting closer to Spain.</li>
+<li>The Baltic countries are in a process of catching up with Southern countries: Lithuania and Estonia have surpassed Portugal, and in the 2020s have values of GDP similar to Spain.</li>
+</ul>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Hocking, T. D. (2023). <code>directlabels</code> website. <a href="https://github.com/tdhock/directlabels" class="uri">https://github.com/tdhock/directlabels</a></li>
+<li>nussbaumer knaflic, c. (2013). strategies for avoiding the spaghetti graph <a href="https://www.storytellingwithdata.com/blog/2013/03/avoiding-spaghetti-graph" class="uri">https://www.storytellingwithdata.com/blog/2013/03/avoiding-spaghetti-graph</a></li>
+<li>Slowikowski, K. (2022). <code>ggrepel</code> website. <a href="https://ggrepel.slowkow.com/" class="uri">https://ggrepel.slowkow.com/</a></li>
+<li>World Bank Data: GDP per capita, PPP (constant 2017 international $) <a href="https://databank.worldbank.org/metadataglossary/world-development-indicators/series/NY.GDP.PCAP.PP.KD" class="uri">https://databank.worldbank.org/metadataglossary/world-development-indicators/series/NY.GDP.PCAP.PP.KD</a></li>
+<li>Would <code>scale_linewidth_discrete()</code> be developed to set values manually like other <code>scale_size_manual()</code> #5050 <a href="https://github.com/tidyverse/ggplot2/issues/5050" class="uri">https://github.com/tidyverse/ggplot2/issues/5050</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.3.2 (2023-10-31)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] ggrepel_0.9.3   wbstats_1.0.4   lubridate_1.9.3 forcats_1.0.0  
+##  [5] stringr_1.5.0   dplyr_1.1.3     purrr_1.0.2     readr_2.1.4    
+##  [9] tidyr_1.3.0     tibble_3.2.1    ggplot2_3.4.4   tidyverse_2.0.0
+## 
+## loaded via a namespace (and not attached):
+##  [1] sass_0.4.5       utf8_1.2.3       generics_0.1.3   blogdown_1.16   
+##  [5] stringi_1.7.12   hms_1.1.3        digest_0.6.31    magrittr_2.0.3  
+##  [9] evaluate_0.20    grid_4.3.2       timechange_0.2.0 bookdown_0.33   
+## [13] fastmap_1.1.1    jsonlite_1.8.7   fansi_1.0.4      scales_1.2.1    
+## [17] jquerylib_0.1.4  cli_3.6.1        rlang_1.1.2      munsell_0.5.0   
+## [21] withr_2.5.0      cachem_1.0.7     yaml_2.3.7       tools_4.3.2     
+## [25] tzdb_0.3.0       colorspace_2.1-0 vctrs_0.6.4      R6_2.5.1        
+## [29] lifecycle_1.0.3  pkgconfig_2.0.3  pillar_1.9.0     bslib_0.5.0     
+## [33] gtable_0.3.3     glue_1.6.2       Rcpp_1.0.10      highr_0.10      
+## [37] xfun_0.39        tidyselect_1.2.0 rstudioapi_0.14  knitr_1.42      
+## [41] farver_2.1.1     htmltools_0.5.5  rmarkdown_2.21   labeling_0.4.2  
+## [45] compiler_4.3.2</code></pre>
+</div>
+</div>

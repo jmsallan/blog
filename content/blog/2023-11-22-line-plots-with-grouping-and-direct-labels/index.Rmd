@@ -1,0 +1,231 @@
+---
+title: Line Plots with Grouping and Direct Labels
+author: Jose M Sallan
+date: '2023-11-22'
+slug: line-plots-with-grouping-and-direct-labels
+categories:
+  - R
+tags:
+  - data visualization
+  - ggplot
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post, I will present some insights on the evolution of the gross domestic product (GDP) per capita of of European Union (EU) countries in the 2000-2022 period, using data from the World Bank. While doing it, I will present some of the possibilities of ggplot to visualize information with a line graph.
+
+In addition to the `tidyverse`, I have used `wbstats` to retrieve information from the World Bank, and `ggrepel` to present overlapping text labels.
+
+```{r}
+library(tidyverse)
+library(wbstats)
+library(ggrepel) # https://ggrepel.slowkow.com/
+```
+
+```{r, echo = FALSE}
+gdp_pc <- readRDS("gdp_pc.RDS")
+```
+
+Of all metrics of GDP per capita provided by the World Bank, I have chosen the *NY.GDP.PCAP.PP.KD* indicator. We can obtain the description of the indicator from `wbstats::wbsearch()`:
+
+```{r}
+wb_search("NY.GDP.PCAP.PP.KD")
+wb_search("NY.GDP.PCAP.PP.KD")$indicator_desc[1]
+```
+
+This metric allows comparing across countries as it uses international dollars, and account the effect of inflation as it is presented in 2017 international dollars. We retrieve the data doing:
+
+```{r, eval = FALSE}
+gdp_pc <- wb_data("NY.GDP.PCAP.PP.KD", start_date = 2000, end_date = 2023)
+```
+
+Let's pick the `iso3c` (ISO 3166-1 alpha-3) encoding of EU countries in a vector `eu_iso3c`, and use them to obtain the GDP per capita of EU countries in `gdp_pc_eu`.
+
+```{r}
+eu_iso3c <- c("DEU", "AUT", "BEL", "BGR", "CYP", "HRV", "DNK", "SVK", "SVN", "ESP",
+              "EST", "FIN", "FRA", "GRC", "HUN", "IRL", "ITA", "LVA", "LTU", "LUX",
+              "MLT", "NLD", "POL", "PRT", "CZE", "ROU", "SWE")
+
+gdp_pc_eu <- gdp_pc |>
+  filter(iso3c %in% eu_iso3c) |>
+  select(iso3c, country, date, NY.GDP.PCAP.PP.KD)
+```
+
+Let's present the evolution of all EU countries in a line graph:
+
+```{r, out.width= '100%'}
+gdp_pc_eu |>
+  ggplot(aes(date, NY.GDP.PCAP.PP.KD, color = iso3c)) +
+  geom_line()
+```
+
+Aside from Luxembourg and Ireland, the evolution of the rest of countries is hard to tell, as there are too many countries represented in the same graph. This is an example of a **spaghetti graph**, a line graph with too many lines in it. Let's see how can be modify this graph to convey relevant information.
+
+# Evolution of a Specific Country
+
+A first strategy to present relevant information in a line graph is to emphasize one of the lines. In ggplot, we do this assigning a thicker line width to a specific observation. Here we emphasize the evolution of Ireland:
+
+```{r, out.width= '100%'}
+gdp_pc_eu |>
+  mutate(mark = ifelse(iso3c == "IRL", "a", "b")) |>
+  ggplot(aes(date, NY.GDP.PCAP.PP.KD, group = iso3c, linewidth = mark)) +
+  geom_line() +
+  scale_discrete_manual(aesthetic = "linewidth", 
+                        values = c(a = 2, b = 0.3))
+```
+
+To emphasize Ireland from the rest, we need to do two things:
+
+* Create a `mark` variable with one value from IRL and the same value for the rest of observations. This variable will be used to assign the linewidth inside the aesthetic. The thickness of the lines is controlled by `scale_discrete_manual()`.
+* Now `country` is not related to a property of the lines, but we need to draw one line for each country. We achieve this using `group` inside the aesthetic.
+
+Let's remove some clutter from the graph:
+
+* Removing the legend by making `guide = "none"` in the scale.
+* Using `theme_minimal()`.
+* Removing axis labels and adding a title with `labs`.
+
+```{r, out.width= '100%'}
+gdp_pc_eu |>
+  mutate(mark = ifelse(iso3c == "IRL", "a", "b")) |>
+  ggplot(aes(date, NY.GDP.PCAP.PP.KD, group = iso3c, linewidth = mark)) +
+  geom_line() +
+  scale_discrete_manual(aesthetic = "linewidth", 
+                        values = c(a = 2, b = 0.3), 
+                        guide = "none") +
+  theme_minimal() +
+  labs(title = "Evolution of Irish GDP along EU countries", 
+       x = NULL, y = NULL)
+```
+
+In this plot, we observe how the GDP per capita of Ireland has increased abruptly since the mid 2010s. According to this indicator, Ireland is the richest country on the EU after Luxembourg. 
+
+# Groups of Selected Countries
+
+Let's focus on a set of selected EU countries, listed in `selected_countries`:
+
+```{r, out.width= '100%'}
+selected_countries <- c("EST", "LVA", "LTU",
+                        "DEU", "FRA", "ITA", "NLD",
+                        "ESP", "GRE", "PRT") 
+
+gdp_pc_sel <- gdp_pc_eu |>
+  filter(iso3c %in% selected_countries)
+
+gdp_pc_sel |>
+  ggplot(aes(date, NY.GDP.PCAP.PP.KD, color = iso3c)) +
+  geom_line()
+```
+
+Although we have ten lines instead of twenty-seven, the resulting plot for ten countries is still hard to read. Let's try to improve this defining three sets of Baltic, Southern and Northern countries. I am using `case_when()` to obtain the `gr_country` variable for each country:
+
+```{r}
+gdp_pc_sel <- gdp_pc_sel |>
+  mutate(gr_country = case_when(
+    iso3c %in% c("EST", "LVA", "LTU") ~ "baltic",
+    iso3c %in% c("ESP", "ITA", "GRE", "PRT") ~ "southern",
+    iso3c %in% c("DEU", "FRA", "NLD") ~ "northern"
+  ))
+```
+
+Now we can assign to each country the color of its group of countries. This means that we need to define an aesthetic for the `color`, and other aesthetic to `group` to define which lines to plot. Colors are defined by `gr_country`, and lines by `country`.
+
+```{r, out.width= '100%'}
+gdp_pc_sel |>
+  ggplot(aes(date, NY.GDP.PCAP.PP.KD, group = country, color = gr_country)) +
+  geom_line()
+```
+
+Let's reduce clutter from the plot using `theme_minimal()`, redefining the legend and placing it at the bottom, removing axis labels and adding a title:
+
+```{r, out.width= '100%'}
+gdp_pc_sel |>
+  ggplot(aes(date, NY.GDP.PCAP.PP.KD, group = country, color = gr_country)) +
+  geom_line() +
+  theme_minimal() +
+  labs(title = "Evolution of GDP per capita of selected EU countries", 
+       x = NULL, y = NULL) +
+  scale_color_manual(name = "groups", 
+                     values = c("#0080FF", "#00CC00", "#CC0000")) +
+  theme(legend.position = "bottom")
+```
+
+## Placing Direct Labels
+
+In this graph, we don't know which are the countries represented in each line. Let's try to add **direct labels** at the end of each line to present the country. Instead of relying on the `directlabels` package, I will create the labels from scratch.
+
+The first step is to locate the labels. To do so, we need the values of GDP per capita of the last year of the series `max_date`. They are stored in `gdp_pc_sel_ly`.
+
+```{r}
+max_date <- max(gdp_pc_sel$date)
+
+gdp_pc_sel_ly <- gdp_pc_sel |>
+  filter(date == max_date)
+```
+
+Now we can place the direct labels doing the following:
+
+* Enlarging the x axis with `xlim()`, so there is place for the country names at the right of the graph.
+* Using `geom_text()` to plot the labels, using `gdp_pc_sel_ly` as data. Values of date and NY.GDP.PCAP.PP.KD from that table give the position of the text, the color comes from `gr_country` and the text from `country`.
+
+
+```{r, out.width= '100%'}
+gdp_pc_sel |>
+  ggplot(aes(date, NY.GDP.PCAP.PP.KD, group = country, color = gr_country)) +
+  geom_line(linewidth = 1) +
+  theme_minimal(base_size = 9) +
+  labs(title = "Evolution of GDP per capita of selected EU countries", 
+       x = NULL, y = NULL) +
+  scale_color_manual(name = "groups", 
+                     values = c("#0080FF", "#00CC00", "#CC0000")) +
+  xlim(2000, 2028) +
+  geom_text(data = gdp_pc_sel_ly, 
+             aes(date, NY.GDP.PCAP.PP.KD, color = gr_country, label = country),
+             hjust = 0, show.legend = FALSE) +
+  theme(legend.position = "bottom")
+```
+
+As the GDP per capita of EU countries has been converging in the last years, the labels are overlapping. To remedy this we can use `ggprepel::geom_text_repel()` instead of `geom_text()`. To separate labels only along the y axis I have set `direction = "y"`.
+
+```{r, out.width= '100%'}
+gdp_pc_sel |>
+  ggplot(aes(date, NY.GDP.PCAP.PP.KD, group = country, color = gr_country)) +
+  geom_line(linewidth = 1) +
+  theme_minimal(base_size = 9) +
+  labs(title = "Evolution of GDP per capita of selected EU countries", 
+       x = NULL, y = NULL) +
+  scale_color_manual(name = "groups", 
+                     values = c("#0080FF", "#00CC00", "#CC0000")) +
+  xlim(2000, 2025) +
+  geom_text_repel(data = gdp_pc_sel_ly, 
+                  aes(date, NY.GDP.PCAP.PP.KD, color = gr_country, label = country),
+                  hjust = 0, direction = "y", show.legend = FALSE) +
+  theme(legend.position = "bottom")
+```
+
+From the resulting plot, we can conclude that:
+
+* The spread of values of GDP per capita across countries in 2000 is much larger than in 2022. This means that in the last twenty-two years the GDP per capita has converged across the selected sample of EU countries.
+* The three Northern countries (The Netherlands, Germany and France) have the highest values of GDP per capita during most of the examined period.
+* The fate of the four Southern countries is diverse: Italy seems to separate from France and getting closer to Spain.
+* The Baltic countries are in a process of catching up with Southern countries: Lithuania and Estonia have surpassed Portugal, and in the 2020s have values of GDP similar to Spain.
+
+## References
+
+* Hocking, T. D. (2023). `directlabels` website. <https://github.com/tdhock/directlabels>
+* nussbaumer knaflic, c. (2013). strategies for avoiding the spaghetti graph <https://www.storytellingwithdata.com/blog/2013/03/avoiding-spaghetti-graph>
+* Slowikowski, K. (2022). `ggrepel` website. <https://ggrepel.slowkow.com/>
+* World Bank Data: GDP per capita, PPP (constant 2017 international $) <https://databank.worldbank.org/metadataglossary/world-development-indicators/series/NY.GDP.PCAP.PP.KD>
+* Would `scale_linewidth_discrete()` be developed to set values manually like other `scale_size_manual()` #5050 <https://github.com/tidyverse/ggplot2/issues/5050>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
