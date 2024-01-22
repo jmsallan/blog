@@ -42,7 +42,8 @@ wb_search("NY.GDP.PCAP.PP.KD")$indicator_desc[1]
 This metric allows comparing across countries as it uses international dollars, and account the effect of inflation as it is presented in 2017 international dollars. We retrieve the data doing:
 
 ```{r, eval = FALSE}
-gdp_pc <- wb_data("NY.GDP.PCAP.PP.KD", start_date = 2000, end_date = 2023)
+gdp_pc <- wb_data("NY.GDP.PCAP.PP.KD", 
+                  start_date = 2000, end_date = 2023)
 ```
 
 Let's pick the `iso3c` (ISO 3166-1 alpha-3) encoding of EU countries in a vector `eu_iso3c`, and use them to obtain the GDP per capita of EU countries in `gdp_pc_eu`.

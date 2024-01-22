@@ -1,0 +1,172 @@
+---
+title: A Dual Axis Line Plot
+author: Jose M Sallan
+date: '2024-01-22'
+slug: a-dual-axis-line-plot
+categories: []
+tags:
+  - data visualization
+  - ggplot
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post, I will present a workflow to produce two line plots at the same ggplot graph representing different magnitudes. These plots are called **dual axis** plots, double Y axis plots, dual-scale data plots or superimposed plots Then, we will point out why this is a bad idea and present an alternative in form of side-by-side charts.
+
+As we are using ggplot, I will load the `tidyverse` to access data manipulation functions.
+
+```{r}
+library(tidyverse)
+```
+
+As an example, I will be using the `economics` dataset. It is included with the `ggplot2` package and presents some US macroeconomic data as a time series.
+
+```{r}
+economics
+```
+
+I am interested in comparing the personal savings rate `psavert` with the unemployment rate. The later is not directly available, so I will proxy it (we don't have data of active population) with the`uemprate` variable, the quotient between the number of unemployed `uemploy` and the total population `pop`.
+
+```{r}
+economics <- economics |>
+  mutate(uemprate = unemploy*100/pop)
+```
+
+Let's look at at the evolution of personal savings rate.
+
+```{r, out.width='100%'}
+economics |>
+  ggplot(aes(date, psavert)) +
+  geom_line()
+```
+
+and at the evolution of unemployment rate:
+
+```{r, out.width='100%'}
+economics |>
+  ggplot(aes(date, uemprate)) +
+  geom_line()
+```
+
+We observe that the values of savings rate are roughly three times larger than unemployment rate, so if we want to compare them we will need two different scales, being the first three times larger than the second.
+
+## The Dual Axis Plot
+
+Let's start plotting the two time series in the same graph. I am presenting the `psavert` variable as is in red, and `uemprate` multiplied by three in blue. Note how I am using two different `aes()` for each `geom_line()`.
+
+```{r, out.width='100%'}
+economics |>
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = psavert), color = "red") +
+  geom_line(aes(y = uemprate * 3), color = "blue")
+```
+
+Let's build now the dual axis. I am doing this with `sec.axis` within `scale_y_continuous()`. It defines a right axis with a different scale than the left axis. The relationship between both is done with the `~./3` formula within `sec_axis`. I finish the job with `theme()` plotting each axis with its color. `axis.title.y` and `axis.title.y.right` control axis labels, while `axis.text.y` and `axis.text.y.right` axis text.
+
+```{r, out.width='100%'}
+economics |>
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = psavert), color = "red") +
+  geom_line(aes(y = uemprate * 3), color = "blue") +
+  scale_y_continuous(sec.axis = sec_axis(~./3, name = "uemprate")) +
+  theme(axis.title.y = element_text(color = "red"),
+        axis.title.y.right = element_text( color = "blue"),
+        axis.text.y = element_text(color = "red"),
+        axis.text.y.right = element_text(color = "blue"))
+```
+
+Once the plot is done, we can improve it by removing clutter, slightly changing the colors, emphasizing lines and aligning the title with the plot.
+
+```{r, out.width='100%'}
+economics |>
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = psavert), color = "#FF6666", linewidth = 1) +
+  geom_line(aes(y = uemprate * 3), color = "#6666FF", linewidth = 1) +
+  scale_y_continuous(sec.axis = sec_axis(~./3, name = "uemprate")) +
+  theme_minimal() +
+  theme(axis.title.y = element_text(color = "#FF6666"),
+        axis.title.y.right = element_text( color = "#6666FF"),
+        axis.text.y = element_text(color = "#FF6666"),
+        axis.text.y.right = element_text(color = "#6666FF"),
+        plot.title.position = "plot",
+        axis.title.x = element_blank()) +
+  ggtitle(label = "Unemployment and savings rate in the US")
+```
+
+## Alternative: A Side-By-Side Plot
+
+Visualization experts disencourage dual axis plots for a number of reasons, presented in [the Muth (2018)](https://blog.datawrapper.de/dualaxis) post. One of the alternatives presented by Muth is the side by side plot. We can do it using the `patchwork` pachage:
+
+```{r}
+library(patchwork)
+```
+
+In the code below, I have obtained the `psavert_plot` and `uemprate_plot` and put them together with `patchwork`.
+
+```{r, out.width='100%'}
+plot_psavert <- economics |>
+  ggplot(aes(date, psavert)) +
+  geom_line(color = "#FF6666", linewidth = 1) +
+  theme_minimal() +
+  theme(axis.title.y = element_text(color = "#FF6666"),
+        axis.text.y = element_text(color = "#FF6666"),
+        plot.title = element_text(color = "#FF6666"),
+        plot.title.position = "plot",
+        axis.title.x = element_blank()) +
+  ggtitle(label = "Personal savings rate in the US")
+
+plot_uemprate <- economics |>
+  ggplot(aes(date, uemprate)) +
+  geom_line(color = "#6666FF", linewidth = 1) +
+  theme_minimal() +
+  theme(axis.title.y = element_text(color = "#6666FF"),
+        axis.text.y = element_text(color = "#6666FF"),
+        plot.title = element_text(color = "#6666FF"),
+        plot.title.position = "plot",
+        axis.title.x = element_blank()) +
+  ggtitle(label = "Unemployment rate in the US")
+
+plot_psavert + plot_uemprate
+```
+
+## A Two-Line Plot
+
+For this case, the default ggplot solution is a plot with two lines and the same scale, with a legend to identify each factor.
+
+```{r, out.width='100%'}
+economics |>
+  select(date, psavert, uemprate) |>
+  pivot_longer(-date) |>
+  ggplot(aes(date, value, color = name)) +
+  geom_line(linewidth = 1) +
+  theme_minimal() +
+  scale_color_manual(name = "variable", values = c("#FF6666", "#6666FF")) +
+  ggtitle(label = "Savings rate and unemployment in the US") +
+  theme_minimal() +
+  theme(plot.title.position = "plot",
+        legend.position = c(0.8, 0.8),
+        axis.title = element_blank())
+```
+
+## Dual Axis Plots
+
+In dual axis plots, I am presenting two magnitudes of different scales in the same plot. These plots are easy to do with Microsoft Excel, so some R users are eager to replicate them in ggplot. In this post we have presented how to do that, but we have also presented why it is hard to do it: visualization experts disencourage dual Y axis plots. I have presented an alternative of dual Y axis plots, the side-by-side plot, easy to implement with the `patchwork` package.
+
+## References
+
+* The R graph gallery (2018). *Dual Y axis with R and ggplot2*. <https://r-graph-gallery.com/line-chart-dual-Y-axis-ggplot2.html>
+* Muth, L. C. (2018). *Why not to use two axes, and what to use instead*- <https://blog.datawrapper.de/dualaxis/>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+

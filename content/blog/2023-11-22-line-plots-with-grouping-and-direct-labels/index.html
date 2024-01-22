@@ -30,7 +30,8 @@ library(ggrepel) # https://ggrepel.slowkow.com/</code></pre>
 <pre class="r"><code>wb_search(&quot;NY.GDP.PCAP.PP.KD&quot;)$indicator_desc[1]</code></pre>
 <pre><code>## [1] &quot;GDP per capita based on purchasing power parity (PPP). PPP GDP is gross domestic product converted to international dollars using purchasing power parity rates. An international dollar has the same purchasing power over GDP as the U.S. dollar has in the United States. GDP at purchaser&#39;s prices is the sum of gross value added by all resident producers in the country plus any product taxes and minus any subsidies not included in the value of the products. It is calculated without making deductions for depreciation of fabricated assets or for depletion and degradation of natural resources. Data are in constant 2017 international dollars.&quot;</code></pre>
 <p>This metric allows comparing across countries as it uses international dollars, and account the effect of inflation as it is presented in 2017 international dollars. We retrieve the data doing:</p>
-<pre class="r"><code>gdp_pc &lt;- wb_data(&quot;NY.GDP.PCAP.PP.KD&quot;, start_date = 2000, end_date = 2023)</code></pre>
+<pre class="r"><code>gdp_pc &lt;- wb_data(&quot;NY.GDP.PCAP.PP.KD&quot;, 
+                  start_date = 2000, end_date = 2023)</code></pre>
 <p>Let’s pick the <code>iso3c</code> (ISO 3166-1 alpha-3) encoding of EU countries in a vector <code>eu_iso3c</code>, and use them to obtain the GDP per capita of EU countries in <code>gdp_pc_eu</code>.</p>
 <pre class="r"><code>eu_iso3c &lt;- c(&quot;DEU&quot;, &quot;AUT&quot;, &quot;BEL&quot;, &quot;BGR&quot;, &quot;CYP&quot;, &quot;HRV&quot;, &quot;DNK&quot;, &quot;SVK&quot;, &quot;SVN&quot;, &quot;ESP&quot;,
               &quot;EST&quot;, &quot;FIN&quot;, &quot;FRA&quot;, &quot;GRC&quot;, &quot;HUN&quot;, &quot;IRL&quot;, &quot;ITA&quot;, &quot;LVA&quot;, &quot;LTU&quot;, &quot;LUX&quot;,

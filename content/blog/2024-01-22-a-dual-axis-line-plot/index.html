@@ -1,0 +1,184 @@
+---
+title: A Dual Axis Line Plot
+author: Jose M Sallan
+date: '2024-01-22'
+slug: a-dual-axis-line-plot
+categories: []
+tags:
+  - data visualization
+  - ggplot
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>In this post, I will present a workflow to produce two line plots at the same ggplot graph representing different magnitudes. These plots are called <strong>dual axis</strong> plots, double Y axis plots, dual-scale data plots or superimposed plots Then, we will point out why this is a bad idea and present an alternative in form of side-by-side charts.</p>
+<p>As we are using ggplot, I will load the <code>tidyverse</code> to access data manipulation functions.</p>
+<pre class="r"><code>library(tidyverse)</code></pre>
+<p>As an example, I will be using the <code>economics</code> dataset. It is included with the <code>ggplot2</code> package and presents some US macroeconomic data as a time series.</p>
+<pre class="r"><code>economics</code></pre>
+<pre><code>## # A tibble: 574 × 6
+##    date         pce    pop psavert uempmed unemploy
+##    &lt;date&gt;     &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;    &lt;dbl&gt;
+##  1 1967-07-01  507. 198712    12.6     4.5     2944
+##  2 1967-08-01  510. 198911    12.6     4.7     2945
+##  3 1967-09-01  516. 199113    11.9     4.6     2958
+##  4 1967-10-01  512. 199311    12.9     4.9     3143
+##  5 1967-11-01  517. 199498    12.8     4.7     3066
+##  6 1967-12-01  525. 199657    11.8     4.8     3018
+##  7 1968-01-01  531. 199808    11.7     5.1     2878
+##  8 1968-02-01  534. 199920    12.3     4.5     3001
+##  9 1968-03-01  544. 200056    11.7     4.1     2877
+## 10 1968-04-01  544  200208    12.3     4.6     2709
+## # ℹ 564 more rows</code></pre>
+<p>I am interested in comparing the personal savings rate <code>psavert</code> with the unemployment rate. The later is not directly available, so I will proxy it (we don’t have data of active population) with the<code>uemprate</code> variable, the quotient between the number of unemployed <code>uemploy</code> and the total population <code>pop</code>.</p>
+<pre class="r"><code>economics &lt;- economics |&gt;
+  mutate(uemprate = unemploy*100/pop)</code></pre>
+<p>Let’s look at at the evolution of personal savings rate.</p>
+<pre class="r"><code>economics |&gt;
+  ggplot(aes(date, psavert)) +
+  geom_line()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="100%" /></p>
+<p>and at the evolution of unemployment rate:</p>
+<pre class="r"><code>economics |&gt;
+  ggplot(aes(date, uemprate)) +
+  geom_line()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="100%" /></p>
+<p>We observe that the values of savings rate are roughly three times larger than unemployment rate, so if we want to compare them we will need two different scales, being the first three times larger than the second.</p>
+<div id="the-dual-axis-plot" class="section level2">
+<h2>The Dual Axis Plot</h2>
+<p>Let’s start plotting the two time series in the same graph. I am presenting the <code>psavert</code> variable as is in red, and <code>uemprate</code> multiplied by three in blue. Note how I am using two different <code>aes()</code> for each <code>geom_line()</code>.</p>
+<pre class="r"><code>economics |&gt;
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = psavert), color = &quot;red&quot;) +
+  geom_line(aes(y = uemprate * 3), color = &quot;blue&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="100%" /></p>
+<p>Let’s build now the dual axis. I am doing this with <code>sec.axis</code> within <code>scale_y_continuous()</code>. It defines a right axis with a different scale than the left axis. The relationship between both is done with the <code>~./3</code> formula within <code>sec_axis</code>. I finish the job with <code>theme()</code> plotting each axis with its color. <code>axis.title.y</code> and <code>axis.title.y.right</code> control axis labels, while <code>axis.text.y</code> and <code>axis.text.y.right</code> axis text.</p>
+<pre class="r"><code>economics |&gt;
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = psavert), color = &quot;red&quot;) +
+  geom_line(aes(y = uemprate * 3), color = &quot;blue&quot;) +
+  scale_y_continuous(sec.axis = sec_axis(~./3, name = &quot;uemprate&quot;)) +
+  theme(axis.title.y = element_text(color = &quot;red&quot;),
+        axis.title.y.right = element_text( color = &quot;blue&quot;),
+        axis.text.y = element_text(color = &quot;red&quot;),
+        axis.text.y.right = element_text(color = &quot;blue&quot;))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="100%" /></p>
+<p>Once the plot is done, we can improve it by removing clutter, slightly changing the colors, emphasizing lines and aligning the title with the plot.</p>
+<pre class="r"><code>economics |&gt;
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = psavert), color = &quot;#FF6666&quot;, linewidth = 1) +
+  geom_line(aes(y = uemprate * 3), color = &quot;#6666FF&quot;, linewidth = 1) +
+  scale_y_continuous(sec.axis = sec_axis(~./3, name = &quot;uemprate&quot;)) +
+  theme_minimal() +
+  theme(axis.title.y = element_text(color = &quot;#FF6666&quot;),
+        axis.title.y.right = element_text( color = &quot;#6666FF&quot;),
+        axis.text.y = element_text(color = &quot;#FF6666&quot;),
+        axis.text.y.right = element_text(color = &quot;#6666FF&quot;),
+        plot.title.position = &quot;plot&quot;,
+        axis.title.x = element_blank()) +
+  ggtitle(label = &quot;Unemployment and savings rate in the US&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="100%" /></p>
+</div>
+<div id="alternative-a-side-by-side-plot" class="section level2">
+<h2>Alternative: A Side-By-Side Plot</h2>
+<p>Visualization experts disencourage dual axis plots for a number of reasons, presented in <a href="https://blog.datawrapper.de/dualaxis">the Muth (2018)</a> post. One of the alternatives presented by Muth is the side by side plot. We can do it using the <code>patchwork</code> pachage:</p>
+<pre class="r"><code>library(patchwork)</code></pre>
+<p>In the code below, I have obtained the <code>psavert_plot</code> and <code>uemprate_plot</code> and put them together with <code>patchwork</code>.</p>
+<pre class="r"><code>plot_psavert &lt;- economics |&gt;
+  ggplot(aes(date, psavert)) +
+  geom_line(color = &quot;#FF6666&quot;, linewidth = 1) +
+  theme_minimal() +
+  theme(axis.title.y = element_text(color = &quot;#FF6666&quot;),
+        axis.text.y = element_text(color = &quot;#FF6666&quot;),
+        plot.title = element_text(color = &quot;#FF6666&quot;),
+        plot.title.position = &quot;plot&quot;,
+        axis.title.x = element_blank()) +
+  ggtitle(label = &quot;Personal savings rate in the US&quot;)
+
+plot_uemprate &lt;- economics |&gt;
+  ggplot(aes(date, uemprate)) +
+  geom_line(color = &quot;#6666FF&quot;, linewidth = 1) +
+  theme_minimal() +
+  theme(axis.title.y = element_text(color = &quot;#6666FF&quot;),
+        axis.text.y = element_text(color = &quot;#6666FF&quot;),
+        plot.title = element_text(color = &quot;#6666FF&quot;),
+        plot.title.position = &quot;plot&quot;,
+        axis.title.x = element_blank()) +
+  ggtitle(label = &quot;Unemployment rate in the US&quot;)
+
+plot_psavert + plot_uemprate</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="100%" /></p>
+</div>
+<div id="a-two-line-plot" class="section level2">
+<h2>A Two-Line Plot</h2>
+<p>For this case, the default ggplot solution is a plot with two lines and the same scale, with a legend to identify each factor.</p>
+<pre class="r"><code>economics |&gt;
+  select(date, psavert, uemprate) |&gt;
+  pivot_longer(-date) |&gt;
+  ggplot(aes(date, value, color = name)) +
+  geom_line(linewidth = 1) +
+  theme_minimal() +
+  scale_color_manual(name = &quot;variable&quot;, values = c(&quot;#FF6666&quot;, &quot;#6666FF&quot;)) +
+  ggtitle(label = &quot;Savings rate and unemployment in the US&quot;) +
+  theme_minimal() +
+  theme(plot.title.position = &quot;plot&quot;,
+        legend.position = c(0.8, 0.8),
+        axis.title = element_blank())</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-11-1.png" width="100%" /></p>
+</div>
+<div id="dual-axis-plots" class="section level2">
+<h2>Dual Axis Plots</h2>
+<p>In dual axis plots, I am presenting two magnitudes of different scales in the same plot. These plots are easy to do with Microsoft Excel, so some R users are eager to replicate them in ggplot. In this post we have presented how to do that, but we have also presented why it is hard to do it: visualization experts disencourage dual Y axis plots. I have presented an alternative of dual Y axis plots, the side-by-side plot, easy to implement with the <code>patchwork</code> package.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>The R graph gallery (2018). <em>Dual Y axis with R and ggplot2</em>. <a href="https://r-graph-gallery.com/line-chart-dual-Y-axis-ggplot2.html" class="uri">https://r-graph-gallery.com/line-chart-dual-Y-axis-ggplot2.html</a></li>
+<li>Muth, L. C. (2018). <em>Why not to use two axes, and what to use instead</em>- <a href="https://blog.datawrapper.de/dualaxis/" class="uri">https://blog.datawrapper.de/dualaxis/</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.3.2 (2023-10-31)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] patchwork_1.2.0 lubridate_1.9.3 forcats_1.0.0   stringr_1.5.1  
+##  [5] dplyr_1.1.4     purrr_1.0.2     readr_2.1.5     tidyr_1.3.0    
+##  [9] tibble_3.2.1    ggplot2_3.4.4   tidyverse_2.0.0
+## 
+## loaded via a namespace (and not attached):
+##  [1] sass_0.4.5        utf8_1.2.3        generics_0.1.3    blogdown_1.16    
+##  [5] stringi_1.7.12    hms_1.1.3         digest_0.6.31     magrittr_2.0.3   
+##  [9] evaluate_0.20     grid_4.3.2        timechange_0.2.0  bookdown_0.33    
+## [13] fastmap_1.1.1     jsonlite_1.8.8    fansi_1.0.4       scales_1.2.1     
+## [17] jquerylib_0.1.4   cli_3.6.1         rlang_1.1.3       munsell_0.5.0    
+## [21] withr_2.5.0       cachem_1.0.7      yaml_2.3.7        tools_4.3.2      
+## [25] tzdb_0.3.0        colorspace_2.1-0  vctrs_0.6.4       R6_2.5.1         
+## [29] lifecycle_1.0.3   pkgconfig_2.0.3   pillar_1.9.0      bslib_0.5.0      
+## [33] gtable_0.3.3      glue_1.6.2        xfun_0.39         tidyselect_1.2.0 
+## [37] highr_0.10        rstudioapi_0.15.0 knitr_1.42        farver_2.1.1     
+## [41] htmltools_0.5.5   rmarkdown_2.21    labeling_0.4.2    compiler_4.3.2</code></pre>
+</div>
