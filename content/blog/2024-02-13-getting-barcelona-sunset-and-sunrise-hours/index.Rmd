@@ -1,0 +1,202 @@
+---
+title: Getting Barcelona Sunset and Sunrise Hours
+author: Jose M Sallan
+date: '2024-02-13'
+slug: getting-barcelona-sunset-and-sunrise-hours
+categories:
+  - R
+tags:
+  - data cleaning
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Getting and cleaning data is one of the most time-consuming activities in data analysis. This job consists of acquiring data from an unstructured source (if you prefer, from a source with maintainers with different ideas of what a structured dataset is) and transforming it into a (correctly) structured dataset. Paraphrasing Tolstoy, we can say that **"structured datasets are all alike; every unstructured dataset is unstructured in its own way"**.
+
+In this post, I will present how I have retrieved sunrise (*orto* in Spanish) and sunset (*ocaso* in Spanish) hours in Barcelona during 2019. Data is publicly available as a text file from the following link:
+
+<https://cdn.mitma.gob.es/portal-web-drupal/salidapuestasol/2019/Barcelona-2019.txt>
+
+Let's save the link in a R variable.
+
+```{r}
+url_oo <- "https://cdn.mitma.gob.es/portal-web-drupal/salidapuestasol/2019/Barcelona-2019.txt"
+```
+
+In this post, I will rely on the powers of the tidyverse.
+
+```{r, message=FALSE}
+library(tidyverse)
+```
+
+Among the packages loaded in the above instruction is the `stringr` package, which will be very useful in this job.
+
+## Looking at Data
+
+We can take a look at the data using `readLines`. This function parses a text file, so that each line is the component of a vector. As all reading functions from R, input can be a location in your computer or a link to a remote resource.
+
+```{r}
+oo <- readLines(url_oo)
+oo
+```
+
+Taking a look at the results we observe that:
+
+-   Data is between lines 8 and 38.
+-   Column names are useless in this context.
+-   Sunrise and sunset hours occur in the same positions of each line for all days.
+-   We can obtain the final position of each sunrise and sunset hour with the `m` character in line 7.
+
+To obtain the positions of the `m` character in line 7, we can use `stringr::str_locate_all()`:
+
+```{r}
+pos_e <- str_locate_all(oo[7], "m")[[1]][ ,1]
+pos_e
+```
+
+In `pos_e` is retrieved the end of each block of data. All sunrise hours have three characters and all sunset have four, so we can find the start of each block doing:
+
+```{r}
+dec <- rep(c(2, 3), 12)
+pos_s <- pos_e - dec
+pos_s
+```
+
+Therefore, `pos_e` and `pos_s` store the positions of each sunrise and sunset hour of each row.
+
+## Retrieving the Data
+
+With `pos_s` and `pos_e` we can retrieve the data of each row. We can pick each block with `stringr::str_sub()`. This function picks the values of a string between `start` and `end` positions. These can be vectors, so it can separate each value of a row. Let's illustrate it with the first row:
+
+```{r}
+str_sub(oo[8], pos_s, pos_e)
+```
+
+We can iterate this expression along rows 8 to 38 of `oo` and stack all rows together into a data frame. We can do this in one step with `purrr::map_dfr()`, but we need to name each vector with the same column names. Let's define the column names setting months as numbers and distinguishing between sunrise and sunset with `orto` and `ocaso`. Note how we are using `rep()` with different arguments to do this.
+
+```{r}
+cn1 <- rep(1:12, each = 2)
+cn2 <- rep(c("orto", "ocaso"), times = 12)
+cn <- paste(cn1, cn2, sep = "_")
+cn
+```
+
+Now we are ready to arrange the data into a data frame:
+
+```{r}
+table <- map_dfr(oo[8:38], ~ {v <- str_sub(. , pos_s, pos_e)
+                              names(v) <- cn
+                              return(v)})
+```
+
+## Cleaning the Data
+
+Let's see what we've got so far:
+
+```{r}
+table |>
+  print(n = Inf)
+```
+
+There are several problems with this table:
+
+-   There are empty spaces with days that do not exist, like 30 of February.
+-   We need to add a column specifying the day.
+-   Data is in wide format, and computers need long tables.
+-   Time is stored as a three- of four-character string.
+
+Let's tackle those issues step by step. First, let's put the times that do not exist as `NA`:
+
+```{r}
+table <- table |>
+  mutate(across(everything(), ~ case_when(. == "   " ~ NA,
+                                          . == "    " ~ NA,
+                                          TRUE ~ .)))
+```
+
+Let's add the `dia` column for the day number:
+
+```{r}
+table <- table |>
+  mutate(dia = 1:31)
+```
+
+Now we are ready to set the table in long format. In this format, we don't need to keep the non-existing days, so we remove them with `tidyr::drop_na()`.
+
+```{r}
+table <- table |>
+  pivot_longer(-dia, names_to = "var", values_to = "tiempo") |>
+  drop_na()
+```
+
+Let's take a look at the result:
+
+```{r}
+table
+```
+
+We can split the values of var with `tidyr::separate()`:
+
+```{r}
+table <- table |>
+  separate(var, sep = "_", into = c("mes", "evento"))
+table
+```
+
+There are several ways of picking the hour and minute from this time format. I have chosen to transform it into numeric and to use the rounding `floor()` function to get the hour `hora` and get the value of minutes `min` from `h`:
+
+```{r}
+table <- table |>
+  mutate(tiempo = as.numeric(tiempo),
+         hora = floor(tiempo/100),
+         min = tiempo - hora*100)
+table
+```
+
+Finally, let's use `dplyr::select()` to retrieve the columns we need:
+
+```{r}
+table <- table |>
+  select(mes, dia, evento, hora, min) |>
+  arrange(mes, dia)
+table
+```
+
+## Using the dataset
+
+The way that the table has been arranged allows using it flexibly. We can collapse the date and time values into a timestamp with `lubridate::makedatetime()` or create a date with `lubridate::makedate()` and a time with `hms::hms()`. 
+
+As an example, let's plot sunrise and sunset time for each day.
+
+```{r, message=FALSE, out.width='100%'}
+library(hms)
+table |>
+  mutate(date = make_date(year = 2019, month = mes, day = dia),
+         time = hms(minutes = min, hours = hora)) |>
+  ggplot(aes(date, time, color = evento)) +
+  geom_line(linewidth = 1) +
+  theme_minimal() +
+  scale_color_manual(values = c("#FF3333", "#FF9933")) +
+  theme(legend.position = "top", 
+        axis.title = element_blank(),
+        plot.title.position = "plot") +
+  ggtitle("Sunrise (orto) and sunset (ocaso) in Barcelona (2019)")
+```
+
+Here we can see the effect of the daylight saving time.
+
+
+## References
+
+* Instituto Geográfico Nacional (2024). *Hora, salida y puesta de sol.* <https://astronomia.ign.es/hora-salidas-y-puestas-de-sol>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+

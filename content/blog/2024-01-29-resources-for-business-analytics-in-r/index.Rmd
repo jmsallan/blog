@@ -26,7 +26,7 @@ In this post I present some resources for business analytics in R. Most of them 
 
 This work explains the functionalities of `tidyverse`, it works quite well as a reference book. I also attach the Spanish translation for Spanish-speaking users.
 
--   Data.table vignettes: https://cran.r-project.org/web/packages/data.table/vignettes/ 
+-   Data.table vignettes: <https://cran.r-project.org/web/packages/data.table/vignettes/>
 
 The `data.table` library covers functionality similar to `dplyr` and `tidyr`. It has a more complex syntax, but is more versatile and can handle larger tables.
 
@@ -41,7 +41,7 @@ Two resources dedicated exclusively to exploiting the functionalities of ggplot.
 
 Book similar to the previous two, which also presents the graphical utilities of base R.
 
--   Storytelling with data: <https://www.storytellingwithdata.com/> 
+-   Storytelling with data: <https://www.storytellingwithdata.com/>
 
 Book on how to design graphics and presentations, based on the premise that in any presentation we are telling a story.
 
@@ -59,11 +59,11 @@ A reference for those interested in examining geographic information, for exampl
 
 ## Supervised learning and machine learning
 
--   Hands-On Machine Learning with R: <https://bradleyboehmke.github.io/HOML/> 
--   The caret package: <https://topepo.github.io/caret/index.html> 
+-   Hands-On Machine Learning with R: <https://bradleyboehmke.github.io/HOML/>
+-   The caret package: <https://topepo.github.io/caret/index.html>
 -   Tidy Modeling with R: <https://www.tmwr.org/>
 
- Until 2019, caret was the standard for R supervised learning workflows, and many users rely on this framework today. The first two books present how to use caret. Later, the author of caret joined the team that develops tidyverse at Posit to develop tidymodels. This set of packages is presented in the third book of this listing.
+Until 2019, caret was the standard for R supervised learning workflows, and many users rely on this framework today. The first two books present how to use caret. Later, the author of caret joined the team that develops tidyverse at Posit to develop tidymodels. This set of packages is presented in the third book of this listing.
 
 ## Publication
 
@@ -94,7 +94,3 @@ Julia Silge's blog presents practical R tutorials for exploratory data analysis 
 -   The Jose M Sallan Static Website: <https://jmsallan.netlify.app/>
 
 When possible, I publish posts here mainly about R and data analysis. This is a work in progress, which among other things lacks a post index and a proper name. I will be grateful if you can ask me questions and problems in R to create new posts.
-
-
-
-
