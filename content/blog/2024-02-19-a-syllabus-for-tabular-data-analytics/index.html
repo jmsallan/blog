@@ -1,0 +1,78 @@
+---
+title: 'A Syllabus for Tabular Data Analytics '
+author: Jose M Sallan
+date: '2024-02-19'
+slug: a-syllabus-for-tabular-data-analytics
+categories:
+  - R
+tags:
+  - data cleaning
+  - data structures
+  - data visualization
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>In contemporary education in business, engineering and computer science there is growing concern in conveying to students data analytics capabilities. Today, we have multiples sources of data: urban activity from open data portals, transactions registered in commercial Internet platforms, and activities in the factory detected by Internet of Things are salient examples of this data overhaul. Data may appear as images, text, sound or tabular registers, among other forms. We have developed effective tools to deal with each type of data, such as convolutional neural networks for image processing or recurrent neural networks for speech or text. In this post, I want to focus on <strong>tabular data</strong>, where variables are organized in columns and observations in rows. In particular, I aim to convey my present view about how can we introduce students to processing tabular data effectively.</p>
+<p>In my opinion, the tidyverse offers a good fromework for data analytics, offering a set of R packages to cover specific needs of the data analyist. That is why I will present this framework through tidyverse packages. But obviously other approaches are possible: data.table is a good solution to handle very large datasets, and the popular Python language has its own tools to perform these tasks.</p>
+<p>Here is my particular framework to introduce data analytics of tabular data.</p>
+<div id="unit-1-introduction-to-r" class="section level2">
+<h2>Unit 1: Introduction to R</h2>
+<p>The first step of the course must be introducing students to the working environment, in my case R and RStudio. This can be challenging for most of them, as they are used to graphical using interfaces instead of coding base workflows. I start presenting R and RStudio. Then, I move to R data structures: vectors, lists and data frames. This includes presenting R base operations and the dollar notation. Later, I am presenting some R data types: numeric, logical, character and factor. Finally, I introduce functions and the extension of R through packages.</p>
+</div>
+<div id="unit-2-handling-tabular-data" class="section level2">
+<h2>Unit 2: Handling Tabular Data</h2>
+<p>The mst common tool to handle tabular data are spreadsheets, being Excel, Google Spreadhseets or Libreoffice the most common implementations. I motivate students to move from Excel sheet to data frames active in the working environment. Then, we learn how to use <code>dplyr</code> verbs some basic tabular data operations: filtering rows, selecting columns, arranging (ordering) by column value, creating new columns or modifying existing ones, and reordering and renaming columns.</p>
+</div>
+<div id="unit-3-visualization-tools" class="section level2">
+<h2>Unit 3: Visualization Tools</h2>
+<p>Once we know how to handle data, we can move to visualize it. It is time to present the <code>gpplot2</code> package to visualize tabular data through the grammar of graphics. At this stage, we focus on the possiblities of producing graphs to explore data, rather than on sophisticated charts for presentations.</p>
+</div>
+<div id="unit-4-pivoting-tables" class="section level2">
+<h2>Unit 4: Pivoting Tables</h2>
+<p>In the context of tabular data, <em>pivot</em> has two meanings. The first meaning is about producing summary tables of values across levels of categorical variables. This is accomplished in spreadsheets through dynamic tables. The second is about moving from wide tables to long tables. The later can be cases of tidy data, the preferred way of storing data in tables for exploitation with computers. Here I am introducing <code>group_by()</code> and <code>summarise()</code> from <code>dplyr</code> to obtain summary tables. Then, I am presenting some basic <code>tidyr</code> verbs: <code>pivot_longer()</code>, <code>pivot_wider()</code> and <code>separate()</code> to move from wide to long tables and vice versa. This concepts will be useful later if students are introduced to structured databases in platforms like mySQL.</p>
+</div>
+<div id="unit-5-joining-tables" class="section level2">
+<h2>Unit 5: Joining Tables</h2>
+<p>The introduction of tidy data allows us to explore relational databases, as one of the principles of tidy data is that each observational unit is a table. So it is likely that our data will be a set of tables, related to each other through relational variables. This is a crucial concept for students, if they need to be familiar with relational databases like mySQL. In this unit, I introduce the several types of <code>dplyr</code> joins.</p>
+</div>
+<div id="unit-6-reading-and-cleaning-data" class="section level2">
+<h2>Unit 6: Reading and Cleaning Data</h2>
+<p>The most tedious and time-consuming activity of a data analysis project is reading and cleaning data. We need to retrieve data from a file in our computer or an Internet connection, and then transforming it into a correct and consistent dataset. This is the place to introduce the tidyverse resources to read data: <code>readr</code> for csv and text files, <code>readxl</code> for Excel files, and <code>dbplyr</code> for SQL databases. Once the data is loaded, the resources of <code>janitor</code> and the data handling packages introduced in previous sections can help in cleaning the dataset.</p>
+</div>
+<div id="unit-7-producing-visualizations-for-presentation" class="section level2">
+<h2>Unit 7: Producing Visualizations for Presentation</h2>
+<p>The <code>ggplot2</code> package allows us to work in two “modes”: an <em>exploration</em> mode, where we want to produce fast and rough charts to explore the dataset, and a <em>presentation</em> mode, to generate charts for presentations. In this section, the most useful graphs for presentations are introduced, like the horizontal bar chart, scatter plots, line plots, and others. Now it is a good moment to present some utilities of the <code>forcats</code> package, like reordering a factor by values of a second variable with <code>fct_reorder()</code> or collapsing uncommon values into one with <code>fct_lump()</code>. Other miscellaneous issues can be introduced here, like annotation of charts, or dealing with power-law distributions with logarithmic scales.</p>
+</div>
+<div id="unit-8-working-with-strings" class="section level2">
+<h2>Unit 8: Working with Strings</h2>
+<p>Although most data transformation and modelling deal with numerical variables, it is frequent that we need to work with massive amounts of text. Here it is time to introduce the <code>stringr</code> functions to perform functions on text data like splitting, searching and replacing, among others. These functions work with regular expressions, an abstruse field where large language models can be of great help. In addition, the <code>glue</code> package allows generating string literals including the values of variables in the environment. Text analysis is a world in its own, a good introduction is the Silgen &amp; Robinson (2024) online book.</p>
+</div>
+<div id="unit-9-working-with-dates-and-times" class="section level2">
+<h2>Unit 9: Working with Dates and Times</h2>
+<p>Times and dates appear pervasively in data analysis, and have their specific data types in R or Python. In R dates are presented in the POSIXct format, so they are stored internally as the number of seconds since the epoch, 00:00:00 UTC of 1 January 1970. In this module, we can introduce students to how to work with dates and times in base R and present the packages <code>lubridate</code> and <code>hms</code>, that can make working with dates and times easier.</p>
+</div>
+<div id="capstone-project" class="section level2">
+<h2>Capstone Project</h2>
+<p>A nice way to evaluate students on the contents above is to make them do a capstone project of exploratory data analysis, where they can deploy the knowledge acquired in the previous units.</p>
+</div>
+<div id="extensions" class="section level2">
+<h2>Extensions</h2>
+<p>Depending on the background of the students, several extensions for these contents are possible:</p>
+<ul>
+<li><strong>Statistical analysis:</strong> Presenting statistical inference, parametric tests, linear regression and factor analysis. Here can be useful to present the <code>broom</code> package to obtain tidy outputs of statistical models.</li>
+<li><strong>Predictive modelling:</strong> Here can be presented models of unsupervised learning, like clustering or association rules, and workflows of supervised learning with the <code>tidymodels</code> framework.</li>
+<li><strong>Spatial analysis:</strong> R allows analyzing, visualizing and modelling spatial data with open source software. A nice introduction to that topic is the Lovelace et al. (2024) book.</li>
+</ul>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Lovelace, R.; Nowosad, J. and Muenchow, J. (2024). <em>Geocomputation with R.</em> Available at <a href="https://r.geocompx.org/" class="uri">https://r.geocompx.org/</a>.</li>
+<li>Silge, J. and Robinson, D. (2024). <em>Text mining with R: A tidy approach.</em> Available at: <a href="https://www.tidytextmining.com/" class="uri">https://www.tidytextmining.com/</a>.</li>
+<li>Wickham, H.; Çentinkaya-Rundel, M,; Golemund, G. (2023). <em>R for Data Science (Second Edition)</em>. Available at: <a href="https://r4ds.hadley.nz/" class="uri">https://r4ds.hadley.nz/</a>.</li>
+</ul>
+</div>
