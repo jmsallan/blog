@@ -17,7 +17,7 @@ description: Description for the page
 knitr::opts_chunk$set(echo = TRUE, message = FALSE)
 ```
 
-In frequentist statistics, a **confidence interval** is an interval which is expected to typically contain the population parameter being estimated. More specifically, given a confidence level $1-\alpha$, a confidence interval is a random interval that contains the population parameter with probability $1-\alpha$. The typical values of the **confidence level** of the interval $1-\alpah$ are 0.95 and 0.99. The confidence interval is an alternative metric to $p$-value to obtain information about a population parameter trough hypothesis testing.
+In frequentist statistics, a **confidence interval** is an interval which is expected to typically contain the population parameter being estimated. More specifically, given a confidence level $1-\alpha$, a confidence interval is a random interval that contains the population parameter with probability $1-\alpha$. The typical values of the **confidence level** of the interval $1-\alpha$ are 0.95 and 0.99. The confidence interval is an alternative metric to $p$-value to obtain information about a population parameter trough hypothesis testing.
 
 In this post, I will illustrate how confidence intervals work in the estimation of the mean of a random variable. I will use the tidyverse and the `broom` package to obtain the output of statistical test in tidy format:
 
