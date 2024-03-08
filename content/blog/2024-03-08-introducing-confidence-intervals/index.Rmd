@@ -1,0 +1,212 @@
+---
+title: Introducing Confidence Intervals
+author: Jose M Sallan
+date: '2024-03-08'
+slug: introducing-confidence-intervals
+categories:
+  - statistics
+tags:
+  - ggplot
+  - hypothesis testing
+  - purrr
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In frequentist statistics, a **confidence interval** is an interval which is expected to typically contain the population parameter being estimated. More specifically, given a confidence level $1-\alpha$, a confidence interval is a random interval that contains the population parameter with probability $1-\alpha$. The typical values of the **confidence level** of the interval $1-\alpah$ are 0.95 and 0.99. The confidence interval is an alternative metric to $p$-value to obtain information about a population parameter trough hypothesis testing.
+
+In this post, I will illustrate how confidence intervals work in the estimation of the mean of a random variable. I will use the tidyverse and the `broom` package to obtain the output of statistical test in tidy format:
+
+```{r}
+library(tidyverse)
+library(broom)
+```
+
+## Calculating Confidence Intervals
+
+Let's start obtainining a sample of a normal distribution with mean zero and standard deviation one with the `rnorm()` function. If I want a sample of 100 observations we proceed as follows:
+
+```{r}
+set.seed(1212)
+x <- rnorm(100)
+```
+
+Let's use `t.test()` to check if the population mean is zero:
+
+```{r}
+t.test(x)
+```
+
+We observe that:
+
+-   The p-value of the hypothesis testing is higher than the standard threshold of 0.05.
+-   The confidence interval contains the hypothesized population mean of zero.
+
+Therefore, we cannot reject the null hypothesis that the mean is equal to zero.
+
+What would happen if we perform this tests to many samples from the same distribution? If we want to store them in a data frame, we might want to use `broom::tidy()` to obtain the result in a tibble format:
+
+```{r}
+tidy(t.test(x))
+```
+
+Let's wrap it together in a `conf_int()` function that takes the sample size `n` as input and:
+
+-   generates a sample from a normal distribution with `rnorm()`.
+-   performs the `t.test()` of the sample mean.
+-   stores the output in tidy format, retaining the variables of interest: the mean `estimate`, the lower and upper bound of the confidence interval `conf.low` and `conf.high` and the `p.value`.
+
+```{r}
+conf_int <- function(n = 100, mean = 0, sd = 1){
+  sample <- rnorm(n = n, mean = mean, sd = sd)
+  test <- t.test(sample)
+  result <- tidy(test) |>
+    select(estimate, conf.low, conf.high, p.value)
+  return(result)
+}
+```
+
+A run of the function leads to:
+
+```{r}
+set.seed(1212)
+conf_int()
+```
+
+Now we can use `purrr::map_dfr()` to wrap the results of many runs of `conf_int()` in a single tibble. Once obtained, we can check whether zero is within the confidence interval and store the `result` in a column, and give and `id` to each observation. All of this is done in the `set_intervals()` function, that takes as arguments `n` and the number of samples `sample`.
+
+```{r}
+set_intervals <- function(sample  = 100, n = 100, mean = 0, sd = 1){
+  
+  intervals <- map_dfr(1:sample, ~ conf_int(n = n, mean = mean, sd = sd))
+  
+  intervals <- intervals |>
+    mutate(id = 1:n(),
+           result = ifelse(sign(conf.low) == sign(conf.high), "accept", "reject")) |>
+    relocate(id)
+  
+  return(intervals)
+}
+```
+
+The outcome of the function looks like:
+
+```{r}
+set.seed(1111)
+intervals <- set_intervals()
+intervals
+```
+
+## Plotting many Confidence Intervals
+
+Let's plot the results, using `geom_point()` for the sample mean and `geom_segment()`:
+
+```{r, out.width='100%', fig.height=7}
+intervals |>
+  ggplot(aes(estimate, id, color = result)) +
+  geom_point() +
+  geom_segment(aes(x = conf.low, y = id, xend = conf.high, yend = id, color = result))
+```
+
+A nicer version of the same plot:
+
+```{r, out.width='100%', fig.height=7}
+intervals |>
+  ggplot(aes(estimate, id, color = result)) +
+  geom_point() +
+  geom_segment(aes(x = conf.low, y = id, xend = conf.high, yend = id, color = result)) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  ggtitle("Several confidence intervals") +
+  scale_color_manual(values = c("#FF3333", "#009900")) +
+  theme_minimal() +
+  theme(axis.text.y = element_blank(), 
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        legend.position = "none",
+        plot.title.position = "plot")
+```
+
+In this case, the population that we are taking the samples from has a mean equal to zero, so that the null hypothesis that the population mean is equal is zero is true. Therefore, we observe that most of the confidence intervals contain the zero (in green), but some of them do not (in red).
+
+```{r}
+intervals |>
+  group_by(result) |>
+  count()
+```
+
+Specifically, in 13 out of the 100 intervals, we have rejected the null hypothesis, comiting a **Type I error**. Let's relate this with p-values evaluating the minimum and maximum values for the two values of `result`:
+
+```{r}
+intervals |>
+  group_by(result) |>
+  summarise(min_pvalue = min(p.value), max_pvalue = max(p.value))
+```
+
+In all cases that the confidence interval does not include zero, the p-value is smaller than 0.05. We observe, though, that this is happening 13% of the time, more than the expected 5%. Let's pick a set of 1,000 samples to get a more precise estimation of probability.
+
+```{r}
+set.seed(3333)
+intervals_large <- set_intervals(sample = 1000)
+```
+
+Let's see in how many samples of `intervals_large` we are committing a Type I error:
+
+```{r}
+intervals_large |>
+  group_by(result) |>
+  count()
+```
+
+Now the number of Type I errors is closer to 5%.
+
+## Confidence Intervals and Variance
+
+The variability on the original sample affects the confidence interval: the smaller the variance of the same, the smaller the width of the interval. To illustrate this, let's build a set of intervals taken from a population of smaller variance and compare the results with the previous plot.
+
+```{r}
+set.seed(5555)
+intervals_sv <- set_intervals(sd = 0.5)
+```
+
+```{r}
+two_intervals <- bind_rows(intervals |> mutate(sd = 1),
+                           intervals_sv |> mutate(sd = 0.5))
+```
+
+```{r, out.width='100%', fig.height=7}
+two_intervals |>
+  ggplot(aes(estimate, id, color = result)) +
+  geom_point() +
+  geom_segment(aes(x = conf.low, y = id, xend = conf.high, yend = id, color = result)) +
+  facet_grid(. ~ sd, labeller = label_both) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  ggtitle("Effect of sd on confidence intervals") +
+  scale_color_manual(values = c("#FF3333", "#009900")) +
+  theme_minimal() +
+  theme(axis.text.y = element_blank(),
+        axis.text.x = element_text(size = 6, angle = 90),
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        legend.position = "none",
+        plot.title.position = "plot",
+        strip.text.x = element_text(size = 10),
+        strip.background.x = element_rect(fill = "#FFB266", color = "#808080"))
+```
+
+
+## Interpreting Confidence Intervals
+
+In frequentist statistics, a confidence interval is a random interval that contains the (true) population parameter with a probability $1 - \alpha$. The value $1 - \alpha$ is the confidence level of the interval. 
+
+We can use confidence intervals for hypothesis testing: if the interval does not contain the population parameter defined in the null hypothesis, we can reject the null hypothesis with a probability of Type I error of $\alpha$. The confidence interval is related with the p-value: if the confidence interval does not contain the expected population parameter, the p-value will be smaller than $\alpha$.
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+

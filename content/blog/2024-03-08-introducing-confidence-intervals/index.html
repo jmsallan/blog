@@ -1,0 +1,233 @@
+---
+title: Introducing Confidence Intervals
+author: Jose M Sallan
+date: '2024-03-08'
+slug: introducing-confidence-intervals
+categories:
+  - statistics
+tags:
+  - ggplot
+  - hypothesis testing
+  - purrr
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>In frequentist statistics, a <strong>confidence interval</strong> is an interval which is expected to typically contain the population parameter being estimated. More specifically, given a confidence level <span class="math inline">\(1-\alpha\)</span>, a confidence interval is a random interval that contains the population parameter with probability <span class="math inline">\(1-\alpha\)</span>. The typical values of the <strong>confidence level</strong> of the interval <span class="math inline">\(1-\alpah\)</span> are 0.95 and 0.99. The confidence interval is an alternative metric to <span class="math inline">\(p\)</span>-value to obtain information about a population parameter trough hypothesis testing.</p>
+<p>In this post, I will illustrate how confidence intervals work in the estimation of the mean of a random variable. I will use the tidyverse and the <code>broom</code> package to obtain the output of statistical test in tidy format:</p>
+<pre class="r"><code>library(tidyverse)
+library(broom)</code></pre>
+<div id="calculating-confidence-intervals" class="section level2">
+<h2>Calculating Confidence Intervals</h2>
+<p>Let’s start obtainining a sample of a normal distribution with mean zero and standard deviation one with the <code>rnorm()</code> function. If I want a sample of 100 observations we proceed as follows:</p>
+<pre class="r"><code>set.seed(1212)
+x &lt;- rnorm(100)</code></pre>
+<p>Let’s use <code>t.test()</code> to check if the population mean is zero:</p>
+<pre class="r"><code>t.test(x)</code></pre>
+<pre><code>## 
+## 	One Sample t-test
+## 
+## data:  x
+## t = -0.84443, df = 99, p-value = 0.4005
+## alternative hypothesis: true mean is not equal to 0
+## 95 percent confidence interval:
+##  -0.2835738  0.1142651
+## sample estimates:
+##   mean of x 
+## -0.08465435</code></pre>
+<p>We observe that:</p>
+<ul>
+<li>The p-value of the hypothesis testing is higher than the standard threshold of 0.05.</li>
+<li>The confidence interval contains the hypothesized population mean of zero.</li>
+</ul>
+<p>Therefore, we cannot reject the null hypothesis that the mean is equal to zero.</p>
+<p>What would happen if we perform this tests to many samples from the same distribution? If we want to store them in a data frame, we might want to use <code>broom::tidy()</code> to obtain the result in a tibble format:</p>
+<pre class="r"><code>tidy(t.test(x))</code></pre>
+<pre><code>## # A tibble: 1 × 8
+##   estimate statistic p.value parameter conf.low conf.high method     alternative
+##      &lt;dbl&gt;     &lt;dbl&gt;   &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;     &lt;dbl&gt; &lt;chr&gt;      &lt;chr&gt;      
+## 1  -0.0847    -0.844   0.400        99   -0.284     0.114 One Sampl… two.sided</code></pre>
+<p>Let’s wrap it together in a <code>conf_int()</code> function that takes the sample size <code>n</code> as input and:</p>
+<ul>
+<li>generates a sample from a normal distribution with <code>rnorm()</code>.</li>
+<li>performs the <code>t.test()</code> of the sample mean.</li>
+<li>stores the output in tidy format, retaining the variables of interest: the mean <code>estimate</code>, the lower and upper bound of the confidence interval <code>conf.low</code> and <code>conf.high</code> and the <code>p.value</code>.</li>
+</ul>
+<pre class="r"><code>conf_int &lt;- function(n = 100, mean = 0, sd = 1){
+  sample &lt;- rnorm(n = n, mean = mean, sd = sd)
+  test &lt;- t.test(sample)
+  result &lt;- tidy(test) |&gt;
+    select(estimate, conf.low, conf.high, p.value)
+  return(result)
+}</code></pre>
+<p>A run of the function leads to:</p>
+<pre class="r"><code>set.seed(1212)
+conf_int()</code></pre>
+<pre><code>## # A tibble: 1 × 4
+##   estimate conf.low conf.high p.value
+##      &lt;dbl&gt;    &lt;dbl&gt;     &lt;dbl&gt;   &lt;dbl&gt;
+## 1  -0.0847   -0.284     0.114   0.400</code></pre>
+<p>Now we can use <code>purrr::map_dfr()</code> to wrap the results of many runs of <code>conf_int()</code> in a single tibble. Once obtained, we can check whether zero is within the confidence interval and store the <code>result</code> in a column, and give and <code>id</code> to each observation. All of this is done in the <code>set_intervals()</code> function, that takes as arguments <code>n</code> and the number of samples <code>sample</code>.</p>
+<pre class="r"><code>set_intervals &lt;- function(sample  = 100, n = 100, mean = 0, sd = 1){
+  
+  intervals &lt;- map_dfr(1:sample, ~ conf_int(n = n, mean = mean, sd = sd))
+  
+  intervals &lt;- intervals |&gt;
+    mutate(id = 1:n(),
+           result = ifelse(sign(conf.low) == sign(conf.high), &quot;accept&quot;, &quot;reject&quot;)) |&gt;
+    relocate(id)
+  
+  return(intervals)
+}</code></pre>
+<p>The outcome of the function looks like:</p>
+<pre class="r"><code>set.seed(1111)
+intervals &lt;- set_intervals()
+intervals</code></pre>
+<pre><code>## # A tibble: 100 × 6
+##       id estimate conf.low conf.high p.value result
+##    &lt;int&gt;    &lt;dbl&gt;    &lt;dbl&gt;     &lt;dbl&gt;   &lt;dbl&gt; &lt;chr&gt; 
+##  1     1   0.242   0.0225    0.461   0.0310  accept
+##  2     2   0.210  -0.00567   0.425   0.0562  reject
+##  3     3  -0.0705 -0.250     0.109   0.438   reject
+##  4     4  -0.0869 -0.269     0.0952  0.346   reject
+##  5     5  -0.0155 -0.215     0.184   0.878   reject
+##  6     6  -0.190  -0.373    -0.00657 0.0425  accept
+##  7     7  -0.0926 -0.290     0.105   0.354   reject
+##  8     8  -0.281  -0.478    -0.0847  0.00549 accept
+##  9     9  -0.0622 -0.262     0.138   0.539   reject
+## 10    10   0.0850 -0.0901    0.260   0.338   reject
+## # ℹ 90 more rows</code></pre>
+</div>
+<div id="plotting-many-confidence-intervals" class="section level2">
+<h2>Plotting many Confidence Intervals</h2>
+<p>Let’s plot the results, using <code>geom_point()</code> for the sample mean and <code>geom_segment()</code>:</p>
+<pre class="r"><code>intervals |&gt;
+  ggplot(aes(estimate, id, color = result)) +
+  geom_point() +
+  geom_segment(aes(x = conf.low, y = id, xend = conf.high, yend = id, color = result))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="100%" /></p>
+<p>A nicer version of the same plot:</p>
+<pre class="r"><code>intervals |&gt;
+  ggplot(aes(estimate, id, color = result)) +
+  geom_point() +
+  geom_segment(aes(x = conf.low, y = id, xend = conf.high, yend = id, color = result)) +
+  geom_vline(xintercept = 0, linetype = &quot;dashed&quot;) +
+  ggtitle(&quot;Several confidence intervals&quot;) +
+  scale_color_manual(values = c(&quot;#FF3333&quot;, &quot;#009900&quot;)) +
+  theme_minimal() +
+  theme(axis.text.y = element_blank(), 
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        legend.position = &quot;none&quot;,
+        plot.title.position = &quot;plot&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="100%" /></p>
+<p>In this case, the population that we are taking the samples from has a mean equal to zero, so that the null hypothesis that the population mean is equal is zero is true. Therefore, we observe that most of the confidence intervals contain the zero (in green), but some of them do not (in red).</p>
+<pre class="r"><code>intervals |&gt;
+  group_by(result) |&gt;
+  count()</code></pre>
+<pre><code>## # A tibble: 2 × 2
+## # Groups:   result [2]
+##   result     n
+##   &lt;chr&gt;  &lt;int&gt;
+## 1 accept    13
+## 2 reject    87</code></pre>
+<p>Specifically, in 13 out of the 100 intervals, we have rejected the null hypothesis, comiting a <strong>Type I error</strong>. Let’s relate this with p-values evaluating the minimum and maximum values for the two values of <code>result</code>:</p>
+<pre class="r"><code>intervals |&gt;
+  group_by(result) |&gt;
+  summarise(min_pvalue = min(p.value), max_pvalue = max(p.value))</code></pre>
+<pre><code>## # A tibble: 2 × 3
+##   result min_pvalue max_pvalue
+##   &lt;chr&gt;       &lt;dbl&gt;      &lt;dbl&gt;
+## 1 accept    0.00456     0.0486
+## 2 reject    0.0562      0.982</code></pre>
+<p>In all cases that the confidence interval does not include zero, the p-value is smaller than 0.05. We observe, though, that this is happening 13% of the time, more than the expected 5%. Let’s pick a set of 1,000 samples to get a more precise estimation of probability.</p>
+<pre class="r"><code>set.seed(3333)
+intervals_large &lt;- set_intervals(sample = 1000)</code></pre>
+<p>Let’s see in how many samples of <code>intervals_large</code> we are committing a Type I error:</p>
+<pre class="r"><code>intervals_large |&gt;
+  group_by(result) |&gt;
+  count()</code></pre>
+<pre><code>## # A tibble: 2 × 2
+## # Groups:   result [2]
+##   result     n
+##   &lt;chr&gt;  &lt;int&gt;
+## 1 accept    48
+## 2 reject   952</code></pre>
+<p>Now the number of Type I errors is closer to 5%.</p>
+</div>
+<div id="confidence-intervals-and-variance" class="section level2">
+<h2>Confidence Intervals and Variance</h2>
+<p>The variability on the original sample affects the confidence interval: the smaller the variance of the same, the smaller the width of the interval. To illustrate this, let’s build a set of intervals taken from a population of smaller variance and compare the results with the previous plot.</p>
+<pre class="r"><code>set.seed(5555)
+intervals_sv &lt;- set_intervals(sd = 0.5)</code></pre>
+<pre class="r"><code>two_intervals &lt;- bind_rows(intervals |&gt; mutate(sd = 1),
+                           intervals_sv |&gt; mutate(sd = 0.5))</code></pre>
+<pre class="r"><code>two_intervals |&gt;
+  ggplot(aes(estimate, id, color = result)) +
+  geom_point() +
+  geom_segment(aes(x = conf.low, y = id, xend = conf.high, yend = id, color = result)) +
+  facet_grid(. ~ sd, labeller = label_both) +
+  geom_vline(xintercept = 0, linetype = &quot;dashed&quot;) +
+  ggtitle(&quot;Effect of sd on confidence intervals&quot;) +
+  scale_color_manual(values = c(&quot;#FF3333&quot;, &quot;#009900&quot;)) +
+  theme_minimal() +
+  theme(axis.text.y = element_blank(),
+        axis.text.x = element_text(size = 6, angle = 90),
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        legend.position = &quot;none&quot;,
+        plot.title.position = &quot;plot&quot;,
+        strip.text.x = element_text(size = 10),
+        strip.background.x = element_rect(fill = &quot;#FFB266&quot;, color = &quot;#808080&quot;))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-17-1.png" width="100%" /></p>
+</div>
+<div id="interpreting-confidence-intervals" class="section level2">
+<h2>Interpreting Confidence Intervals</h2>
+<p>In frequentist statistics, a confidence interval is a random interval that contains the (true) population parameter with a probability <span class="math inline">\(1 - \alpha\)</span>. The value <span class="math inline">\(1 - \alpha\)</span> is the confidence level of the interval.</p>
+<p>We can use confidence intervals for hypothesis testing: if the interval does not contain the population parameter defined in the null hypothesis, we can reject the null hypothesis with a probability of Type I error of <span class="math inline">\(\alpha\)</span>. The confidence interval is related with the p-value: if the confidence interval does not contain the expected population parameter, the p-value will be smaller than <span class="math inline">\(\alpha\)</span>.</p>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.3.3 (2024-02-29)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] broom_1.0.5     lubridate_1.9.3 forcats_1.0.0   stringr_1.5.1  
+##  [5] dplyr_1.1.4     purrr_1.0.2     readr_2.1.5     tidyr_1.3.0    
+##  [9] tibble_3.2.1    ggplot2_3.4.4   tidyverse_2.0.0
+## 
+## loaded via a namespace (and not attached):
+##  [1] sass_0.4.5        utf8_1.2.3        generics_0.1.3    blogdown_1.16    
+##  [5] stringi_1.7.12    hms_1.1.3         digest_0.6.31     magrittr_2.0.3   
+##  [9] evaluate_0.20     grid_4.3.3        timechange_0.2.0  bookdown_0.33    
+## [13] fastmap_1.1.1     jsonlite_1.8.8    backports_1.4.1   fansi_1.0.4      
+## [17] scales_1.2.1      jquerylib_0.1.4   cli_3.6.1         rlang_1.1.3      
+## [21] munsell_0.5.0     withr_2.5.0       cachem_1.0.7      yaml_2.3.7       
+## [25] tools_4.3.3       tzdb_0.3.0        colorspace_2.1-0  vctrs_0.6.4      
+## [29] R6_2.5.1          lifecycle_1.0.3   pkgconfig_2.0.3   pillar_1.9.0     
+## [33] bslib_0.6.1       gtable_0.3.3      glue_1.6.2        highr_0.10       
+## [37] xfun_0.39         tidyselect_1.2.0  rstudioapi_0.15.0 knitr_1.42       
+## [41] farver_2.1.1      htmltools_0.5.7   rmarkdown_2.21    labeling_0.4.2   
+## [45] compiler_4.3.3</code></pre>
+</div>
