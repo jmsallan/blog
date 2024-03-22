@@ -1,0 +1,260 @@
+---
+title: Solving the Maximum Flow Problem
+author: Jose M Sallan
+date: '2024-03-22'
+slug: solving-the-maximum-flow-problem
+categories:
+  - R
+  - optimization
+tags:
+  - ggraph
+  - linear programming
+  - R
+  - tidygraph
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+
+The **maximum network flow** problem is a classic problem in graph theory and optimization. It consists of finding the maximum flow that can be sent through a network from a source node to a sink node, subject to capacity constraints on the edges of the network. The network is represented as a directed graph where each edge has a capacity indicating the maximum amount of flow that can pass through it.
+
+The goal of the problem is to determine the maximum amount of flow that can be sent from the source to the sink while satisfying two conditions:
+
+1. Conservation of flow: The total amount of flow entering any node must equal the total amount of flow leaving that node.
+2. Capacity constraints: The amount of flow on any edge cannot exceed its capacity.
+
+The maximum flow problem has numerous real-world applications, including transportation networks, telecommunications, computer networking, and water distribution systems. In this post, I will present how to solve this problem with linear programming using `Rglpk`, and show how to plot a small instance of the problem with `tidygraph` and `ggraph`.
+
+```{r}
+library(Rglpk)
+library(tidygraph)
+library(ggraph)
+```
+
+
+## Plotting the Instance
+
+Let's define an instance of the maximum network flow problem. The origin and destination of each arc are stored in `org_arcs` and `dst_arcs`, respectively. `cap_arcs` stores arc capacities, and `nodes` the graph nodes.
+
+```{r}
+nodes <- c("s", 2:6, "t")
+org_arcs <- c(rep("s", 3), 2, 3, rep(4, 3), rep(5, 2), 6)
+dst_arcs <- c(2:4, 5, 5, 2, 6, "t", 6, "t", "t")
+cap_arcs <- c(3, 5, 3, 3, 3, 2, 2, 4, 5, 3, 2)
+
+network <- data.frame(org = org_arcs,
+                      dst = dst_arcs,
+                      cap = cap_arcs)
+network
+```
+
+To plot the graph, we start creating a `tidygraph` object from the `network` data frame:
+
+```{r}
+graph <- as_tbl_graph(network)
+```
+
+I will present arc capacity between parentheses as edge labels, creating the `label1` variable in edges:
+
+```{r}
+graph <- graph |>
+  activate(edges) |>
+  mutate(label1 = paste0("(", cap, ")"))
+graph
+```
+
+Small graphs like this require a customised layout, with coordinates of each node stored in a matrix.
+
+```{r}
+ly_mat <- matrix(c(1, 4,
+                   3, 3,
+                   2, 1,
+                   4, 5,
+                   5, 2,
+                   6, 3,
+                   8, 3), 7, 2, byrow = TRUE)
+```
+
+Now we're ready to plot the graph. Nodes are presented with their name with `geom_node_text()`, but edges require more work:
+
+-   Edge labels are passed as edge aesthetic with `aes(label = label1)`.
+-   The position of edge labels along the edge and with a specific separation is achieved with `angle_calc` and `label_dodge`.
+-   As the graph is directed, we need to specific the aspect of arrows. I do that with the `arrow()` instruction.
+-   To avoid overlap between nodes and edges I am setting edge start and end with `start_cap` and `end_cap`.
+-   Finally, we specificy `edge_color` out of the aesthetic, because all edges will have the same color.
+
+```{r, out.width='100%'}
+ggraph(graph, layout = ly_mat) +
+  geom_edge_link(aes(label = label1),
+                 angle_calc = "along",
+                 label_dodge = unit(2.5, "mm"),
+                 arrow = arrow(length = unit(4, 'mm'), angle = 20, type = "closed"),
+                 start_cap = circle(3, 'mm'),
+                 end_cap = circle(3, 'mm'),
+                 edge_color = "grey") +
+  geom_node_text(aes(label = name)) +
+  theme_graph()
+```
+
+
+## Solving the Instance
+
+The linear programming formulation for the maximum network flow problem requires decision variables $x_{ij}$, equal to the flow transported through arc from $i$ to $j$. The maximum flow to maximize is the variable $f$. The constraints define flow conservation in each node. Note how variable f appears in the constraint of nodes $s$ and $t$. Finally, variables have upper bound arc capacity $c_{ij}$.
+
+\begin{align*} 
+\text{MAX } f \\
+\text{s. t. } & x_{s2} + x_{s3} + x_{s4} - f &= 0 \\
+              & x_{25} - x_{s2} - x_{52} &= 0 \\
+              & x_{35} - x_{s3} &= 0\\
+              & x_{42} + x_{46} + x_{4t} - x_{s4} &= 0 \\
+              & x_{56} + x_{5t} - x_{25} + x_{35} &= 0 \\
+              & x_{6t} - x_{46} + x_{56}  &= 0 \\
+              & f - x_{47} + x_{5t} + x_{6t}  &= 0 \\
+              & 0 \leq x_{ij} \leq c_{ij}
+\end{align*}
+
+If arc capacities are integer the solution of this problem will be integer, because of the integrality property of network flow problems.
+
+Now we are ready to define all the elements of the linear programming model for the instance:
+
+-   Cost coefficients `obj`.
+-   Constraints directions `dir` and right-hand side values `rhs`.
+-   Variable `types` (this could have been omitted in this case as all are continuous) and `bounds` (note the structure of this variable).
+-   Matrix of constraints coefficients `mat`.
+
+```{r}
+n <- length(nodes) #number of rows
+m <- length(org_arcs) #number of columns
+
+names_vars <- c(paste0("x[", org_arcs, ", ", dst_arcs, "]"), "flow")
+obj <- c(rep(0, m), 1)
+names(obj) <- names_vars
+dir <- rep("==", n)
+rhs <- rep(0, n)
+types <- rep("C", m+1)
+bounds <- list(upper = list(ind = 1:(m+1), val = c(cap_arcs, Inf)))
+
+rows <- lapply(1:n, \(i){
+  orgs <- ifelse(org_arcs == nodes[i], -1, 0)
+  dsts <- ifelse(dst_arcs == nodes[i], 1, 0)
+  orgs+dsts
+})
+
+mat0 <- matrix(unlist(rows), n, m, byrow = TRUE)
+
+mat <- cbind(mat0, c(1, rep(0,n-2), -1))
+```
+
+Once the elements of the problem are defined, we are ready to solve the problem.
+
+```{r}
+sol <- Rglpk_solve_LP(obj = obj, 
+                      mat = mat, 
+                      dir = dir, 
+                      rhs = rhs, 
+                      bounds = bounds, 
+                      types = types, 
+                      max = TRUE)
+
+sol
+```
+
+The value of maximum flow for this problem is `r sol$optimum`. For a better comprehension of the solution, it is useful to present it as a named vector:
+
+```{r}
+solution <- sol$solution
+names(solution) <- names_vars
+solution
+```
+
+
+## Plotting the Solution
+
+Let's present the solution in the graph plot. To do so, I add the solution to the edges and generate the `label2` variable, including the flow and the maximum flow for each edge.
+
+```{r}
+graph <- graph |>
+  activate(edges) |>
+  mutate(solution = sol$solution[1:m],
+         label2 = paste0("(", solution, ", ", cap, ")"))
+```
+
+The graph with the solution shows that the flow is conserved in each node and that maximum capacity is not exceeded in each arc.
+
+```{r, out.width='100%'}
+ggraph(graph, layout = ly_mat) +
+  geom_edge_link(aes(label = label2),
+                 angle_calc = "along",
+                 label_dodge = unit(2.5, "mm"),
+                 arrow = arrow(length = unit(4, 'mm'), angle = 20, type = "closed"),
+                 start_cap = circle(3, 'mm'),
+                 end_cap = circle(3, 'mm'),
+                 edge_color = "grey") +
+  geom_node_text(aes(label = name)) +
+  theme_graph()
+```
+
+# Maximum Flow and Minimum Cut
+
+In graph theory, there is a fundamental relationship between the maximum flow and the minimum cut, known as the **max-flow min-cut theorem**. This theorem states that in any flow network, the maximum amount of flow passing from the source node to the sink node is equal to the minimum capacity of a cut separating the source node from the sink node.
+
+A cut in a flow network is a partition of the nodes into two sets, one containing the source node and the other containing the sink node, such that there are no edges going from a node in one set to a node in the other set. The capacity of a cut is the sum of the capacities of the edges crossing the cut from the set containing the source node to the set containing the sink node.
+
+The max-flow min-cut theorem implies that the maximum flow in a network is always bounded by the minimum capacity of any cut separating the source from the sink. In other words, the maximum flow value is equal to the capacity of the smallest cut in the network.
+
+For our instance, the minimum cut corresponds with edges (s, 4), (5, t) and (6, 7). This cut creates two subsets of nodes: one with nodes 4 and t and other with the rest of nodes.
+
+To picture this, I define two vectors specifying the cut in edges and nodes.
+
+```{r}
+cut <- rep("no", 11)
+names(cut) <- names_vars[1:m]
+cut[c(3, 10, 11)] <- "yes"
+cut
+
+nodes_cut <- rep("set1", 7)
+nodes_cut[c(4,7)] <- "set2"
+```
+
+I am adding the `cut` variables to nodes and edges.
+
+```{r}
+graph <- graph |>
+  activate(edges) |>
+  mutate(cut = cut)
+
+graph <- graph |>
+  activate(nodes) |>
+  mutate(cut = nodes_cut)
+```
+
+And finally I am plotting the graph with the minimum cut.
+
+```{r, out.width= '100%'}
+ggraph(graph, layout = ly_mat) +
+  geom_edge_link(aes(label = label2, color = cut),
+                 angle_calc = "along",
+                 label_dodge = unit(2.5, "mm"),
+                 arrow = arrow(length = unit(4, 'mm'), angle = 20, type = "closed"),
+                 start_cap = circle(3, 'mm'),
+                 end_cap = circle(3, 'mm')) +
+  geom_node_text(aes(label = name, color = cut)) +
+  scale_edge_color_manual(values = c("grey", "#FF0000")) +
+  scale_color_manual(values = c("#0000FF", "#FF0000")) +
+  theme_graph() +
+  theme(legend.position = "none")
+```
+
+This small example illustrates how to solve the maximum network flow problem with linear programming. This problem can also be solved with specific algorithms, like the Ford-Fulkerson algorithm.
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+

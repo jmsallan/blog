@@ -1,0 +1,303 @@
+---
+title: Solving the Maximum Flow Problem
+author: Jose M Sallan
+date: '2024-03-22'
+slug: solving-the-maximum-flow-problem
+categories:
+  - R
+  - optimization
+tags:
+  - ggraph
+  - linear programming
+  - R
+  - tidygraph
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>The <strong>maximum network flow</strong> problem is a classic problem in graph theory and optimization. It consists of finding the maximum flow that can be sent through a network from a source node to a sink node, subject to capacity constraints on the edges of the network. The network is represented as a directed graph where each edge has a capacity indicating the maximum amount of flow that can pass through it.</p>
+<p>The goal of the problem is to determine the maximum amount of flow that can be sent from the source to the sink while satisfying two conditions:</p>
+<ol style="list-style-type: decimal">
+<li>Conservation of flow: The total amount of flow entering any node must equal the total amount of flow leaving that node.</li>
+<li>Capacity constraints: The amount of flow on any edge cannot exceed its capacity.</li>
+</ol>
+<p>The maximum flow problem has numerous real-world applications, including transportation networks, telecommunications, computer networking, and water distribution systems. In this post, I will present how to solve this problem with linear programming using <code>Rglpk</code>, and show how to plot a small instance of the problem with <code>tidygraph</code> and <code>ggraph</code>.</p>
+<pre class="r"><code>library(Rglpk)
+library(tidygraph)
+library(ggraph)</code></pre>
+<div id="plotting-the-instance" class="section level2">
+<h2>Plotting the Instance</h2>
+<p>Let’s define an instance of the maximum network flow problem. The origin and destination of each arc are stored in <code>org_arcs</code> and <code>dst_arcs</code>, respectively. <code>cap_arcs</code> stores arc capacities, and <code>nodes</code> the graph nodes.</p>
+<pre class="r"><code>nodes &lt;- c(&quot;s&quot;, 2:6, &quot;t&quot;)
+org_arcs &lt;- c(rep(&quot;s&quot;, 3), 2, 3, rep(4, 3), rep(5, 2), 6)
+dst_arcs &lt;- c(2:4, 5, 5, 2, 6, &quot;t&quot;, 6, &quot;t&quot;, &quot;t&quot;)
+cap_arcs &lt;- c(3, 5, 3, 3, 3, 2, 2, 4, 5, 3, 2)
+
+network &lt;- data.frame(org = org_arcs,
+                      dst = dst_arcs,
+                      cap = cap_arcs)
+network</code></pre>
+<pre><code>##    org dst cap
+## 1    s   2   3
+## 2    s   3   5
+## 3    s   4   3
+## 4    2   5   3
+## 5    3   5   3
+## 6    4   2   2
+## 7    4   6   2
+## 8    4   t   4
+## 9    5   6   5
+## 10   5   t   3
+## 11   6   t   2</code></pre>
+<p>To plot the graph, we start creating a <code>tidygraph</code> object from the <code>network</code> data frame:</p>
+<pre class="r"><code>graph &lt;- as_tbl_graph(network)</code></pre>
+<p>I will present arc capacity between parentheses as edge labels, creating the <code>label1</code> variable in edges:</p>
+<pre class="r"><code>graph &lt;- graph |&gt;
+  activate(edges) |&gt;
+  mutate(label1 = paste0(&quot;(&quot;, cap, &quot;)&quot;))
+graph</code></pre>
+<pre><code>## # A tbl_graph: 7 nodes and 11 edges
+## #
+## # A directed acyclic simple graph with 1 component
+## #
+## # A tibble: 11 × 4
+##    from    to   cap label1
+##   &lt;int&gt; &lt;int&gt; &lt;dbl&gt; &lt;chr&gt; 
+## 1     1     2     3 (3)   
+## 2     1     3     5 (5)   
+## 3     1     4     3 (3)   
+## 4     2     5     3 (3)   
+## 5     3     5     3 (3)   
+## 6     4     2     2 (2)   
+## # ℹ 5 more rows
+## #
+## # A tibble: 7 × 1
+##   name 
+##   &lt;chr&gt;
+## 1 s    
+## 2 2    
+## 3 3    
+## # ℹ 4 more rows</code></pre>
+<p>Small graphs like this require a customised layout, with coordinates of each node stored in a matrix.</p>
+<pre class="r"><code>ly_mat &lt;- matrix(c(1, 4,
+                   3, 3,
+                   2, 1,
+                   4, 5,
+                   5, 2,
+                   6, 3,
+                   8, 3), 7, 2, byrow = TRUE)</code></pre>
+<p>Now we’re ready to plot the graph. Nodes are presented with their name with <code>geom_node_text()</code>, but edges require more work:</p>
+<ul>
+<li>Edge labels are passed as edge aesthetic with <code>aes(label = label1)</code>.</li>
+<li>The position of edge labels along the edge and with a specific separation is achieved with <code>angle_calc</code> and <code>label_dodge</code>.</li>
+<li>As the graph is directed, we need to specific the aspect of arrows. I do that with the <code>arrow()</code> instruction.</li>
+<li>To avoid overlap between nodes and edges I am setting edge start and end with <code>start_cap</code> and <code>end_cap</code>.</li>
+<li>Finally, we specificy <code>edge_color</code> out of the aesthetic, because all edges will have the same color.</li>
+</ul>
+<pre class="r"><code>ggraph(graph, layout = ly_mat) +
+  geom_edge_link(aes(label = label1),
+                 angle_calc = &quot;along&quot;,
+                 label_dodge = unit(2.5, &quot;mm&quot;),
+                 arrow = arrow(length = unit(4, &#39;mm&#39;), angle = 20, type = &quot;closed&quot;),
+                 start_cap = circle(3, &#39;mm&#39;),
+                 end_cap = circle(3, &#39;mm&#39;),
+                 edge_color = &quot;grey&quot;) +
+  geom_node_text(aes(label = name)) +
+  theme_graph()</code></pre>
+<pre><code>## Warning: Using the `size` aesthetic in this geom was deprecated in ggplot2 3.4.0.
+## ℹ Please use `linewidth` in the `default_aes` field and elsewhere instead.
+## This warning is displayed once every 8 hours.
+## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
+## generated.</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="100%" /></p>
+</div>
+<div id="solving-the-instance" class="section level2">
+<h2>Solving the Instance</h2>
+<p>The linear programming formulation for the maximum network flow problem requires decision variables <span class="math inline">\(x_{ij}\)</span>, equal to the flow transported through arc from <span class="math inline">\(i\)</span> to <span class="math inline">\(j\)</span>. The maximum flow to maximize is the variable <span class="math inline">\(f\)</span>. The constraints define flow conservation in each node. Note how variable f appears in the constraint of nodes <span class="math inline">\(s\)</span> and <span class="math inline">\(t\)</span>. Finally, variables have upper bound arc capacity <span class="math inline">\(c_{ij}\)</span>.</p>
+<p><span class="math display">\[\begin{align*}
+\text{MAX } f \\
+\text{s. t. } &amp; x_{s2} + x_{s3} + x_{s4} - f &amp;= 0 \\
+              &amp; x_{25} - x_{s2} - x_{52} &amp;= 0 \\
+              &amp; x_{35} - x_{s3} &amp;= 0\\
+              &amp; x_{42} + x_{46} + x_{4t} - x_{s4} &amp;= 0 \\
+              &amp; x_{56} + x_{5t} - x_{25} + x_{35} &amp;= 0 \\
+              &amp; x_{6t} - x_{46} + x_{56}  &amp;= 0 \\
+              &amp; f - x_{47} + x_{5t} + x_{6t}  &amp;= 0 \\
+              &amp; 0 \leq x_{ij} \leq c_{ij}
+\end{align*}\]</span></p>
+<p>If arc capacities are integer the solution of this problem will be integer, because of the integrality property of network flow problems.</p>
+<p>Now we are ready to define all the elements of the linear programming model for the instance:</p>
+<ul>
+<li>Cost coefficients <code>obj</code>.</li>
+<li>Constraints directions <code>dir</code> and right-hand side values <code>rhs</code>.</li>
+<li>Variable <code>types</code> (this could have been omitted in this case as all are continuous) and <code>bounds</code> (note the structure of this variable).</li>
+<li>Matrix of constraints coefficients <code>mat</code>.</li>
+</ul>
+<pre class="r"><code>n &lt;- length(nodes) #number of rows
+m &lt;- length(org_arcs) #number of columns
+
+names_vars &lt;- c(paste0(&quot;x[&quot;, org_arcs, &quot;, &quot;, dst_arcs, &quot;]&quot;), &quot;flow&quot;)
+obj &lt;- c(rep(0, m), 1)
+names(obj) &lt;- names_vars
+dir &lt;- rep(&quot;==&quot;, n)
+rhs &lt;- rep(0, n)
+types &lt;- rep(&quot;C&quot;, m+1)
+bounds &lt;- list(upper = list(ind = 1:(m+1), val = c(cap_arcs, Inf)))
+
+rows &lt;- lapply(1:n, \(i){
+  orgs &lt;- ifelse(org_arcs == nodes[i], -1, 0)
+  dsts &lt;- ifelse(dst_arcs == nodes[i], 1, 0)
+  orgs+dsts
+})
+
+mat0 &lt;- matrix(unlist(rows), n, m, byrow = TRUE)
+
+mat &lt;- cbind(mat0, c(1, rep(0,n-2), -1))</code></pre>
+<p>Once the elements of the problem are defined, we are ready to solve the problem.</p>
+<pre class="r"><code>sol &lt;- Rglpk_solve_LP(obj = obj, 
+                      mat = mat, 
+                      dir = dir, 
+                      rhs = rhs, 
+                      bounds = bounds, 
+                      types = types, 
+                      max = TRUE)
+
+sol</code></pre>
+<pre><code>## $optimum
+## [1] 8
+## 
+## $solution
+##  [1] 3 2 3 3 2 0 0 3 2 3 2 8
+## 
+## $status
+## [1] 0
+## 
+## $solution_dual
+##  [1]  0  0  1  0  0 -1 -1  0  0  1  1  0
+## 
+## $auxiliary
+## $auxiliary$primal
+## [1] 0 0 0 0 0 0 0
+## 
+## $auxiliary$dual
+## [1] 1 1 1 0 1 1 0
+## 
+## 
+## $sensitivity_report
+## [1] NA</code></pre>
+<p>The value of maximum flow for this problem is 8. For a better comprehension of the solution, it is useful to present it as a named vector:</p>
+<pre class="r"><code>solution &lt;- sol$solution
+names(solution) &lt;- names_vars
+solution</code></pre>
+<pre><code>## x[s, 2] x[s, 3] x[s, 4] x[2, 5] x[3, 5] x[4, 2] x[4, 6] x[4, t] x[5, 6] x[5, t] 
+##       3       2       3       3       2       0       0       3       2       3 
+## x[6, t]    flow 
+##       2       8</code></pre>
+</div>
+<div id="plotting-the-solution" class="section level2">
+<h2>Plotting the Solution</h2>
+<p>Let’s present the solution in the graph plot. To do so, I add the solution to the edges and generate the <code>label2</code> variable, including the flow and the maximum flow for each edge.</p>
+<pre class="r"><code>graph &lt;- graph |&gt;
+  activate(edges) |&gt;
+  mutate(solution = sol$solution[1:m],
+         label2 = paste0(&quot;(&quot;, solution, &quot;, &quot;, cap, &quot;)&quot;))</code></pre>
+<p>The graph with the solution shows that the flow is conserved in each node and that maximum capacity is not exceeded in each arc.</p>
+<pre class="r"><code>ggraph(graph, layout = ly_mat) +
+  geom_edge_link(aes(label = label2),
+                 angle_calc = &quot;along&quot;,
+                 label_dodge = unit(2.5, &quot;mm&quot;),
+                 arrow = arrow(length = unit(4, &#39;mm&#39;), angle = 20, type = &quot;closed&quot;),
+                 start_cap = circle(3, &#39;mm&#39;),
+                 end_cap = circle(3, &#39;mm&#39;),
+                 edge_color = &quot;grey&quot;) +
+  geom_node_text(aes(label = name)) +
+  theme_graph()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-11-1.png" width="100%" /></p>
+</div>
+<div id="maximum-flow-and-minimum-cut" class="section level1">
+<h1>Maximum Flow and Minimum Cut</h1>
+<p>In graph theory, there is a fundamental relationship between the maximum flow and the minimum cut, known as the <strong>max-flow min-cut theorem</strong>. This theorem states that in any flow network, the maximum amount of flow passing from the source node to the sink node is equal to the minimum capacity of a cut separating the source node from the sink node.</p>
+<p>A cut in a flow network is a partition of the nodes into two sets, one containing the source node and the other containing the sink node, such that there are no edges going from a node in one set to a node in the other set. The capacity of a cut is the sum of the capacities of the edges crossing the cut from the set containing the source node to the set containing the sink node.</p>
+<p>The max-flow min-cut theorem implies that the maximum flow in a network is always bounded by the minimum capacity of any cut separating the source from the sink. In other words, the maximum flow value is equal to the capacity of the smallest cut in the network.</p>
+<p>For our instance, the minimum cut corresponds with edges (s, 4), (5, t) and (6, 7). This cut creates two subsets of nodes: one with nodes 4 and t and other with the rest of nodes.</p>
+<p>To picture this, I define two vectors specifying the cut in edges and nodes.</p>
+<pre class="r"><code>cut &lt;- rep(&quot;no&quot;, 11)
+names(cut) &lt;- names_vars[1:m]
+cut[c(3, 10, 11)] &lt;- &quot;yes&quot;
+cut</code></pre>
+<pre><code>## x[s, 2] x[s, 3] x[s, 4] x[2, 5] x[3, 5] x[4, 2] x[4, 6] x[4, t] x[5, 6] x[5, t] 
+##    &quot;no&quot;    &quot;no&quot;   &quot;yes&quot;    &quot;no&quot;    &quot;no&quot;    &quot;no&quot;    &quot;no&quot;    &quot;no&quot;    &quot;no&quot;   &quot;yes&quot; 
+## x[6, t] 
+##   &quot;yes&quot;</code></pre>
+<pre class="r"><code>nodes_cut &lt;- rep(&quot;set1&quot;, 7)
+nodes_cut[c(4,7)] &lt;- &quot;set2&quot;</code></pre>
+<p>I am adding the <code>cut</code> variables to nodes and edges.</p>
+<pre class="r"><code>graph &lt;- graph |&gt;
+  activate(edges) |&gt;
+  mutate(cut = cut)
+
+graph &lt;- graph |&gt;
+  activate(nodes) |&gt;
+  mutate(cut = nodes_cut)</code></pre>
+<p>And finally I am plotting the graph with the minimum cut.</p>
+<pre class="r"><code>ggraph(graph, layout = ly_mat) +
+  geom_edge_link(aes(label = label2, color = cut),
+                 angle_calc = &quot;along&quot;,
+                 label_dodge = unit(2.5, &quot;mm&quot;),
+                 arrow = arrow(length = unit(4, &#39;mm&#39;), angle = 20, type = &quot;closed&quot;),
+                 start_cap = circle(3, &#39;mm&#39;),
+                 end_cap = circle(3, &#39;mm&#39;)) +
+  geom_node_text(aes(label = name, color = cut)) +
+  scale_edge_color_manual(values = c(&quot;grey&quot;, &quot;#FF0000&quot;)) +
+  scale_color_manual(values = c(&quot;#0000FF&quot;, &quot;#FF0000&quot;)) +
+  theme_graph() +
+  theme(legend.position = &quot;none&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-14-1.png" width="100%" /></p>
+<p>This small example illustrates how to solve the maximum network flow problem with linear programming. This problem can also be solved with specific algorithms, like the Ford-Fulkerson algorithm.</p>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.3.3 (2024-02-29)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] ggraph_2.1.0    ggplot2_3.5.0   tidygraph_1.2.3 Rglpk_0.6-4    
+## [5] slam_0.1-50    
+## 
+## loaded via a namespace (and not attached):
+##  [1] viridis_0.6.2      sass_0.4.5         utf8_1.2.3         generics_0.1.3    
+##  [5] tidyr_1.3.1        blogdown_1.16      digest_0.6.31      magrittr_2.0.3    
+##  [9] evaluate_0.20      grid_4.3.3         bookdown_0.33      fastmap_1.1.1     
+## [13] jsonlite_1.8.8     ggrepel_0.9.3      gridExtra_2.3      purrr_1.0.2       
+## [17] fansi_1.0.4        viridisLite_0.4.1  scales_1.3.0       tweenr_2.0.2      
+## [21] jquerylib_0.1.4    cli_3.6.1          crayon_1.5.2       graphlayouts_0.8.4
+## [25] rlang_1.1.3        polyclip_1.10-4    munsell_0.5.0      withr_2.5.0       
+## [29] cachem_1.0.7       yaml_2.3.7         tools_4.3.3        dplyr_1.1.4       
+## [33] colorspace_2.1-0   vctrs_0.6.4        R6_2.5.1           lifecycle_1.0.3   
+## [37] MASS_7.3-60        pkgconfig_2.0.3    pillar_1.9.0       bslib_0.6.1       
+## [41] gtable_0.3.3       glue_1.6.2         Rcpp_1.0.10        ggforce_0.4.1     
+## [45] highr_0.10         xfun_0.39          tibble_3.2.1       tidyselect_1.2.0  
+## [49] rstudioapi_0.15.0  knitr_1.42         farver_2.1.1       htmltools_0.5.7   
+## [53] igraph_1.4.2       labeling_0.4.2     rmarkdown_2.21     compiler_4.3.3</code></pre>
+</div>
+</div>
