@@ -1,0 +1,264 @@
+---
+title: 2-opt Moves in the Travelling Salesman Problem
+author: Jose M Sallan
+date: '2024-05-08'
+slug: 2-opt-moves-in-the-travelling-salesman-problem
+categories:
+  - optimization
+  - R
+tags:
+  - ggraph
+  - optimization
+  - purrr
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r, message=FALSE}
+library(purrr)
+library(tidygraph)
+library(ggraph)
+library(gridExtra)
+library(patchwork)
+```
+
+The **travelling salesman problem (TSP)** is a classical optimization problem in graphs consisting in finding the cycle that visits each node exactly once of minimal total distance. It is a classical problem in operations research and it has been tackled with many approaches, including local search algorithms.
+
+A classical neighborhood definition to implement local search algorithms is the **2-opt** move. This move consists in picking a pair of non contiguous edges, and rearrange the connections between the four nodes of the two edges as presented in the following example.
+
+```{r, out.width='100%', fig.height=3, echo = FALSE}
+move_2opt <- function(vec, i, j, n){
+  if(j == n)
+    v <- vec[c(1:(i-1), j:i)]
+  else
+    v <- vec[c(1:(i-1), j:i, (j+1):n)]
+  return(v)
+}
+
+n <- 8
+l <- matrix(c(cos(2*pi*(0:(n-1))/n), sin(2*pi*(0:(n-1))/n)), ncol = 2)
+
+t_edges <- data.frame(i = 1:n, j = c(2:n, 1), pos = c(rep("n", 2), "r", rep("n", 2), "r", rep("n", 2)))
+g_t <- tbl_graph(edges = t_edges, directed = FALSE)
+g_t <- g_t |> activate(nodes) |> mutate(name = 1:n)
+
+sol <- move_2opt(1:8, 4, 6, 8)
+
+u_edges <- data.frame(i = sol, j = sol[c(2:n, 1)],
+                  pos = c(rep("n", 2), "r", rep("n", 2), "r", rep("n", 2)))
+
+g_u <- tbl_graph(edges = u_edges, directed = FALSE)
+g_u <- g_u |> activate(nodes) |> mutate(name = 1:n) 
+
+p_graph <- 
+
+g1 <- ggraph(g_t, layout = l) + 
+  geom_node_text(aes(label = name), size = 4) +
+  geom_edge_link(aes(color = pos), 
+                 start_cap = circle(3, 'mm'), end_cap = circle(3, 'mm'), 
+                 alpha = 0.5, linewidth = 1) +
+  theme_graph() +
+  scale_edge_color_manual(values = c("black", "red")) +
+  theme(legend.position = "none")
+
+g2 <- ggraph(g_u, layout = l) + 
+  geom_node_text(aes(label = name), size = 4) +
+  geom_edge_link(aes(color = pos), 
+                 start_cap = circle(3, 'mm'), end_cap = circle(3, 'mm'), 
+                 alpha = 0.5, linewidth = 1) +
+  theme_graph() +
+  scale_edge_color_manual(values = c("black", "red")) +
+  theme(legend.position = "none")
+
+g1 + g2
+```
+
+The cycle of the right can be obtained from the cycle on the left reversing the $\{4,5,6\}$ sequence, so we can label this move as $(4,6)$.
+
+In this post, we will cover some topics related with the 2-opt move
+
+-   How many different 2-opt moves exist in a TSP instance of size `n`?
+-   How can we generate all possible 2-opt moves for a solution?
+-   How can we calculate in a fast way the total distance of the cycle resulting from a 2-opt move?
+-   How can we evaluate total distance for all 2-opt moves of a solution, and choose the move that best improves total distance.
+
+Let's see how can ask these questions with the R programming language extended by the tidyverse. I will be using the following packages:
+
+-   The `purrr` for iterating effectively.
+-   The `tidygraph` and `ggraph` packages to handle and visualize network data.
+-   The `gridExtra` and `patchwork` packages to present visualizations on a grid.
+
+Except from purrr, the packages have been used to present figures of 2-opt moves. They have been loaded previously to allow plotting the above figure.
+
+## Number of 2-opt Moves
+
+To find the number of 2-opt possible moves, we need to consider that the edges involved in the node must have different nodes. For each of the $n$ edges of a cycle covering all nodes, only $n-3$ edges have this property, as we need to exclude the edge itself and the two edges sharing a node with the considered edge. This leads to $n(n-3)$ possible moves.
+
+But if the problem is symmetric, each 2-opt move has another move yielding the same effect. For the plot above, the $(4, 6)$ move is equivalent to the $(3, 7)$ move. Therefore, the total number of 2-opt moves in a symmetric TSP instance of size $n$ is $n(n-3)/2$.
+
+## Generating 2-opt Moves
+
+The function `move_2opt_table()` generates all 2-opt moves for a symmetric TSP in the following way:
+
+-   We generate the `edges` data frame with the positions of node edges `(i. j)` of a solution.
+-   For each edge, I find all edges `e2` with no common nodes for each edge `e1`. Then, I obtain the `i` element as the second node of the first edge, and `j` as the first node of the second edge.
+- Finally, I choose moves with `i > j` to pick those moves with sequences to revert not including the first node.
+
+```{r}
+move_2opt_table <- function(n){
+  
+  edges <- data.frame(edge = 1:n, i = 1:n, j = c(2:n, 1))
+  e1 <- rep(1:n, each = n-3)
+  e2 <- c(sapply(1:n, \(i) ((i+1):(i+n-3) %% n) + 1))
+  
+  moves <- data.frame(e1 = e1, e2 = e2, i = e1+1, j = e2)
+  
+  moves <- moves[which(moves$i < moves$j), 3:4]
+  
+  return(moves)
+}
+```
+
+The function is encoded in R base, so there is no additional package to use it.
+
+Here is the result for `n = 7`...
+
+```{r}
+move_2opt_table(7)
+```
+
+... and the result for `n = 8`:
+
+```{r}
+move_2opt_table(8)
+```
+
+## Obtanining 2-opt Moves
+
+The moves selected by `move_2opt_table()` reverse sequences that do not contain the first node. This makes the coding of `move_2opt()` simpler, as we need to care only for the case where $j$ is equal to the $n$-eth node.
+
+```{r}
+move_2opt <- function(vec, i, j, n){
+  if(j == n)
+    v <- vec[c(1:(i-1), j:i)]
+  else
+    v <- vec[c(1:(i-1), j:i, (j+1):n)]
+  return(v)
+}
+```
+
+Here is the move $(4,6)$ of the solution $\{1,2,3,4,5,6,7,8\}$, presented in the figure above.
+
+```{r}
+move_2opt(1:8, 4, 6, 8)
+```
+
+We can use the `purrr::pmap()` function to iterate along the table of 2-opt moves and obtain all solutions as a list.
+
+```{r}
+n <- 6
+moves_6 <- move_2opt_table(n)
+pmap(moves_6, ~  move_2opt(vec = 1:n, .x, .y, n = n))
+```
+
+In the following figure, I am presenting the twenty 2-opt moves for a TSP instance of size eight.
+
+```{r, out.width='100%', echo=FALSE, fig.height=10}
+plot_move <- function(sol){
+  
+  n <- length(sol)
+  l <- matrix(c(cos(2*pi*(0:(n-1))/n), sin(2*pi*(0:(n-1))/n)), ncol = 2)
+  
+  t <- data.frame(i = sol, j = sol[c(2:n, 1)])
+  g <- tbl_graph(edges = t, directed = FALSE)
+  g <- g |> activate(nodes) |> mutate(name = 1:n)
+
+  p <- ggraph(g, layout = l) + 
+  geom_node_text(aes(label = name), size = 3) +
+  geom_edge_link(start_cap = circle(2, 'mm'), end_cap = circle(2, 'mm'), 
+                 alpha = 0.5, linewidth = 1) +
+  theme_graph()
+  
+  return(p)
+}
+
+n <- 8
+moves <- move_2opt_table(n)
+plots <- pmap(moves, ~ plot_move(move_2opt(vec = 1:n, .x, .y, n = n)))
+grid.arrange(grobs = plots, ncol = 4, nrow = 5, byrow = TRUE)
+```
+
+## Value of Solution for 2-opt Moves
+
+In a local search algorithm like simulated annealing or tabu search, we need to perform many evaluations of the total distance of a solution, so it is relevant to calculate them in a fast way. Let's illustrate how to do this with a distance matrix `D` of a TSP instance of size `n = 8`.
+
+```{r}
+points <- function(n){
+  df <- data.frame(x = sample(1:(2*n), n),
+                   y = sample(1:(2*n), n))
+  return(df)
+}
+
+n <- 8
+set.seed(1111)
+D <- dist(points(n), method = "manhattan", upper = TRUE) |> as.matrix()
+```
+
+The TSP() function calculates the value of a solution in a fast way, because we are not iterating to obtain edge values.
+
+```{r}
+TSP <- function(v, sol, n) sum(v[sol[c(1:(n-1), 1)] + (sol[c(2:n, n)] - 1)*n])
+```
+
+If we look again at the first picture, we observe that when we perform a 2-opt move, we remove two edges and add two new ones. So substracting and adding edge distances can be used to calculate objective function faster.
+
+```{r}
+TSP_2opt <- function(D, fit, i, j, n){
+  if(j == n)
+    new_sol <- fit + D[i-1, j] + D[i, 1] - D[i-1, i] - D[j, 1]
+  else
+    new_sol <- fit +  D[i-1, j] + D[i, j+1] - D[i-1, i] - D[j, j+1]
+  
+  return(new_sol)
+}
+```
+
+Let's check if the function works. We start calculating the total distance of a solution `sol`.
+
+```{r}
+sol <- 1:n
+fit <- TSP(as.numeric(D), sol, 8)
+fit
+```
+
+Now we generate a new solution with the $(3,6)$ move, and compare the result obtained in the two ways.
+
+```{r}
+new_sol <- move_2opt(1:n, 3, 6, 8)
+TSP(as.numeric(D), new_sol, 8) 
+TSP_2opt(D, fit, 3, 6, 8)
+```
+
+We observe that both functions lead to the same result.
+
+## Exploring a 2-opt Neighbourhood
+
+We can use `purrr:pmap()` on the table of 2-opt moves to evaluate the value of cycle of each move, and find the best move arranging the table.
+
+```{r}
+moves |>
+  mutate(sol = pmap_dbl(moves, ~ TSP_2opt(D, fit, .x, .y, n))) |>
+  arrange(sol, i)
+```
+
+In this case, we observe that the best move for this solution is $(4,6)$, which reduces total cycle value from 92 to 68.
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
