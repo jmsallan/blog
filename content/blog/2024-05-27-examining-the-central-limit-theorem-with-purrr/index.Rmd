@@ -1,0 +1,209 @@
+---
+title: Examining the Central Limit Theorem with purrr
+author: Jose M Sallan
+date: '2024-05-27'
+slug: examining-the-central-limit-theorem-with-purrr
+categories:
+  - R
+  - statistics
+tags:
+  - ggplot
+  - purrr
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this post, I will present the possiblities of some of the family of `map_*()` functions from the tidyverse `purrr` package. The `purrr` package is included in the core tydiverse packages, so we can load it doing:
+
+```{r, message=FALSE}
+library(tidyverse)
+```
+
+I will apply these functions to present empirical evidence of the central limit theorem.
+
+The **central limit theorem** states that if we collect a large enough sample of $n$ indenpendent obaservations of a random variable with population mean $\mu$ and stardard deviation $\sigma$, the sample mean follows a distribution:
+
+$$ \bar{x} \sim N\left( \mu, \sigma/\sqrt{n} \right) $$
+
+The value $\sigma/\sqrt{n}$ is called **standard error**.
+
+To examine this theorem empirically, we need to generate several samples of the random variable and obtain the sample mean $\bar{x}$ from each sample. Once obtained the set of sample values of $\bar{x}$, we need to examine the mean, standard deviation and distribution. As the central limit theorem works with any distribution I will test it with:
+
+-   A normal distribution.
+-   A continuous uniform distribution.
+
+## Normal Distribution
+
+The `purrr::map()` function iterates a function along the components of a list or vector and returns a list as output. It is largely an equivalent of the R base `lapply()` function.
+
+Let's use `map()` to create 1,000 samples of 2,000 observations each from a normal distribution of mean zero and three different values of standard deviation `sd`.
+
+```{r}
+set.seed(11)
+sd_05 <- map(1:1000, ~ rnorm(2000, mean = 0, sd = 0.5))
+sd_10 <- map(1:1000, ~ rnorm(2000, mean = 0, sd = 1))
+sd_20 <- map(1:1000, ~ rnorm(2000, mean = 0, sd = 2))
+
+norm <- list(sd_05 = sd_05, sd_10 = sd_10, sd_20 = sd_20)
+```
+
+We can check the number of elements of each component of `norm` applying `lenght()`  with `purrr::map_int()`. 
+
+```{r}
+map_int(norm, length)
+```
+
+The output of this function is a vector of integer values of sample mean $\bar{x}$. This output inherits the names of the original `norm` list.
+
+Let's calculate $\bar{x}$ of each of the samples of `norm`. The result will be a list of three components, each of them being a vector with the mean of each of the 1,000 samples. These vectors are obtained with the `purrr::map_dbl()` function. This function returns always a vector of double (floating point numeric) values.
+
+```{r}
+mean_norm <- map(norm, ~ map_dbl(. , mean))
+```
+
+Now we have 1,000 values of the sample mean of normal distributions with different values of standard deviation. We can obtain an estimation of the mean of the sample mean for each distribution doing:
+
+```{r}
+map_dbl(mean_norm, mean)
+```
+
+We observe that the mean of  $\bar{x}$ is very close to $\mu$ for the three sets of samples. Let's look at the standard deviation:
+
+```{r}
+map_dbl(mean_norm, ~ sd(.))
+```
+
+The standard deviation of  $\bar{x}$ increases as the standard deviation of the distribution increases. Let's compare the values obtained above with the population standard error.
+
+```{r}
+c(0.5, 1, 2)/sqrt(2000)
+```
+
+The sample values of standard error are close to the population values.
+
+Let's now plot the distribution of the sample mean. To do so, I will wrap all the values of `mean_norm` in a single tibble with columns `value` and `name` equal to means of each sample and the name of the list of samples, respectively. We obtain that with `purrr::map2_dfr()`:
+
+-   Being a `map2*()` function, `map2_dfr()` takes two lists of vectors as arguments, passed as `.x` and `.y` in the formula.
+-   Being a `map*_dfr()` function, `map2_dfr()` binds the result into a tibble by row.
+
+```{r}
+norm_table <- map2_dfr(mean_norm, names(mean_norm), ~ tibble(value = .x, name = .y))
+norm_table
+```
+
+Let's draw an histogram for each distribution:
+
+```{r, fig.align='center'}
+norm_table |>
+  ggplot(aes(value)) +
+  geom_histogram(bins = 30) +
+  facet_grid(. ~ name) +
+  theme_linedraw() +
+  labs(title = "Normal distribution", x = NULL, y = NULL)
+```
+
+Each of the samples of $\bar{x}$ follows a normal distribution centered in $\mu$ and standard deviation equal to the standard error. This is what the central limit theorem states, so we have tested it empirically.
+
+I can provide additional graphical evidence of the normality of sample mean with a **quantile-quantile (Q-Q)** plot, obtained with `stat_qq()` and `stat_qq_line()` from ggplot.
+
+```{r, fig.align='center'}
+norm_table |>
+  ggplot(aes(sample = value)) +
+  stat_qq() +
+  stat_qq_line(color = "red") +
+  facet_grid(. ~ name) +
+  theme_linedraw() +
+  labs(title = "Normal distribution", x = NULL, y = NULL)
+```
+
+All points are aligned alog the red line, meaning that the sample follows a normal distribution.
+
+## Continuous Uniform Distribution
+
+For the continuous uniform distribution, I will replicate the workflow of the normal distribution obtaining three samples of growing standard deviation. For a continuous distribution, the larger the difference betweem maximum and minimum, the larger the standard deviation of the distribution.
+
+```{r}
+set.seed(55)
+unif_01 <- map(1:1000, ~ runif(2000, min = -1, max = 1))
+unif_02 <- map(1:1000, ~ runif(2000, min = -2, max = 2))
+unif_04 <- map(1:1000, ~ runif(2000, min = -4, max = 4))
+
+unif <- list(unif_01 = unif_01, unif_02 = unif_02, unif_04 = unif_04)
+```
+
+Like with normal distributions, let's compute the sample means $\bar{x}$ for each sample.
+
+```{r}
+mean_unif <- map(unif, ~ map_dbl(. , mean))
+```
+
+When computing the mean and standard deviation of the samples of $\bar{x}$, we observe that mean is close to zero and that standard error grows:
+
+```{r}
+map_dbl(mean_unif, mean)
+map_dbl(mean_unif, ~ sd(.))
+```
+
+Values of standard errors are close to the population values.
+
+```{r}
+c(2, 4, 8)/sqrt(12*2000)
+```
+
+Let's create the tibble to plot histograms of $\bar{x}$.
+
+```{r}
+unif_table <- map2_dfr(mean_unif, names(mean_unif), ~ tibble(value = .x, name = .y))
+unif_table
+```
+
+These histograms show that sample means of uniform distributions are normally distributed.
+
+```{r, fig.align='center'}
+unif_table |>
+  ggplot(aes(value)) +
+  geom_histogram(bins = 30) +
+  facet_grid(. ~ name) +
+  theme_linedraw() +
+  labs(title = "Uniform distribution", x = NULL, y = NULL)
+```
+
+As in the previous example, I am presenting Q-Q plots to provide additional evidence of the normality of the sample mean.
+
+```{r, fig.align='center'}
+unif_table |>
+  ggplot(aes(sample = value)) +
+  stat_qq() +
+  stat_qq_line(color = "red") +
+  facet_grid(. ~ name) +
+  theme_linedraw() +
+  labs(title = "Uniform distribution", x = NULL, y = NULL)
+```
+
+## Iterating with `purrr`
+
+To demonstrate empirically the central limit theorem for the normal and uniform distributions, I have used some functions of `purrr` to iterate along lists and vectors. The `map()` function works like the R base `lapply()` function, but others functions of the family offer additional features:
+
+-   Functions like `map_int()` and `map_dbl()` fix the type of the output as a vector of integer and floating point values, respectively. Thus, these functions allow controlling the type of output.
+-   Functions like `map2()` allow iterating along two inputs. The `pmap()` family of functions allows iterating along multiple inputs.
+-   Functions like `map_dfr()` and `map_dfc()` bind together by rows or columns the output of each iteration.
+
+Many of the combinations of features are available in functions like `map2_dfr()`, so they facilitate iterating in R programming considerably.
+
+## References
+
+-   Central limit theorem <https://en.wikipedia.org/wiki/Central_limit_theorem>
+-   Q-Q plot <https://en.wikipedia.org/wiki/Q%E2%80%93Q_plot>
+-   purrr map family <https://purrr.tidyverse.org/reference/index.html#map-family>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+

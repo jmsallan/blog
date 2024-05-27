@@ -1,0 +1,214 @@
+---
+title: Examining the Central Limit Theorem with purrr
+author: Jose M Sallan
+date: '2024-05-27'
+slug: examining-the-central-limit-theorem-with-purrr
+categories:
+  - R
+  - statistics
+tags:
+  - ggplot
+  - purrr
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>In this post, I will present the possiblities of some of the family of <code>map_*()</code> functions from the tidyverse <code>purrr</code> package. The <code>purrr</code> package is included in the core tydiverse packages, so we can load it doing:</p>
+<pre class="r"><code>library(tidyverse)</code></pre>
+<p>I will apply these functions to present empirical evidence of the central limit theorem.</p>
+<p>The <strong>central limit theorem</strong> states that if we collect a large enough sample of <span class="math inline">\(n\)</span> indenpendent obaservations of a random variable with population mean <span class="math inline">\(\mu\)</span> and stardard deviation <span class="math inline">\(\sigma\)</span>, the sample mean follows a distribution:</p>
+<p><span class="math display">\[ \bar{x} \sim N\left( \mu, \sigma/\sqrt{n} \right) \]</span></p>
+<p>The value <span class="math inline">\(\sigma/\sqrt{n}\)</span> is called <strong>standard error</strong>.</p>
+<p>To examine this theorem empirically, we need to generate several samples of the random variable and obtain the sample mean <span class="math inline">\(\bar{x}\)</span> from each sample. Once obtained the set of sample values of <span class="math inline">\(\bar{x}\)</span>, we need to examine the mean, standard deviation and distribution. As the central limit theorem works with any distribution I will test it with:</p>
+<ul>
+<li>A normal distribution.</li>
+<li>A continuous uniform distribution.</li>
+</ul>
+<div id="normal-distribution" class="section level2">
+<h2>Normal Distribution</h2>
+<p>The <code>purrr::map()</code> function iterates a function along the components of a list or vector and returns a list as output. It is largely an equivalent of the R base <code>lapply()</code> function.</p>
+<p>Let’s use <code>map()</code> to create 1,000 samples of 2,000 observations each from a normal distribution of mean zero and three different values of standard deviation <code>sd</code>.</p>
+<pre class="r"><code>set.seed(11)
+sd_05 &lt;- map(1:1000, ~ rnorm(2000, mean = 0, sd = 0.5))
+sd_10 &lt;- map(1:1000, ~ rnorm(2000, mean = 0, sd = 1))
+sd_20 &lt;- map(1:1000, ~ rnorm(2000, mean = 0, sd = 2))
+
+norm &lt;- list(sd_05 = sd_05, sd_10 = sd_10, sd_20 = sd_20)</code></pre>
+<p>We can check the number of elements of each component of <code>norm</code> applying <code>lenght()</code> with <code>purrr::map_int()</code>.</p>
+<pre class="r"><code>map_int(norm, length)</code></pre>
+<pre><code>## sd_05 sd_10 sd_20 
+##  1000  1000  1000</code></pre>
+<p>The output of this function is a vector of integer values of sample mean <span class="math inline">\(\bar{x}\)</span>. This output inherits the names of the original <code>norm</code> list.</p>
+<p>Let’s calculate <span class="math inline">\(\bar{x}\)</span> of each of the samples of <code>norm</code>. The result will be a list of three components, each of them being a vector with the mean of each of the 1,000 samples. These vectors are obtained with the <code>purrr::map_dbl()</code> function. This function returns always a vector of double (floating point numeric) values.</p>
+<pre class="r"><code>mean_norm &lt;- map(norm, ~ map_dbl(. , mean))</code></pre>
+<p>Now we have 1,000 values of the sample mean of normal distributions with different values of standard deviation. We can obtain an estimation of the mean of the sample mean for each distribution doing:</p>
+<pre class="r"><code>map_dbl(mean_norm, mean)</code></pre>
+<pre><code>##        sd_05        sd_10        sd_20 
+## 7.675551e-05 6.811647e-04 1.890621e-03</code></pre>
+<p>We observe that the mean of <span class="math inline">\(\bar{x}\)</span> is very close to <span class="math inline">\(\mu\)</span> for the three sets of samples. Let’s look at the standard deviation:</p>
+<pre class="r"><code>map_dbl(mean_norm, ~ sd(.))</code></pre>
+<pre><code>##      sd_05      sd_10      sd_20 
+## 0.01088386 0.02154560 0.04467244</code></pre>
+<p>The standard deviation of <span class="math inline">\(\bar{x}\)</span> increases as the standard deviation of the distribution increases. Let’s compare the values obtained above with the population standard error.</p>
+<pre class="r"><code>c(0.5, 1, 2)/sqrt(2000)</code></pre>
+<pre><code>## [1] 0.01118034 0.02236068 0.04472136</code></pre>
+<p>The sample values of standard error are close to the population values.</p>
+<p>Let’s now plot the distribution of the sample mean. To do so, I will wrap all the values of <code>mean_norm</code> in a single tibble with columns <code>value</code> and <code>name</code> equal to means of each sample and the name of the list of samples, respectively. We obtain that with <code>purrr::map2_dfr()</code>:</p>
+<ul>
+<li>Being a <code>map2*()</code> function, <code>map2_dfr()</code> takes two lists of vectors as arguments, passed as <code>.x</code> and <code>.y</code> in the formula.</li>
+<li>Being a <code>map*_dfr()</code> function, <code>map2_dfr()</code> binds the result into a tibble by row.</li>
+</ul>
+<pre class="r"><code>norm_table &lt;- map2_dfr(mean_norm, names(mean_norm), ~ tibble(value = .x, name = .y))
+norm_table</code></pre>
+<pre><code>## # A tibble: 3,000 × 2
+##        value name 
+##        &lt;dbl&gt; &lt;chr&gt;
+##  1  0.00155  sd_05
+##  2  0.0108   sd_05
+##  3  0.0119   sd_05
+##  4 -0.000436 sd_05
+##  5  0.00463  sd_05
+##  6 -0.00281  sd_05
+##  7  0.00336  sd_05
+##  8 -0.0106   sd_05
+##  9  0.0114   sd_05
+## 10 -0.0168   sd_05
+## # ℹ 2,990 more rows</code></pre>
+<p>Let’s draw an histogram for each distribution:</p>
+<pre class="r"><code>norm_table |&gt;
+  ggplot(aes(value)) +
+  geom_histogram(bins = 30) +
+  facet_grid(. ~ name) +
+  theme_linedraw() +
+  labs(title = &quot;Normal distribution&quot;, x = NULL, y = NULL)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Each of the samples of <span class="math inline">\(\bar{x}\)</span> follows a normal distribution centered in <span class="math inline">\(\mu\)</span> and standard deviation equal to the standard error. This is what the central limit theorem states, so we have tested it empirically.</p>
+<p>I can provide additional graphical evidence of the normality of sample mean with a <strong>quantile-quantile (Q-Q)</strong> plot, obtained with <code>stat_qq()</code> and <code>stat_qq_line()</code> from ggplot.</p>
+<pre class="r"><code>norm_table |&gt;
+  ggplot(aes(sample = value)) +
+  stat_qq() +
+  stat_qq_line(color = &quot;red&quot;) +
+  facet_grid(. ~ name) +
+  theme_linedraw() +
+  labs(title = &quot;Normal distribution&quot;, x = NULL, y = NULL)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>All points are aligned alog the red line, meaning that the sample follows a normal distribution.</p>
+</div>
+<div id="continuous-uniform-distribution" class="section level2">
+<h2>Continuous Uniform Distribution</h2>
+<p>For the continuous uniform distribution, I will replicate the workflow of the normal distribution obtaining three samples of growing standard deviation. For a continuous distribution, the larger the difference betweem maximum and minimum, the larger the standard deviation of the distribution.</p>
+<pre class="r"><code>set.seed(55)
+unif_01 &lt;- map(1:1000, ~ runif(2000, min = -1, max = 1))
+unif_02 &lt;- map(1:1000, ~ runif(2000, min = -2, max = 2))
+unif_04 &lt;- map(1:1000, ~ runif(2000, min = -4, max = 4))
+
+unif &lt;- list(unif_01 = unif_01, unif_02 = unif_02, unif_04 = unif_04)</code></pre>
+<p>Like with normal distributions, let’s compute the sample means <span class="math inline">\(\bar{x}\)</span> for each sample.</p>
+<pre class="r"><code>mean_unif &lt;- map(unif, ~ map_dbl(. , mean))</code></pre>
+<p>When computing the mean and standard deviation of the samples of <span class="math inline">\(\bar{x}\)</span>, we observe that mean is close to zero and that standard error grows:</p>
+<pre class="r"><code>map_dbl(mean_unif, mean)</code></pre>
+<pre><code>##       unif_01       unif_02       unif_04 
+## -0.0002933102 -0.0010177496 -0.0009016651</code></pre>
+<pre class="r"><code>map_dbl(mean_unif, ~ sd(.))</code></pre>
+<pre><code>##    unif_01    unif_02    unif_04 
+## 0.01292212 0.02627455 0.05129232</code></pre>
+<p>Values of standard errors are close to the population values.</p>
+<pre class="r"><code>c(2, 4, 8)/sqrt(12*2000)</code></pre>
+<pre><code>## [1] 0.01290994 0.02581989 0.05163978</code></pre>
+<p>Let’s create the tibble to plot histograms of <span class="math inline">\(\bar{x}\)</span>.</p>
+<pre class="r"><code>unif_table &lt;- map2_dfr(mean_unif, names(mean_unif), ~ tibble(value = .x, name = .y))
+unif_table</code></pre>
+<pre><code>## # A tibble: 3,000 × 2
+##       value name   
+##       &lt;dbl&gt; &lt;chr&gt;  
+##  1 -0.00411 unif_01
+##  2  0.00394 unif_01
+##  3  0.00867 unif_01
+##  4 -0.0155  unif_01
+##  5 -0.0350  unif_01
+##  6 -0.0151  unif_01
+##  7  0.00923 unif_01
+##  8 -0.00413 unif_01
+##  9 -0.00681 unif_01
+## 10  0.00407 unif_01
+## # ℹ 2,990 more rows</code></pre>
+<p>These histograms show that sample means of uniform distributions are normally distributed.</p>
+<pre class="r"><code>unif_table |&gt;
+  ggplot(aes(value)) +
+  geom_histogram(bins = 30) +
+  facet_grid(. ~ name) +
+  theme_linedraw() +
+  labs(title = &quot;Uniform distribution&quot;, x = NULL, y = NULL)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-16-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>As in the previous example, I am presenting Q-Q plots to provide additional evidence of the normality of the sample mean.</p>
+<pre class="r"><code>unif_table |&gt;
+  ggplot(aes(sample = value)) +
+  stat_qq() +
+  stat_qq_line(color = &quot;red&quot;) +
+  facet_grid(. ~ name) +
+  theme_linedraw() +
+  labs(title = &quot;Uniform distribution&quot;, x = NULL, y = NULL)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-17-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="iterating-with-purrr" class="section level2">
+<h2>Iterating with <code>purrr</code></h2>
+<p>To demonstrate empirically the central limit theorem for the normal and uniform distributions, I have used some functions of <code>purrr</code> to iterate along lists and vectors. The <code>map()</code> function works like the R base <code>lapply()</code> function, but others functions of the family offer additional features:</p>
+<ul>
+<li>Functions like <code>map_int()</code> and <code>map_dbl()</code> fix the type of the output as a vector of integer and floating point values, respectively. Thus, these functions allow controlling the type of output.</li>
+<li>Functions like <code>map2()</code> allow iterating along two inputs. The <code>pmap()</code> family of functions allows iterating along multiple inputs.</li>
+<li>Functions like <code>map_dfr()</code> and <code>map_dfc()</code> bind together by rows or columns the output of each iteration.</li>
+</ul>
+<p>Many of the combinations of features are available in functions like <code>map2_dfr()</code>, so they facilitate iterating in R programming considerably.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Central limit theorem <a href="https://en.wikipedia.org/wiki/Central_limit_theorem" class="uri">https://en.wikipedia.org/wiki/Central_limit_theorem</a></li>
+<li>Q-Q plot <a href="https://en.wikipedia.org/wiki/Q%E2%80%93Q_plot" class="uri">https://en.wikipedia.org/wiki/Q%E2%80%93Q_plot</a></li>
+<li>purrr map family <a href="https://purrr.tidyverse.org/reference/index.html#map-family" class="uri">https://purrr.tidyverse.org/reference/index.html#map-family</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.4.0 (2024-04-24)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] lubridate_1.9.3 forcats_1.0.0   stringr_1.5.1   dplyr_1.1.4    
+##  [5] purrr_1.0.2     readr_2.1.5     tidyr_1.3.1     tibble_3.2.1   
+##  [9] ggplot2_3.5.1   tidyverse_2.0.0
+## 
+## loaded via a namespace (and not attached):
+##  [1] gtable_0.3.5      jsonlite_1.8.8    highr_0.10        compiler_4.4.0   
+##  [5] tidyselect_1.2.1  jquerylib_0.1.4   scales_1.3.0      yaml_2.3.8       
+##  [9] fastmap_1.1.1     R6_2.5.1          labeling_0.4.3    generics_0.1.3   
+## [13] knitr_1.46        bookdown_0.39     munsell_0.5.1     tzdb_0.4.0       
+## [17] bslib_0.7.0       pillar_1.9.0      rlang_1.1.3       utf8_1.2.4       
+## [21] stringi_1.8.3     cachem_1.0.8      xfun_0.43         sass_0.4.9       
+## [25] timechange_0.3.0  cli_3.6.2         withr_3.0.0       magrittr_2.0.3   
+## [29] digest_0.6.35     grid_4.4.0        rstudioapi_0.16.0 hms_1.1.3        
+## [33] lifecycle_1.0.4   vctrs_0.6.5       evaluate_0.23     glue_1.7.0       
+## [37] farver_2.1.1      blogdown_1.19     fansi_1.0.6       colorspace_2.1-0 
+## [41] rmarkdown_2.26    tools_4.4.0       pkgconfig_2.0.3   htmltools_0.5.8.1</code></pre>
+</div>
