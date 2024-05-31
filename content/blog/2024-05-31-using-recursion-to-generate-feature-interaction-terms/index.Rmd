@@ -1,0 +1,163 @@
+---
+title: Using Recursion to Generate Feature Interaction Terms
+author: Jose M Sallan
+date: '2024-05-31'
+slug: using-recursion-to-generate-feature-interaction-terms
+categories:
+  - R
+tags:
+  - machine learning
+  - R
+  - R programming
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In the context of prediction jobs, we can be interested in generating products of powers of variables. These products can be used as features for regression-based prediction techniques like neural networks.
+
+For small values of $p$ and $n$, these interactions are straightforward. For instance, for $p=2$ and $n=2$ these are:
+
+-   $x_1$
+-   $x_2$
+-   $x_1^2$
+-   $x_2^2$
+-   $x_1x_2$
+
+For larger values of $p$ and $n$ we may need a systematic way of generating those products of powers. Here I will suggest a recursion-based procedure to generate all products of up to $p$ powers of a set of $n$ variables and provide an implementation in R base. I will be using this result to obtain the interaction terms for a set of $n$ features whose sum of powers is equal to $n$.
+
+## Recursion
+
+As defined in Wikipedia, recursion occurs when the definition of a concept or process depends on a simpler or previous version of itself. To define a recursion we need:
+
+-   A set of base cases that do not need recursion to produce an answer. In the Fibonacci series, these are `fibonacci(0) = 0` and `fibonacci(1) = 1`.
+-   A recursive step that reduces all the other cases to the base cases. In the Fibonacci series, the step is `fibonacci(n) = fibonacci(n-1) + fibonacci(n-2)`.
+
+In R base the implementation of recursion is straightforward, using a function covering the base cases and the recursive step. Note that the function appears within the function definition.
+
+```{r}
+fibonacci <- function(n) {
+  if (n <= 1) {  # Base case: If n is 0 or 1, return n
+    return(n)
+  } else {
+    # Recursive case: Calculate the nth term using recursion
+    return(fibonacci(n - 1) + fibonacci(n - 2))
+  }
+}
+```
+
+Some values of the function
+
+```{r}
+fibonacci(0)
+fibonacci(10)
+```
+
+A sequence of values of the Fibonacci series:
+
+```{r}
+sapply(0:20, fibonacci)
+```
+
+## Products of Powers
+
+To define the products of powers, we will represent them as vectors of length $n$ with values from 0 to $p$. The value zero contemplates the case where a variable is not included in the product. For $n = 3$ and $p = 2$ the product $x_1x_3^2$ is encoded as $(1, 0, 2)$.
+
+In the suggested recursive process, we are adding a variable at each step. The base case is for $n=1$. If we have $p=3$, this base case is:
+
+```{r}
+s1 <- matrix(0:3, 4, 1)
+```
+
+For $n=2$ we will use the matrix of $n=1$:
+
+```{r}
+s2 <- lapply(0:3, function(i) cbind(s1, i))
+s2
+```
+
+We can bind the rows together doing:
+
+```{r}
+do.call(rbind, s2)
+```
+
+For $n$ variables, we need to implement this process recursively:
+
+```{r}
+powers <- function(p, n){
+  if(n == 1){
+    s0 <- matrix(0:p, p + 1, 1)
+    return(s0)
+  }else{
+    sn <- lapply(0:p, function(i) cbind(powers(p, n-1), i))
+    m <- do.call(rbind, sn)
+    colnames(m) <- NULL
+    return(m)
+  }
+}
+```
+
+Let's see some examples:
+
+```{r}
+powers(3, 1)
+powers(3, 2)
+powers(3, 3)
+```
+
+The function generates $p^n$ powered product terms.
+
+## Interactions of order *n*
+
+Of all generated powered products, we are interested in picking only those whose sum of exponents are equal to $n$. For $p =2$ and $n = 2$ these are:
+
+-   $x_1^2$
+-   $x_2^2$
+-   $x_1x_2$
+
+So we need to exclude $x_1$, $x_2$ and the intercept $1$ from this list. We do that generating all `power(n, n)` interactions and filtering them adequately.
+
+```{r}
+interactions <- function(n){
+  
+  # all powered products
+  t <- powers(n, n)
+  
+  # rows summing n
+  r <- apply(t, 1, \(x) sum(x) == n)
+  
+  # selectin rows summing n
+  t_f <- t[r, ]
+  return(t_f)
+}
+```
+
+Then we have:
+
+```{r}
+interactions(2)
+```
+
+For larger values we have results like:
+
+```{r}
+interactions(4)
+```
+
+## References
+
+-   Recursion: <https://en.wikipedia.org/wiki/Recursion>
+-   Combine a list of matrices to a single matrix by rows <https://stackoverflow.com/questions/16110553/combine-a-list-of-matrices-to-a-single-matrix-by-rows>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
+
