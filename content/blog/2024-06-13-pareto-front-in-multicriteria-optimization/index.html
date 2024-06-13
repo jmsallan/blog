@@ -1,0 +1,256 @@
+---
+title: Pareto Front in Multicriteria Optimization
+author: Jose M Sallan
+date: '2024-06-13'
+slug: pareto-front-in-multicriteria-optimization
+categories:
+  - optimization
+  - R
+tags:
+  - data.table
+  - R
+  - optimization
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>In this post, I will introduce the concept of Pareto optimal solutions and Pareto front in the context of multicriteria optimization. I will present the concept with the mtcars dataset, and code a function detecting Pareto optimal solutions as an example of application of the <code>data.table</code> package. Finally, I will present the rPref package which allows detecting Pareto optimal solutions effectively.</p>
+<pre class="r"><code>library(data.table)
+library(rPref)
+library(ggplot2)</code></pre>
+<p>Let’s start with a toy example, in which we have the values of two variables for a set of six elements.</p>
+<pre class="r"><code>small_example &lt;- data.table(name = LETTERS[1:6],
+                            x = c(1, 3, 2, 4, 2, 4),
+                            y = c(1, 1, 2, 3, 4, 2))</code></pre>
+<p>Let’s suppose that we want variables with high values of <code>x</code> and high values of <code>y</code>. This is a case of multicriteria optimization, as we want to maximize two variables simultaneously.</p>
+<pre class="r"><code>small_example |&gt;
+  ggplot(aes(x, y, label = name)) +
+  xlim(0, 4) +
+  ylim(0, 4) +
+  geom_text(size = 7) +
+  theme_minimal(base_size = 12) +
+  labs(title = &quot;Two Variables Maximization&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Examining the plot of values of x versus y lead us to discard some of the solutions. One of these is <code>C</code>, as solution <code>D</code> has better values of <code>x</code> and <code>y</code>. We can say that solution <code>D</code> dominates solution <code>C</code>. More precisely, we say that a solution <span class="math inline">\(s_i\)</span> dominates a solution <span class="math inline">\(s_j\)</span> when:</p>
+<ul>
+<li><span class="math inline">\(s_i\)</span> has equal or better values than <span class="math inline">\(s_j\)</span> in all variables.</li>
+<li><span class="math inline">\(s_i\)</span> is strictly better than <span class="math inline">\(s_j\)</span> in at least one variable.</li>
+</ul>
+<p>With this criterion, we observe that <code>D</code> also dominates <code>F</code>: both solutions have the same value of <code>x</code>, but <code>D</code> has a better value of <code>y</code>.</p>
+<p>If we check for dominance relationships for all pairs of solutions, we will end up knowking that solutions <code>D</code> and <code>E</code> are not dominated by any other solution. These solutions are <strong>Pareto efficient</strong>: when choosing betweeen them, we cannot increase the value of one decision variable without reducing the value of the other variable, so choosing between them is a <strong>trade-off</strong>. The set of Pareto efficient solutions is the <strong>Pareto front</strong>.</p>
+<p>This definition of Pareto front can be extended to more than two variables, and each variable can be either maximized or minimized.</p>
+<p>Let’s define a <code>pf()</code> function to detect Pareto efficient solutions for two variables using <code>data.table</code>.</p>
+<pre class="r"><code>pf &lt;- function(tab, v, type = &quot;high&quot;){
+  
+  # copying the input table to not modify it
+  tab0 &lt;- copy(tab)
+  
+  # selecting columns
+  tab1 &lt;- tab0[ , ..v]
+  
+  # defining id
+  tab1[, name := 1:nrow(tab1)]
+  
+  # defining all Pareto comparison
+  pareto &lt;- CJ(tab1[, name], tab1[, name])[V1 != V2]
+  
+  # adding values of first variable
+  pareto &lt;- merge(pareto, tab1,
+                  by.x = &quot;V1&quot;, by.y = &quot;name&quot;)
+  
+  # adding values of second variable
+  pareto &lt;- merge(pareto, tab1,
+                  by.x = &quot;V2&quot;, by.y = &quot;name&quot;)
+  
+  # matrices of values of v2 and v1
+  values_v2 &lt;- as.matrix(pareto[, 5:6])
+  values_v1 &lt;- as.matrix(pareto[, 3:4])
+
+  # checking if solution v2 dominates solution v1
+  if(type == &quot;high&quot;){
+    pareto[, domin := 
+             sapply(1:nrow(pareto), function(i) all(values_v1[i, ] &lt;= values_v2[i, ]) &amp;
+                      any(values_v1[i, ] &lt; values_v2[i, ]))]
+  }else{
+    pareto[, domin := 
+             sapply(1:nrow(pareto), function(i) all(values_v1[i, ] &gt;= values_v2[i, ]) &amp;
+                               any(values_v1[i, ] &gt; values_v2[i, ]))]
+  }
+  
+  # column with dominated solutions
+  pareto[, domin_sol := ifelse(domin, V1, 0)]
+
+  # extracting dominated solutions
+  domin &lt;- pareto[domin_sol != 0, domin_sol] |&gt;
+    unique()
+  
+  pf &lt;- tab0[!tab1[, name] %in% domin]
+  
+  return(pf)
+}</code></pre>
+<p>This function works as follows:</p>
+<ul>
+<li>From the input table <code>tab</code>, we retain the columns specified in vector <code>v</code>.</li>
+<li>We define the <code>pareto</code> table, with all combinations of pairs of different observations.</li>
+<li>For each row of <code>pareto</code>, we examine if solution <code>v2</code> dominates solution <code>v1</code>. If this is true, we add the value of v1 in the column <code>domin_sol</code>.</li>
+<li>We obtain the vector <code>domin</code> of unique dominated solutions.</li>
+<li>We return the Pareto frontier as the set of observations not contained in <code>domin</code>.</li>
+</ul>
+<p>If we apply this function to our example, we obtain:</p>
+<pre class="r"><code>pf(tab = small_example, v = c(&quot;x&quot;, &quot;y&quot;), type = &quot;high&quot;)</code></pre>
+<pre><code>##      name     x     y
+##    &lt;char&gt; &lt;num&gt; &lt;num&gt;
+## 1:      D     4     3
+## 2:      E     2     4</code></pre>
+<div id="miles-per-gallon-versus-horsepower" class="section level2">
+<h2>Miles per Gallon versus Horsepower</h2>
+<p>Let’s suppose that we want to choose the values of <code>mtcars</code> which maximize miles per gallon and gross horsepower. Let’s transform mtcars so that we can use our function:</p>
+<pre class="r"><code>mtcars0 &lt;- data.table(mtcars)
+mtcars0[, c(&quot;name&quot;, &quot;l100km&quot;) := .(row.names(mtcars), 235.214583/mpg)]</code></pre>
+<p>Then we obtain:</p>
+<pre class="r"><code>mtcars_mpg_hp &lt;- pf(mtcars0, v = c(&quot;mpg&quot;, &quot;hp&quot;), type = &quot;high&quot;)
+mtcars_mpg_hp[ ,.(name, mpg, hp)]</code></pre>
+<pre><code>##              name   mpg    hp
+##            &lt;char&gt; &lt;num&gt; &lt;num&gt;
+## 1:     Merc 450SL  17.3   180
+## 2:       Fiat 128  32.4    66
+## 3: Toyota Corolla  33.9    65
+## 4:   Lotus Europa  30.4   113
+## 5: Ford Pantera L  15.8   264
+## 6:   Ferrari Dino  19.7   175
+## 7:  Maserati Bora  15.0   335</code></pre>
+<p>Not suprisingly, we obtain a combination of sports cars like Ferrari Dino and small cars like Fiat 128. Our choice between these cars will depend on the value we put to fuel consumption and horsepower.</p>
+<p>Let’s see how the Pareto frontier looks like.</p>
+<pre class="r"><code>mtcars0[, pf1 := ifelse(name %in% mtcars_mpg_hp[, name], &quot;yes&quot;, &quot;no&quot;)]
+ggplot(mtcars0, aes(mpg, hp, color = pf1)) +
+  geom_point(size = 2) +
+  scale_color_manual(values = c(&quot;#C0C0C0&quot;, &quot;#000099&quot;)) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = &quot;none&quot;) +
+  labs(title = &quot;mpg versus hp trade-off&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="liters-per-100-kilometer-versus-14-mile-time" class="section level2">
+<h2>Liters per 100 Kilometer versus 1/4 Mile Time</h2>
+<p>Let’s find the Pareto front of:</p>
+<ul>
+<li>Minimizing fuel consumption in liters per 100 kilometer.</li>
+<li>Minimize the time to run 1/4 mile, a measure of acceleration.</li>
+</ul>
+<pre class="r"><code>mtcars_l100_qsec &lt;- pf(mtcars0, v = c(&quot;l100km&quot;, &quot;qsec&quot;), type = &quot;low&quot;)
+mtcars_l100_qsec[ ,.(name, l100km, qsec)]</code></pre>
+<pre><code>##              name    l100km  qsec
+##            &lt;char&gt;     &lt;num&gt; &lt;num&gt;
+## 1:      Mazda RX4 11.200694 16.46
+## 2:       Fiat 128  7.259709 19.47
+## 3: Toyota Corolla  6.938483 19.90
+## 4:  Porsche 914-2  9.046715 16.70
+## 5:   Lotus Europa  7.737322 16.90
+## 6: Ford Pantera L 14.886999 14.50
+## 7:   Ferrari Dino 11.939827 15.50</code></pre>
+<p>We observe again a combination of sports cars and small cars, representing the tradeoff between fuel consumption and engine performance.</p>
+<p>This Pareto front looks as follows:</p>
+<pre class="r"><code>mtcars0[, pf2 := ifelse(name %in% mtcars_l100_qsec[, name], &quot;yes&quot;, &quot;no&quot;)]
+ggplot(mtcars0, aes(l100km, qsec, color = pf2)) +
+  geom_point(size = 2) +
+  scale_color_manual(values = c(&quot;#C0C0C0&quot;, &quot;#990000&quot;)) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = &quot;none&quot;) +
+  labs(title = &quot;l100km versus qsec trade-off&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="the-rpref-package" class="section level1">
+<h1>The rPref Package</h1>
+<p>The <code>rPref</code> package allows fast computation of Pareto fronts for any combination of variables. These are obtained with the <code>psel()</code> function. Let’s use it to obtain the values of <code>mpg</code> versus <code>hp</code> in <code>mtcars</code>:</p>
+<pre class="r"><code>psel(mtcars0, high(mpg)*high(hp))[, .(name, mpg, hp)]</code></pre>
+<pre><code>##              name   mpg    hp
+##            &lt;char&gt; &lt;num&gt; &lt;num&gt;
+## 1:     Merc 450SL  17.3   180
+## 2:       Fiat 128  32.4    66
+## 3: Toyota Corolla  33.9    65
+## 4:   Lotus Europa  30.4   113
+## 5: Ford Pantera L  15.8   264
+## 6:   Ferrari Dino  19.7   175
+## 7:  Maserati Bora  15.0   335</code></pre>
+<p>And the values of <code>l100km</code> versus <code>qsec</code>:</p>
+<pre class="r"><code>psel(mtcars0, low(l100km)*low(qsec))[, .(name, l100km, qsec)]</code></pre>
+<pre><code>##              name    l100km  qsec
+##            &lt;char&gt;     &lt;num&gt; &lt;num&gt;
+## 1:      Mazda RX4 11.200694 16.46
+## 2:       Fiat 128  7.259709 19.47
+## 3: Toyota Corolla  6.938483 19.90
+## 4:  Porsche 914-2  9.046715 16.70
+## 5:   Lotus Europa  7.737322 16.90
+## 6: Ford Pantera L 14.886999 14.50
+## 7:   Ferrari Dino 11.939827 15.50</code></pre>
+<p>We can explore more sophisticated criteria like:</p>
+<pre class="r"><code>psel(mtcars0, low(l100km)*low(qsec)*high(hp))[, .(name, l100km, qsec, hp)]</code></pre>
+<pre><code>##               name    l100km  qsec    hp
+##             &lt;char&gt;     &lt;num&gt; &lt;num&gt; &lt;num&gt;
+##  1:      Mazda RX4 11.200694 16.46   110
+##  2:     Merc 450SE 14.342353 17.40   180
+##  3:     Merc 450SL 13.596219 17.60   180
+##  4:       Fiat 128  7.259709 19.47    66
+##  5: Toyota Corolla  6.938483 19.90    65
+##  6:  Porsche 914-2  9.046715 16.70    91
+##  7:   Lotus Europa  7.737322 16.90   113
+##  8: Ford Pantera L 14.886999 14.50   264
+##  9:   Ferrari Dino 11.939827 15.50   175
+## 10:  Maserati Bora 15.680972 14.60   335</code></pre>
+<p>Note that when we include more criteria the number of Pareto solutions tends to increase, as it is harder that a solution could be dominated by other in all criteria.</p>
+<div id="pareto-front-and-multicriteria-optimization" class="section level2">
+<h2>Pareto Front and Multicriteria Optimization</h2>
+<p>When we optimize a function with a single criterion, we obtain a single solution (or a set of solution with the same optimal value of the objective function). When we optimize with two or more criteria, our result is a set of non-dominated solutions called the Pareto front. The solutions of this set are Pareto optimal: when going from one solution to other we cannot improve one criterion without deteriorating others.</p>
+<p>We usually see Pareto fronts with two variables, as they are easy to plot to present Pareto optimality, but we can optimize more than two variables. The more variables to optimize, the harder that a solution will be dominated by other in all criteria will be, so that the Pareto front will tend to be larger.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li><code>rPref</code> package (R Journal) <a href="https://journal.r-project.org/archive/2016-2/roocks.pdf" class="uri">https://journal.r-project.org/archive/2016-2/roocks.pdf</a></li>
+<li><code>rPref</code> package (website): <a href="https://www.p-roocks.de/rpref/" class="uri">https://www.p-roocks.de/rpref/</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.4.0 (2024-04-24)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] ggplot2_3.5.1     rPref_1.4.0       data.table_1.15.4
+## 
+## loaded via a namespace (and not attached):
+##  [1] gtable_0.3.5       jsonlite_1.8.8     highr_0.10         dplyr_1.1.4       
+##  [5] compiler_4.4.0     tidyselect_1.2.1   Rcpp_1.0.12        jquerylib_0.1.4   
+##  [9] scales_1.3.0       yaml_2.3.8         fastmap_1.1.1      R6_2.5.1          
+## [13] labeling_0.4.3     generics_0.1.3     igraph_2.0.3       knitr_1.46        
+## [17] tibble_3.2.1       bookdown_0.39      munsell_0.5.1      bslib_0.7.0       
+## [21] pillar_1.9.0       rlang_1.1.3        utf8_1.2.4         cachem_1.0.8      
+## [25] xfun_0.43          sass_0.4.9         lazyeval_0.2.2     RcppParallel_5.1.7
+## [29] cli_3.6.2          withr_3.0.0        magrittr_2.0.3     digest_0.6.35     
+## [33] grid_4.4.0         rstudioapi_0.16.0  lifecycle_1.0.4    vctrs_0.6.5       
+## [37] evaluate_0.23      glue_1.7.0         farver_2.1.1       blogdown_1.19     
+## [41] colorspace_2.1-0   fansi_1.0.6        rmarkdown_2.26     tools_4.4.0       
+## [45] pkgconfig_2.0.3    htmltools_0.5.8.1</code></pre>
+</div>
+</div>
