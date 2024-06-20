@@ -1,0 +1,223 @@
+---
+title: Node Coloring with Linear Programming
+author: Jose M Sallan
+date: '2024-06-20'
+slug: node-coloring-with-linear-programming
+categories:
+  - R
+  - optimization
+tags:
+  - linear programming
+  - R
+  - optimization
+  - purrr
+  - spatial analysis
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>In this post I will present the <strong>node coloring problem</strong>, and a linear programming formulation that avoids symmetry. Node coloring problem consists of coloring (labelling) nodes so that nodes connected by an edge have different colors and the total number of colors is minimized.</p>
+<p>A well-know result in graph theory is the <strong>four color theorem</strong>: for planary graphs we can find solutions of the node coloring problem using no more than four colors. In other words, the <strong>chromatic number</strong> of a planary graph will be equal or smaller than four. Planary graphs can be represented in the plane so that edges close only at the endpoints (that is, do not cross each other). I will demonstrate this property labelling the districts of the city of Barcelona so that no pair of contiguous districts shares the same color.</p>
+<p>To handle the spatial data of Barcelona I will load the packages:</p>
+<pre class="r"><code>library(tidyverse)
+library(BAdatasetsSpatial)
+library(sf)</code></pre>
+<p>And to solve the linear programming formulation I will use:</p>
+<pre class="r"><code>library(ompr)
+library(ompr.roi)
+library(ROI.plugin.glpk)</code></pre>
+<div id="linear-programming-formulation" class="section level2">
+<h2>Linear Programming Formulation</h2>
+<p>Let’s define a formulation for this problem that avoids symmetry. Our input will be the graph <span class="math inline">\(G(N, E)\)</span> of <span class="math inline">\(n\)</span> nodes and <span class="math inline">\(e\)</span> edges.</p>
+<p>The decision variables will be of the type <span class="math inline">\(w_{ij}\)</span>, which are equal to one if node <span class="math inline">\(j\)</span> belongs to the set of nodes with the same label with lowest index equal to <span class="math inline">\(i\)</span>. Then, in those variables <span class="math inline">\(i \leq j\)</span>.</p>
+<p>Defined in this way, our objective function will be minimizing the sum of variables <span class="math inline">\(w_{ii}\)</span>.</p>
+<p>The constraints will be:</p>
+<ul>
+<li>Variables <span class="math inline">\(w_{ij}\)</span> must be lower or equal than <span class="math inline">\(w_{ii}\)</span>, so that <span class="math inline">\(w_{ij} = 0\)</span> when <span class="math inline">\(w_{ii} = 0\)</span>.</li>
+<li>Each node <span class="math inline">\(j\)</span> must have a single label.</li>
+<li>Pairs of nodes <span class="math inline">\((j,k)\)</span> defining vertexs of <span class="math inline">\(E\)</span> must have different color.</li>
+</ul>
+<p><span class="math inline">\(\begin{align}
+\text{MIN } &amp; z = \sum_{i=1}^n w_{ii}  \\
+   &amp; w_{ij} \leq w_{ii}  &amp; i = 1, \dots, n, \ i \leq j \\
+   &amp; \sum_{i=1}^j w_{ij} = 1 &amp; j = 1, \dots, n \\
+   &amp; w_{ij} + w_{ik} \leq 1 &amp; (j, k) \in E, \ i \leq j, \ i \leq k \\
+\end{align}\)</span></p>
+</div>
+<div id="the-barcelona-districts-map" class="section level2">
+<h2>The Barcelona Districts Map</h2>
+<p>Let’s color the map of districts of Barcelona. It is delivered as a spatial object <code>BCNDistricts</code>, so it is a data frame with a <code>geometry</code> column where are stored the polygons to draw the districts. I will order this dataframe by the district numerical code <code>c_distri</code>.</p>
+<pre class="r"><code>data(&quot;BCNDistricts&quot;)
+
+BCNDistricts &lt;- BCNDistricts |&gt;
+  arrange(c_distri)</code></pre>
+<p>Let’s plot the map with the values of <code>c_distri</code>.</p>
+<pre class="r"><code>BCNDistricts |&gt;
+  ggplot() +
+  geom_sf() +
+  geom_text(aes(coord_x, coord_y, label = c_distri)) +
+  theme_void()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Finding the contacts among districts can be tedious. Fortunately, districts are stored as simple feature geometrical objects. We can use the <code>sf::st_touches()</code> function to see which objects contact each other:</p>
+<pre class="r"><code>int &lt;- st_touches(BCNDistricts)
+int</code></pre>
+<pre><code>## Sparse geometry binary predicate list of length 10, where the predicate
+## was `touches&#39;
+##  1: 2, 3, 10
+##  2: 1, 3, 4, 5, 6, 7, 10
+##  3: 1, 2, 4
+##  4: 2, 3, 5
+##  5: 2, 4, 6, 7
+##  6: 2, 5, 7
+##  7: 2, 5, 6, 8, 9, 10
+##  8: 7, 9
+##  9: 7, 8, 10
+##  10: 1, 2, 7, 9</code></pre>
+<p>Note that the values of int are the row number of the districts, not necessarily values of <code>c_distri</code>. That is why I have arranged rows by this variable previously.</p>
+<p>Iterating with <code>purrr::map_dfr()</code> we can obtain the list of edges:</p>
+<pre class="r"><code>edges_col &lt;- map_dfr(1:length(int), ~ tibble(i = ., j = int[[.]])) |&gt;
+  filter(i &lt; j)
+edges_col</code></pre>
+<pre><code>## # A tibble: 19 × 2
+##        i     j
+##    &lt;int&gt; &lt;int&gt;
+##  1     1     2
+##  2     1     3
+##  3     1    10
+##  4     2     3
+##  5     2     4
+##  6     2     5
+##  7     2     6
+##  8     2     7
+##  9     2    10
+## 10     3     4
+## 11     4     5
+## 12     5     6
+## 13     5     7
+## 14     6     7
+## 15     7     8
+## 16     7     9
+## 17     7    10
+## 18     8     9
+## 19     9    10</code></pre>
+<p>So we have 19 edges and 10 nodes for this node coloring problem.</p>
+</div>
+<div id="solving-the-problem" class="section level2">
+<h2>Solving the Problem</h2>
+<p>Let’s define the linear programming model to solve this problem, based on the formulation. We start defining the number of nodes and edges.</p>
+<pre class="r"><code>n &lt;- length(unique(c(edges_col$i, edges_col$j)))
+e &lt;- nrow(edges_col)</code></pre>
+<p>Here is the model, built with the OMPR syntax. Note that it is using the values of <code>edges_col</code> to define the specific model for this case.</p>
+<pre class="r"><code>gc_model &lt;- 
+  MIPModel() |&gt;
+  add_variable(w[i, j], i = 1:n, j = 1:n, i&lt;=j, type = &quot;binary&quot;) |&gt;
+  add_constraint(w[i, j] &lt;= w[i, i], i = 1:n, j = 1:n, i &lt;= j) |&gt;
+  add_constraint(sum_over(w[i, j], i = 1:n, i &lt;= j) == 1, j = 1:n) |&gt;
+  add_constraint(w[i, edges_col[r, 1]] + w[i, edges_col[r, 2]] &lt;= 1, 
+                 i = 1:n, r = 1:e, 
+                 i &lt;= edges_col[r, 1], 
+                 i &lt;= edges_col[r, 2]) |&gt;
+  set_objective(sum_over(w[i, i], i = 1:n), &quot;min&quot;) |&gt;
+  solve_model(with_ROI(solver = &quot;glpk&quot;))</code></pre>
+<p>To get the solution, we need to list nonzero variables:</p>
+<pre class="r"><code>colors &lt;- gc_model |&gt;
+  get_solution(w[i, j]) |&gt;
+  filter(value == 1) |&gt;
+  select(i, j) |&gt;
+  rename(c_distri = j, color = i) |&gt;
+  mutate(color = as.factor(color))
+colors |&gt;
+  arrange(color)</code></pre>
+<pre><code>##    color c_distri
+## 1      1        1
+## 2      1        4
+## 3      1        6
+## 4      1        8
+## 5      2        2
+## 6      2        9
+## 7      3        3
+## 8      3        5
+## 9      3       10
+## 10     7        7</code></pre>
+<p>Let’s add the colors to the map so we can use it as argument to fill the polygons.</p>
+<pre class="r"><code>BCNDistricts &lt;- left_join(BCNDistricts, 
+                          colors, by = &quot;c_distri&quot;)</code></pre>
+<p>And let’s draw the colorized map:</p>
+<pre class="r"><code>BCNDistricts |&gt;
+  ggplot(aes(fill = color)) +
+  geom_sf() +
+  theme_void() +
+  geom_text(aes(coord_x, coord_y, label = c_distri)) +
+  scale_fill_brewer(palette = &quot;Reds&quot;) +
+  theme(legend.position = &quot;none&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-11-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="coloring-maps-with-the-node-coloring-problem" class="section level2">
+<h2>Coloring Maps with the Node Coloring Problem</h2>
+<p>Coloring maps was one of the earliest motivations to solve the node coloring problem. To color a map, we need to build a graph with nodes being the regions, connected by edges if they touch each other. As the resulting graph will be planary, we know that its chromatic number will be equal or less than four. If the map is stored as a spatial object, the connections between regions can be obtained with <code>sf</code> package functions.</p>
+<p>Map coloring is a (maybe) unlikely intersection between linear programming and spatial analysis. Although we have presented a formulation that avoids symmetry, larger instances can be hard to tackle with linear programming and should be solved with other heuristics.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Graph coloring instances: <a href="https://mat.tepper.cmu.edu/COLOR/instances.html" class="uri">https://mat.tepper.cmu.edu/COLOR/instances.html</a></li>
+<li><code>BAdatasetsSpatial</code> package: <a href="https://github.com/jmsallan/BAdatasetsSpatial" class="uri">https://github.com/jmsallan/BAdatasetsSpatial</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.4.1 (2024-06-14)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.2
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] ROI.plugin.glpk_1.0-0   ompr.roi_1.0.2          ompr_1.0.4             
+##  [4] sf_1.0-16               BAdatasetsSpatial_0.1.0 lubridate_1.9.3        
+##  [7] forcats_1.0.0           stringr_1.5.1           dplyr_1.1.4            
+## [10] purrr_1.0.2             readr_2.1.5             tidyr_1.3.1            
+## [13] tibble_3.2.1            ggplot2_3.5.1           tidyverse_2.0.0        
+## 
+## loaded via a namespace (and not attached):
+##  [1] gtable_0.3.5        xfun_0.43           bslib_0.7.0        
+##  [4] lattice_0.22-5      numDeriv_2016.8-1.1 tzdb_0.4.0         
+##  [7] vctrs_0.6.5         tools_4.4.1         generics_0.1.3     
+## [10] proxy_0.4-27        fansi_1.0.6         highr_0.10         
+## [13] pkgconfig_2.0.3     Matrix_1.6-5        KernSmooth_2.23-24 
+## [16] data.table_1.15.4   checkmate_2.3.1     RColorBrewer_1.1-3 
+## [19] listcomp_0.4.1      lifecycle_1.0.4     farver_2.1.1       
+## [22] compiler_4.4.1      munsell_0.5.1       htmltools_0.5.8.1  
+## [25] class_7.3-22        sass_0.4.9          yaml_2.3.8         
+## [28] lazyeval_0.2.2      pillar_1.9.0        jquerylib_0.1.4    
+## [31] classInt_0.4-10     cachem_1.0.8        wk_0.9.1           
+## [34] tidyselect_1.2.1    digest_0.6.35       slam_0.1-50        
+## [37] stringi_1.8.3       bookdown_0.39       fastmap_1.1.1      
+## [40] grid_4.4.1          colorspace_2.1-0    cli_3.6.2          
+## [43] magrittr_2.0.3      utf8_1.2.4          e1071_1.7-14       
+## [46] withr_3.0.0         backports_1.4.1     scales_1.3.0       
+## [49] registry_0.5-1      timechange_0.3.0    rmarkdown_2.26     
+## [52] blogdown_1.19       hms_1.1.3           ROI_1.0-1          
+## [55] evaluate_0.23       knitr_1.46          Rglpk_0.6-4        
+## [58] s2_1.1.6            rlang_1.1.4         Rcpp_1.0.12        
+## [61] glue_1.7.0          DBI_1.2.2           rstudioapi_0.16.0  
+## [64] jsonlite_1.8.8      R6_2.5.1            units_0.8-5</code></pre>
+</div>

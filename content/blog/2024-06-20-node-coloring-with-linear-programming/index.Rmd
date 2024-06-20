@@ -1,0 +1,180 @@
+---
+title: Node Coloring with Linear Programming
+author: Jose M Sallan
+date: '2024-06-20'
+slug: node-coloring-with-linear-programming
+categories:
+  - R
+  - optimization
+tags:
+  - linear programming
+  - R
+  - optimization
+  - purrr
+  - spatial analysis
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this post I will present the **node coloring problem**, and a linear programming formulation that avoids symmetry. Node coloring problem consists of coloring (labelling) nodes so that nodes connected by an edge have different colors and the total number of colors is minimized. 
+
+A well-know result in graph theory is the **four color theorem**: for planary graphs we can find solutions of the node coloring problem using no more than four colors. In other words, the **chromatic number** of a planary graph will be equal or smaller than four. Planary graphs can be represented in the plane so that edges close only at the endpoints (that is, do not cross each other). I will demonstrate this property labelling the districts of the city of Barcelona so that no pair of contiguous districts shares the same color.
+
+To handle the spatial data of Barcelona I will load the packages:
+
+```{r, message=FALSE}
+library(tidyverse)
+library(BAdatasetsSpatial)
+library(sf)
+```
+
+And to solve the linear programming formulation I will use:
+
+```{r, message=FALSE}
+library(ompr)
+library(ompr.roi)
+library(ROI.plugin.glpk)
+```
+
+## Linear Programming Formulation
+
+Let's define a formulation for this problem that avoids symmetry. Our input will be the graph $G(N, E)$ of $n$ nodes and $e$ edges.
+
+The decision variables will be of the type $w_{ij}$, which are equal to one if node $j$ belongs to the set of nodes with the same label with lowest index equal to $i$. Then, in those variables $i \leq j$.
+
+Defined in this way, our objective function will be minimizing the sum of variables $w_{ii}$.
+
+The constraints will be:
+
+-   Variables $w_{ij}$ must be lower or equal than $w_{ii}$, so that $w_{ij} = 0$ when $w_{ii} = 0$.
+-   Each node $j$ must have a single label.
+-   Pairs of nodes $(j,k)$ defining vertexs of $E$ must have different color.
+
+$\begin{align}
+\text{MIN } & z = \sum_{i=1}^n w_{ii}  \\
+   & w_{ij} \leq w_{ii}  & i = 1, \dots, n, \ i \leq j \\
+   & \sum_{i=1}^j w_{ij} = 1 & j = 1, \dots, n \\
+   & w_{ij} + w_{ik} \leq 1 & (j, k) \in E, \ i \leq j, \ i \leq k \\
+\end{align}$
+
+## The Barcelona Districts Map
+
+Let's color the map of districts of Barcelona. It is delivered as a spatial object `BCNDistricts`, so it is a data frame with a `geometry` column where are stored the polygons to draw the districts. I will order this dataframe by the district numerical code `c_distri`.
+
+```{r}
+data("BCNDistricts")
+
+BCNDistricts <- BCNDistricts |>
+  arrange(c_distri)
+```
+
+Let's plot the map with the values of `c_distri`.
+
+```{r, fig.align='center'}
+BCNDistricts |>
+  ggplot() +
+  geom_sf() +
+  geom_text(aes(coord_x, coord_y, label = c_distri)) +
+  theme_void()
+```
+
+Finding the contacts among districts can be tedious. Fortunately, districts are stored as simple feature geometrical objects. We can use the `sf::st_touches()` function to see which objects contact each other:
+
+```{r}
+int <- st_touches(BCNDistricts)
+int
+```
+
+Note that the values of int are the row number of the districts, not necessarily values of `c_distri`. That is why I have arranged rows by this variable previously.
+
+Iterating with `purrr::map_dfr()` we can obtain the list of edges:
+
+```{r}
+edges_col <- map_dfr(1:length(int), ~ tibble(i = ., j = int[[.]])) |>
+  filter(i < j)
+edges_col
+```
+
+So we have `r nrow(edges_col)` edges and 10 nodes for this node coloring problem.
+
+## Solving the Problem
+
+Let's define the linear programming model to solve this problem, based on the formulation. We start defining the number of nodes and edges.
+
+```{r}
+n <- length(unique(c(edges_col$i, edges_col$j)))
+e <- nrow(edges_col)
+```
+
+Here is the model, built with the OMPR syntax. Note that it is using the values of `edges_col` to define the specific model for this case.
+
+```{r}
+gc_model <- 
+  MIPModel() |>
+  add_variable(w[i, j], i = 1:n, j = 1:n, i<=j, type = "binary") |>
+  add_constraint(w[i, j] <= w[i, i], i = 1:n, j = 1:n, i <= j) |>
+  add_constraint(sum_over(w[i, j], i = 1:n, i <= j) == 1, j = 1:n) |>
+  add_constraint(w[i, edges_col[r, 1]] + w[i, edges_col[r, 2]] <= 1, 
+                 i = 1:n, r = 1:e, 
+                 i <= edges_col[r, 1], 
+                 i <= edges_col[r, 2]) |>
+  set_objective(sum_over(w[i, i], i = 1:n), "min") |>
+  solve_model(with_ROI(solver = "glpk"))
+```
+
+To get the solution, we need to list nonzero variables:
+
+```{r}
+colors <- gc_model |>
+  get_solution(w[i, j]) |>
+  filter(value == 1) |>
+  select(i, j) |>
+  rename(c_distri = j, color = i) |>
+  mutate(color = as.factor(color))
+colors |>
+  arrange(color)
+```
+
+Let's add the colors to the map so we can use it as argument to fill the polygons.
+
+```{r}
+BCNDistricts <- left_join(BCNDistricts, 
+                          colors, by = "c_distri")
+```
+
+And let's draw the colorized map:
+
+```{r, fig.align='center'}
+BCNDistricts |>
+  ggplot(aes(fill = color)) +
+  geom_sf() +
+  theme_void() +
+  geom_text(aes(coord_x, coord_y, label = c_distri)) +
+  scale_fill_brewer(palette = "Reds") +
+  theme(legend.position = "none")
+```
+
+## Coloring Maps with the Node Coloring Problem
+
+Coloring maps was one of the earliest motivations to solve the node coloring problem. To color a map, we need to build a graph with nodes being the regions, connected by edges if they touch each other. As the resulting graph will be planary, we know that its chromatic number will be equal or less than four. If the map is stored as a spatial object, the connections between regions can be obtained with `sf` package functions.
+
+Map coloring is a (maybe) unlikely intersection between linear programming and spatial analysis. Although we have presented a formulation that avoids symmetry, larger instances can be hard to tackle with linear programming and should be solved with other heuristics.
+
+## References
+
+-   Graph coloring instances: <https://mat.tepper.cmu.edu/COLOR/instances.html>
+-   `BAdatasetsSpatial` package: <https://github.com/jmsallan/BAdatasetsSpatial>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
+
