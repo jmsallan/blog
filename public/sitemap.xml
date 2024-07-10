@@ -3,13 +3,37 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>http://localhost:4321/blog/</loc>
-    <lastmod>2024-06-20T00:00:00+00:00</lastmod>
+    <lastmod>2024-07-10T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/categories/</loc>
-    <lastmod>2024-06-20T00:00:00+00:00</lastmod>
+    <lastmod>2024-07-10T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/blog/coloring-an-intricate-map-with-graph-coloring-algorithms/</loc>
+    <lastmod>2024-07-10T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/tags/ggraph/</loc>
+    <lastmod>2024-07-10T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/</loc>
-    <lastmod>2024-06-20T00:00:00+00:00</lastmod>
+    <lastmod>2024-07-10T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/tags/optimization/</loc>
+    <lastmod>2024-07-10T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/categories/optimization/</loc>
+    <lastmod>2024-07-10T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/categories/r/</loc>
+    <lastmod>2024-07-10T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/tags/spatial-analysis/</loc>
+    <lastmod>2024-07-10T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/tags/tabu-search/</loc>
+    <lastmod>2024-07-10T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/tags/</loc>
+    <lastmod>2024-07-10T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/tags/linear-programming/</loc>
     <lastmod>2024-06-20T00:00:00+00:00</lastmod>
@@ -17,25 +41,10 @@
     <loc>http://localhost:4321/blog/node-coloring-with-linear-programming/</loc>
     <lastmod>2024-06-20T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>http://localhost:4321/tags/optimization/</loc>
-    <lastmod>2024-06-20T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>http://localhost:4321/categories/optimization/</loc>
-    <lastmod>2024-06-20T00:00:00+00:00</lastmod>
-  </url><url>
     <loc>http://localhost:4321/tags/purrr/</loc>
     <lastmod>2024-06-20T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/tags/r/</loc>
-    <lastmod>2024-06-20T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>http://localhost:4321/categories/r/</loc>
-    <lastmod>2024-06-20T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>http://localhost:4321/tags/spatial-analysis/</loc>
-    <lastmod>2024-06-20T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>http://localhost:4321/tags/</loc>
     <lastmod>2024-06-20T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/tags/data.table/</loc>
@@ -61,9 +70,6 @@
   </url><url>
     <loc>http://localhost:4321/categories/statistics/</loc>
     <lastmod>2024-05-27T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>http://localhost:4321/tags/ggraph/</loc>
-    <lastmod>2024-05-18T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/blog/prim-s-algorithm-for-the-minimum-spanning-tree/</loc>
     <lastmod>2024-05-18T00:00:00+00:00</lastmod>
@@ -291,9 +297,6 @@
     <lastmod>2022-01-30T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/blog/coding-tabu-search-in-r/</loc>
-    <lastmod>2022-01-24T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>http://localhost:4321/tags/tabu-search/</loc>
     <lastmod>2022-01-24T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/blog/coding-simulated-annealing-in-r/</loc>
