@@ -1,0 +1,185 @@
+---
+title: Impacte ambiental del F1 Road Show a Barcelona
+author: Jose M Sallan
+date: '2024-07-22'
+slug: impacte-ambiental-del-f1-road-show-a-barcelona
+categories: []
+tags:
+  - Barcelona
+  - air quality
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(BAdatasetsSpatial)
+library(patchwork)
+```
+
+```{r}
+data("aq_bcn")
+data("aq_stations_bcn")
+
+aq_stations_bcn <- sf::st_drop_geometry(aq_stations_bcn)
+```
+
+El passat 23 de juny es va celebrar al circuit de Montmeló (Circuit de Barcelona-Catalunya) el Gran Premi d'Espanya de Formula 1 *Formula 1 Aramco Gran Premio de España 2024*. Un dels actes relacionats amb aquest gran premi va ser el Road Show celebrat al Passeig de Gràcia de Barcelona el 19 de juny. Algunes associacions van mostrar la seva preocupació per l'impacte ambiental d'aquest esdeveniment.
+
+INSERT TWITTER
+
+Gràcies al portal de dades obertes de l'Ajuntament de Barcelona, podem avaluar l'impacte ambiental d'aquest esdeveniment. El portal proporciona els nivells de diòxid de nitrògen (NO2) i partícules suspeses (PM10) mesurats a les diverses estacions de medició de qualitat de l'aire a Barcelona.
+
+```{r, out.width= '80%', fig.align='center'}
+data("BCNDistricts")
+aq_stations_bcn <- aq_stations_bcn |>
+  mutate(nom_cabina = str_replace(nom_cabina, "Barcelona - ", ""))
+
+road_show <- data.frame(latitud = 41.39107, longitud = 2.16658, label = "Road Show")
+
+ggplot(BCNDistricts) +
+  geom_sf(fill = "white") +
+  theme_void() +
+  geom_text(data = road_show, aes(longitud, latitud, label = label),size = 3, color = "#FF0000") +
+  geom_text(data = aq_stations_bcn, aes(longitud, latitud, label = nom_cabina), size = 3) +
+  ggtitle("Estacions de mesura de qualitat de l'aire")
+```
+
+## PM10 el dia del Road Show
+
+Diem PM10 a les partícules en suspensió a l'aire de 10 micròmetres o menys. Els efectes adversos d'aquestes partícules a la salut humana, el clima i els ecosistemes han estat extensivament reportats.
+
+Les estacions de mesura de la qualitat de l'aire a Barcelona permeten obtenir els valors horaris de PM10 en micrograms per metre cúbic (µg/m3). La legislació vigent estableix els valors límit de PM10 en una mitjana horària de 50 µg/m3, i una mitjana anual de  40 µg/m3.
+
+Per a avaluar l'impacte del Road Show he escollit l'estació Eixample, que és la més propera a l'esdeveniment que va mesurar PM10 el juny de 2024. A la figura següent es presenten els valors de PM10 a l'estació d'Eixample al Juny de 2024.
+
+```{r, out.width='100%'}
+lt <- as_datetime("2024-06-19 00:00:00")
+ut <- as_datetime("2024-06-20 00:00:00")
+
+sj_lt <- as_datetime("2024-06-23 12:00:00")
+sj_ut <- as_datetime("2024-06-24 12:00:00")
+
+aq_bcn |>
+  filter(any == 2024, mes == 6, estacio == 43, codi_contaminant == 10, !is.na(value)) |>
+  ggplot(aes(data, value)) +
+  xlim(c(as_datetime("2024-06-01 00:00:00"), as_datetime("2024-06-30 00:00:00"))) +
+  geom_rect(xmin = lt, xmax = ut, ymin = 0, ymax = 125, fill = "#FF9999", alpha = 0.01) +
+  geom_rect(xmin = sj_lt, xmax = sj_ut, ymin = 0, ymax = 125, fill = "#FFB266", alpha = 0.01) +
+  geom_line() +
+  geom_hline(yintercept = 50, color = "red", linetype = "dashed") +
+  annotate("text", x = as_datetime("2024-06-16 00:00:00"), y = 70, label = "F1 Road Show", size = 4) +
+  annotate("text", x = as_datetime("2024-06-27 12:00:00"), y = 70, label = "Sant Joan", size = 4) +
+  labs(title = "PM10 a l'Eixample (Juny 2024)", x = NULL, y = NULL) +
+  theme_minimal(base_size = 12)
+```
+
+Els valors de PM10 durant el Road Show no són significativament diferents dels obtinguts els dies anterior i posterior. El matí del dia 19 s'atansa un pic de 50 µg/m3, però el Road Show es va celebrar a la tarda.
+
+## PM10 el dia de Sant Joan
+
+Examinant el gràfic de dalt, podem observar un pic força alt de PM10 a la nit del 23 al 24 de juny (l'àrea en taronja va del 23 de juny a les 12:00 fins al 24 de juny a les 12:00). Una possible explicació d'aquest fet pot ser la revetlla de Sant Joan, on es llença material pirotècnic i es fan fogueres durant la nit.
+
+Per a examinar l'impacte ambiental de la revetlla de Sant Joan, he obtingut dades dels mesos de juny de 2023 i 2020. A la figura següent es presenten, marcant en taronja la nit de Sant Joan.
+
+```{r, out.width='100%'}
+p3 <- aq_bcn |>
+  filter(any == 2024, mes == 6, estacio == 43, codi_contaminant == 10, !is.na(value)) |>
+  ggplot(aes(data, value)) +
+  xlim(c(as_datetime("2024-06-01 00:00:00"), as_datetime("2024-06-30 00:00:00"))) +
+  ylim(0, 350) +
+  geom_rect(xmin = lt, xmax = ut, ymin = 0, ymax = 350, fill = "#FF9999", alpha = 0.01) +
+  geom_rect(xmin = sj_lt, xmax = sj_ut, ymin = 0, ymax = 350, fill = "#FFB266", alpha = 0.01) +
+  geom_hline(yintercept = 50, color = "red", linetype = "dashed") +
+  geom_line() +
+  labs(title = "PM10 at Eixample (June 2024)", x = NULL, y = NULL) +
+  theme_minimal()
+
+p2 <- aq_bcn |>
+  filter(any == 2023, mes == 6, estacio == 43, codi_contaminant == 10, !is.na(value)) |>
+  ggplot(aes(data, value)) +
+  xlim(c(as_datetime("2023-06-01 00:00:00"), as_datetime("2023-06-30 00:00:00"))) +
+  ylim(0, 350) +
+  geom_rect(xmin = as_datetime("2023-06-23 12:00:00"), xmax = as_datetime("2023-06-24 12:00:00"), ymin = 0, ymax = 350, fill = "#FFB266", alpha = 0.01) +
+  geom_hline(yintercept = 50, color = "red", linetype = "dashed") +
+  geom_line() +
+  labs(title = "PM10 at Eixample (June 2023)", x = NULL, y = NULL) +
+  theme_minimal()
+
+pm10_eixample_2020june <- aq_bcn |>
+  filter(any == 2020, mes == 6, estacio == 43, codi_contaminant == 10, !is.na(value))
+
+p1 <- aq_bcn |>
+  filter(any == 2020, mes == 6, estacio == 43, codi_contaminant == 10, !is.na(value)) |>
+  ggplot(aes(data, value)) +
+  xlim(c(as_datetime("2020-06-01 00:00:00"), as_datetime("2020-06-30 00:00:00"))) +
+  ylim(0, 350) +
+  geom_rect(xmin = as_datetime("2020-06-23 12:00:00"), xmax = as_datetime("2020-06-24 12:00:00"), ymin = 0, ymax = 350, fill = "#FFB266", alpha = 0.01) +
+  geom_hline(yintercept = 50, color = "red", linetype = "dashed") +
+  geom_line() +
+  labs(title = "PM10 at Eixample (June 2020)", x = NULL, y = NULL) +
+  theme_minimal()
+
+p1 / p2 / p3
+```
+
+Podem observar un pic de PM10 a l'Eixample per als tres anys, d'una magnitud força més gran que el Road Show. El pic de 2020 es anormalment alt, sis vegades més gran que el llindar horari de PM10. Podem aventurar que la magnitud d'aquest pic pot estar relacionada amb els confinaments pel COVID-19.
+
+## NO2 el dia del Road Show
+
+El NO2 és un contaminant antròpic, causat per processos de combustió principalment d'automòbils, especialment motors dièsel. Aquests gasos s'originen per la combustió del nitrògen a l'estar exposat a temperatures altes, i també té efectes adversos a la salut humana.
+
+Les estacions de mesura de la qualitat de l'aire presenten obtenir valors hroaris de NO2 en µg/m3. Els valors límit de NO2 són de 200 µg/m3 en mitjana horària, i de 40 µg/m3 en mitjana anual.
+
+Al gràfic següent es mostra l'evolució de NO2 a l'Eixample el juny de 2024.
+
+```{r, out.width='100%'}
+aq_bcn |>
+  filter(any == 2024, mes == 6, estacio == 43, codi_contaminant == 8, !is.na(value)) |>
+  ggplot(aes(data, value)) +
+  xlim(c(as_datetime("2024-06-01 00:00:00"), as_datetime("2024-06-30 00:00:00"))) +
+  geom_rect(xmin = lt, xmax = ut, ymin = 0, ymax = 125, fill = "#FF9999", alpha = 0.01) +
+  geom_line() +
+  annotate("text", x = as_datetime("2024-06-16 00:00:00"), y = 62, label = "F1 Road Show", size = 4) +
+  labs(title = "NO2 at Eixample (June 2024)", x = NULL, y = NULL) +
+  theme_minimal()
+```
+
+Els valors de NO2 durant el Road Show no són més grans que els valors observats a la resta del mes de juny.
+
+A diferència del PM10, els nivells de NO2 es mesuren a totes les estacions, així que es pot presentar l'evolució d'aquest contaminant a diferents localitzacions de Barcelona el juny de 2024.
+
+```{r, out.width='100%'}
+aq_bcn |>
+  filter(any == 2024, mes == 6, codi_contaminant == 8, !is.na(value)) |>
+  left_join(aq_stations_bcn |> select(estacio, nom_cabina)) |>
+  ggplot(aes(data, value)) +
+  xlim(c(as_datetime("2024-06-01 00:00:00"), as_datetime("2024-06-30 00:00:00"))) +
+  geom_rect(xmin = lt, xmax = ut, ymin = 0, ymax = 125, fill = "#FF9999", alpha = 0.01) +
+  geom_line() +
+  labs(title = "NO2 at Barcelona (June 2024)", x = NULL, y = NULL) +
+  theme_minimal() +
+  facet_wrap(. ~ nom_cabina, ncol = 2)
+```
+
+Els valors de NO2 segueixen un patró similar a totes les estacions de mesura, i no s'observa cap pic de NO2 a la tarda del 19 de juny.
+
+## Conclusions
+
+Segons les dades de les estacions de mesura de la qualitat de l'aire a Barcelona, el F1 Road Show no va augmentar els valors de PM10 i NO2, els dos principals contaminants procedents de l'acció humana que afecten la qualitat de l'aire. Per tant, l'impacte d'aquest Road Show és principalment simbòlic: aquest esdeveniment pot legitimitar als cotxes i camions propulsats amb motors de combustió interna com a mitjans de transport, i incrementar el fluxe de turistes i visitants a la ciutat.
+
+En examinar els efectes del Road Show vaig obtenir una troballa inesperada: els alts valors de partícules a l'aire durant les celebracions de la revetlla de Sant Joan. L'any 2020, els nivells de PM10 durant aquella nit estaven molt per sobre dels valors llindars de qualitat de l'aire establerts. Per tant, les autoritats responsables de la qualitat de l'aire poden considerar imposar restriccions severes al llançament de focs artificials a les ciutats, ja que poden tenir efectes adversos en la salut humana.
+
+## Referències
+
+-   El Road Show, una jornada histórica para la F1 y Barcelona: <https://www.circuitcat.com/es/noticias/formula-1/el-road-show-una-jornada-historica-para-la-f1-y-barcelona/>
+-   Estacions de mesura de la qualitat de l'aire de la ciutat de Barcelona: <https://opendata-ajuntament.barcelona.cat/data/ca/dataset/qualitat-aire-estacions-bcn>
+-   Contaminants mesurats per les estacions de mesura de qualitat de l'aire de la ciutat de Barcelona: <https://opendata-ajuntament.barcelona.cat/data/ca/dataset/contaminants-estacions-mesura-qualitat-aire>
+-   Dades de les estacions de mesura de la qualitat de l'aire de la ciutat de Barcelona: <https://opendata-ajuntament.barcelona.cat/data/ca/dataset/qualitat-aire-detall-bcn>
+-   Protocol d'actuació per alts nivells de contaminació atmosfèrica a
+la ciutat de Barcelona: <https://ajuntament.barcelona.cat/qualitataire/sites/default/files/Protocol_Contaminaci%C3%B3_2017.pdf>
+

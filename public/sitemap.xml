@@ -2,8 +2,23 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
+    <loc>http://localhost:4321/tags/air-quality/</loc>
+    <lastmod>2024-07-22T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/tags/barcelona/</loc>
+    <lastmod>2024-07-22T00:00:00+00:00</lastmod>
+  </url><url>
     <loc>http://localhost:4321/blog/</loc>
-    <lastmod>2024-07-10T00:00:00+00:00</lastmod>
+    <lastmod>2024-07-22T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/blog/impacte-ambiental-del-f1-road-show-a-barcelona/</loc>
+    <lastmod>2024-07-22T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/</loc>
+    <lastmod>2024-07-22T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/tags/</loc>
+    <lastmod>2024-07-22T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/categories/</loc>
     <lastmod>2024-07-10T00:00:00+00:00</lastmod>
@@ -12,9 +27,6 @@
     <lastmod>2024-07-10T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/tags/ggraph/</loc>
-    <lastmod>2024-07-10T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>http://localhost:4321/</loc>
     <lastmod>2024-07-10T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/tags/optimization/</loc>
@@ -30,9 +42,6 @@
     <lastmod>2024-07-10T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/tags/tabu-search/</loc>
-    <lastmod>2024-07-10T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>http://localhost:4321/tags/</loc>
     <lastmod>2024-07-10T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/tags/linear-programming/</loc>
