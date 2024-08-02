@@ -1,0 +1,185 @@
+---
+title: Environmental Impact of the Barcelona F1 Road Show
+author: Jose M Sallan
+date: '2024-08-02'
+slug: environmental-impact-of-the-barcelona-f1-road-show
+categories:
+  - news
+tags:
+  - air quality
+  - Barcelona
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(BAdatasetsSpatial)
+library(patchwork)
+```
+
+```{r}
+data("aq_bcn")
+data("aq_stations_bcn")
+
+aq_stations_bcn <- sf::st_drop_geometry(aq_stations_bcn)
+```
+
+On occasion of the 2024 Spanish Grand Prix *Formula 1 Aramco Gran Premio de España 2024*, held on 23 June 2024 at the Circuit de Barcelona-Catalunya at Montmeló, a Road Show was celebrated at Barcelona on 19 June. Some associations showed concern about the environmental impact of this Road Show.
+
+We have the possibility to examine the environmental impact of the Road Show thanks to air quality data from the Open Data BCN portal. The portal delivers the levels of nitrogen dioxide (NO2) and suspended particles (PM10) gathered at the air quality measurement stations at Barcelona.
+
+```{r, out.width= '80%', fig.align='center'}
+data("BCNDistricts")
+aq_stations_bcn <- aq_stations_bcn |>
+  mutate(nom_cabina = str_replace(nom_cabina, "Barcelona - ", ""))
+
+road_show <- data.frame(latitud = 41.39107, longitud = 2.16658, label = "Road Show")
+
+ggplot(BCNDistricts) +
+  geom_sf(fill = "white") +
+  theme_void() +
+  geom_text(data = road_show, aes(longitud, latitud, label = label),size = 3, color = "#FF0000") +
+  geom_text(data = aq_stations_bcn, aes(longitud, latitud, label = nom_cabina), size = 3) +
+  ggtitle("Air Quality Measurement Stations")
+```
+
+## PM10 During the Road Show
+
+PM10 is the designation of particulate matter of 10 micrometers and smaller. The adverse effects of particulate matter on human health, climate and ecosystems have been extensively reported.
+
+Air quality measurement stations measure the hourly level of PM10 in suspension in micrograms per cubic meter (µg/m3). Present regulations set threshold values of PM10 at an hourly average of 50 50 µg/m3, and a yearly average of 40 µg/m3.
+
+To assess the impact of the Road Show I have chosen the values of Eixample station, the one closer to the event measuring PM10 during June 2024. The values of PM10 at that station during June 2024 are presented in the following chart.
+
+```{r, out.width='100%'}
+lt <- as_datetime("2024-06-19 00:00:00")
+ut <- as_datetime("2024-06-20 00:00:00")
+
+sj_lt <- as_datetime("2024-06-23 12:00:00")
+sj_ut <- as_datetime("2024-06-24 12:00:00")
+
+aq_bcn |>
+  filter(any == 2024, mes == 6, estacio == 43, codi_contaminant == 10, !is.na(value)) |>
+  ggplot(aes(data, value)) +
+  xlim(c(as_datetime("2024-06-01 00:00:00"), as_datetime("2024-06-30 00:00:00"))) +
+  geom_rect(xmin = lt, xmax = ut, ymin = 0, ymax = 125, fill = "#FF9999", alpha = 0.01) +
+  geom_rect(xmin = sj_lt, xmax = sj_ut, ymin = 0, ymax = 125, fill = "#FFB266", alpha = 0.01) +
+  geom_line() +
+  geom_hline(yintercept = 50, color = "red", linetype = "dashed") +
+  annotate("text", x = as_datetime("2024-06-16 00:00:00"), y = 70, label = "F1 Road Show", size = 4) +
+  annotate("text", x = as_datetime("2024-06-27 12:00:00"), y = 70, label = "St. John's Eve", size = 4) +
+  labs(title = "PM10 at Eixample (June 2024)", x = NULL, y = NULL) +
+  theme_minimal(base_size = 12)
+```
+
+The values of PM10 the day of the Road Show are not significantly different from the days immediately before and after. A peak of 50 µg/m3 is reached in the morning of 19 June, but the Road Show took place in the afternoon.
+
+## PM10 on Saint John's Eve
+
+Looking at the above chart, we observe a rather larger spike of PM10 in the night from 23 to 24 June (the orange-shaded area goes from 23 June at 12:00 to 24 June at 12:00). A possible explanation for the high value of PM10 at that night is the celebrations of St. John's Eve, a festivity involving fireworks and even bonfires during the night.
+
+To evaluate the impact of St. John's Eve celebrations on air quality, I have retrieved additional data of June 2020 and June 2023, and presented in a chart similar to June 2024.
+
+```{r, out.width='100%'}
+p3 <- aq_bcn |>
+  filter(any == 2024, mes == 6, estacio == 43, codi_contaminant == 10, !is.na(value)) |>
+  ggplot(aes(data, value)) +
+  xlim(c(as_datetime("2024-06-01 00:00:00"), as_datetime("2024-06-30 00:00:00"))) +
+  ylim(0, 350) +
+  geom_rect(xmin = lt, xmax = ut, ymin = 0, ymax = 350, fill = "#FF9999", alpha = 0.01) +
+  geom_rect(xmin = sj_lt, xmax = sj_ut, ymin = 0, ymax = 350, fill = "#FFB266", alpha = 0.01) +
+  geom_line() +
+  geom_hline(yintercept = 50, color = "red", linetype = "dashed") +
+  labs(title = "PM10 at Eixample (June 2024)", x = NULL, y = NULL) +
+  theme_minimal()
+
+p2 <- aq_bcn |>
+  filter(any == 2023, mes == 6, estacio == 43, codi_contaminant == 10, !is.na(value)) |>
+  ggplot(aes(data, value)) +
+  xlim(c(as_datetime("2023-06-01 00:00:00"), as_datetime("2023-06-30 00:00:00"))) +
+  ylim(0, 350) +
+  geom_rect(xmin = as_datetime("2023-06-23 12:00:00"), xmax = as_datetime("2023-06-24 12:00:00"), ymin = 0, ymax = 350, fill = "#FFB266", alpha = 0.01) +
+  geom_line() +
+  geom_hline(yintercept = 50, color = "red", linetype = "dashed") +
+  labs(title = "PM10 at Eixample (June 2023)", x = NULL, y = NULL) +
+  theme_minimal()
+
+pm10_eixample_2020june <- aq_bcn |>
+  filter(any == 2020, mes == 6, estacio == 43, codi_contaminant == 10, !is.na(value))
+
+p1 <- aq_bcn |>
+  filter(any == 2020, mes == 6, estacio == 43, codi_contaminant == 10, !is.na(value)) |>
+  ggplot(aes(data, value)) +
+  xlim(c(as_datetime("2020-06-01 00:00:00"), as_datetime("2020-06-30 00:00:00"))) +
+  ylim(0, 350) +
+  geom_rect(xmin = as_datetime("2020-06-23 12:00:00"), xmax = as_datetime("2020-06-24 12:00:00"), ymin = 0, ymax = 350, fill = "#FFB266", alpha = 0.01) +
+  geom_line() +
+  geom_hline(yintercept = 50, color = "red", linetype = "dashed") +
+  labs(title = "PM10 at Eixample (June 2020)", x = NULL, y = NULL) +
+  theme_minimal()
+
+p1 / p2 / p3
+```
+
+There is a peak on PM10 in Eixample in each of the observed years of a magnitude quite higher than the Road Show. This result provides additional evidence of the impact of Saint John Eve's festivities on air quality. The peak of 2020 is abnormally high, compared with 2023 and 2024. We can possible attribute this abnormal peak to COVID-19 lockdowns.
+
+## NO2 During the Road Show
+
+NO2 is an anthropic pollutant, emitted in combustion processes mainly by automobiles, specially diesel engines. NO2 comes from the oxidation of nitrogen when exposed to high temperatures, and has also adverse effects on human health.
+
+Barcelona air quality measurement stations report hourly values of concentration of NO2 in µg/m3. The threshold values of NO2 are of 200 µg/m3 in hourly average, and of 40 µg/m3 in yearly average.
+
+In the following chart is presented the evolution of NO2 at Eixample on June 2024.
+
+```{r, out.width='100%'}
+aq_bcn |>
+  filter(any == 2024, mes == 6, estacio == 43, codi_contaminant == 8, !is.na(value)) |>
+  ggplot(aes(data, value)) +
+  xlim(c(as_datetime("2024-06-01 00:00:00"), as_datetime("2024-06-30 00:00:00"))) +
+  geom_rect(xmin = lt, xmax = ut, ymin = 0, ymax = 125, fill = "#FF9999", alpha = 0.01) +
+  geom_line() +
+  annotate("text", x = as_datetime("2024-06-16 00:00:00"), y = 62, label = "F1 Road Show", size = 4) +
+  labs(title = "NO2 at Eixample (June 2024)", x = NULL, y = NULL) +
+  theme_minimal()
+```
+
+The values of NO2 during the Road Show are not higher than the values observed during the rest of June.
+
+Unlike PM10, levels of NO2 are measured in all air quality measurement stations, so I can present the evolution of NO2 in different locations in Barcelona during June 2024.
+
+```{r, out.width='100%'}
+aq_bcn |>
+  filter(any == 2024, mes == 6, codi_contaminant == 8, !is.na(value)) |>
+  left_join(aq_stations_bcn |> select(estacio, nom_cabina)) |>
+  ggplot(aes(data, value)) +
+  xlim(c(as_datetime("2024-06-01 00:00:00"), as_datetime("2024-06-30 00:00:00"))) +
+  geom_rect(xmin = lt, xmax = ut, ymin = 0, ymax = 125, fill = "#FF9999", alpha = 0.01) +
+  geom_line() +
+  labs(title = "NO2 at Barcelona (June 2024)", x = NULL, y = NULL) +
+  theme_minimal() +
+  facet_wrap(. ~ nom_cabina, ncol = 2)
+```
+
+The values of NO2 in Barcelona follow a similar pattern in all measurement stations, and no peaks of NO2 are observed in the evening of June 19.
+
+## Conclusions
+
+As reported by air quality measurement stations, the F1 Road Show did not raised the values of PM10 and NO2, the two main pollutants coming from human action that affect air quality. Therefore, the impact of this Road Show can be seen as symbolic, as it can bring legitimacy to the usage of internal combustion engine cars and trucks as means of transportation. In addition, an event like the Road Show has the finality of attracting visitors of Barcelona. This is considered as negative for many citizens of Barcelona, that consider that the city has an excess of tourists.
+
+When examining the effects of the Road Show I obtained a serendipitous finding: the high values of particulate matter on air during the celebrations of Saint John's Eve. In year 2020, levels of PM10 during that night were well above the established threshold values of air quality. So authorities surveilling air quality may consider to impose severe restrictions to the throwing of fireworks at cities, as they can have salient adverse effects on human health.
+
+## References
+
+-   El Road Show, una jornada histórica para la F1 y Barcelona: <https://www.circuitcat.com/es/noticias/formula-1/el-road-show-una-jornada-historica-para-la-f1-y-barcelona/>
+-   Air quality measurement stations of the city of Barcelona: <https://opendata-ajuntament.barcelona.cat/data/en/dataset/qualitat-aire-estacions-bcn>
+-   Measured air pollutants by the air quality measurement stations of the city of Barcelona: <https://opendata-ajuntament.barcelona.cat/data/en/dataset/contaminants-estacions-mesura-qualitat-aire>
+-   Air quality data from the measurement stations of the city of Barcelona: <https://opendata-ajuntament.barcelona.cat/data/en/dataset/qualitat-aire-detall-bcn>
+-   Protocol of action for high levels of atmospheric pollution at
+the city of Barcelona: <https://ajuntament.barcelona.cat/qualitataire/sites/default/files/Protocol_Contaminaci%C3%B3_2017.pdf>
+
