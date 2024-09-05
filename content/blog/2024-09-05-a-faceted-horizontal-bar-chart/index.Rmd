@@ -1,0 +1,119 @@
+---
+title: A Faceted Horizontal Bar Chart
+author: Jose M Sallan
+date: '2024-09-05'
+slug: a-faceted-horizontal-bar-chart
+categories:
+  - R
+tags:
+  - data visualization
+  - ggplot
+  - purrr
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+In this post, I will present how to plot a faceted bar plot. The challenge in defining such a graph is that the ordering of elements across facets can change. To allow this, we need the `reorder_within()` and "scale_y_reordered()` from the tidytext package.
+
+As an example, I will present the countries with the lowest fertility rates across different years. I will retrieve the World Bank data with the `wbstats` package and add additional information with the `countrycode` package.
+
+```{r}
+library(wbstats)
+library(countrycode)
+library(tidyverse)
+library(tidytext)
+```
+
+I start retrieving total fertility rate with the `wbstats::wb_data()` function.
+
+```{r}
+tfrt_data <- wb_data("SP.DYN.TFRT.IN", start_date = 2000, end_date = 2022) |>
+  select(iso2c:SP.DYN.TFRT.IN)
+```
+
+Let's see the ten countries with lower fertility rates in years 2000, 2015 and 2022. We can do that using the `purrr::walk()`function.
+
+```{r}
+
+walk(c(2000, 2015, 2022), ~ {
+  tfrt_data |>
+  filter(date == .) |>
+  arrange(SP.DYN.TFRT.IN) |>
+  print(n = 10)
+})
+```
+
+We observe that the ranking has been shifting during the three selected years. Let's retrieve the ten main countries in each year and save them in the `tfrt_shortlist` table.
+
+```{r}
+tfrt_shortlist <- tfrt_data |>
+  filter(date %in% c(2000, 2015, 2022)) |>
+  group_by(date) |>
+  arrange(SP.DYN.TFRT.IN) |>
+  slice(1:10) |>
+  ungroup()
+```
+
+It can be interesting to add information about the continent of each country, using the `countrycode::countrycode()` package.
+
+```{r}
+tfrt_shortlist <- tfrt_shortlist |>
+  mutate(continent = countrycode(iso2c, origin = "iso2c", destination = "continent"))
+```
+
+Let's try to do a vertical chart of fertility rate for each year using a faceted barplot.
+
+```{r, out.width="100%"}
+tfrt_shortlist |>
+  mutate(country = fct_reorder(country, SP.DYN.TFRT.IN)) |>
+  ggplot(aes(SP.DYN.TFRT.IN, country, fill = continent)) +
+  geom_col() +
+  facet_grid(date ~ .)
+```
+
+We observe that the plot has several flaws:
+
+-   The order of each facet is the same for all years.
+-   All involved countries appear in each facet, even if they do not appear in the ranking of each year.
+
+To remedy this, we can use the functions `reoder_within()` and `scale_y_reordered()` from the `tidytext` package. The function `reorder_within()` replaces `forcats::fct_reorder()`.
+
+```{r, out.width="100%"}
+tfrt_shortlist |>
+  mutate(country = reorder_within(country, -SP.DYN.TFRT.IN, date)) |>
+  ggplot(aes(SP.DYN.TFRT.IN, country, fill = continent)) +
+  geom_col() +
+  scale_y_reordered() +
+  facet_grid(date ~ ., scales = "free_y")
+```
+
+Once achieved the reordering within each facet, we can proceed to present the final plot.
+
+```{r, out.width="100%"}
+tfrt_shortlist |>
+  mutate(country = reorder_within(country, -SP.DYN.TFRT.IN, date)) |>
+  ggplot(aes(SP.DYN.TFRT.IN, country, fill = continent)) +
+  geom_col() +
+  scale_y_reordered() +
+  facet_grid(date ~ ., scales = "free_y") +
+  labs(title = "Evolution of lowest fertility rates", x = NULL, y = NULL) +
+  theme_linedraw(base_size = 10) +
+  theme(legend.position = "bottom", plot.title.position = "plot")
+```
+
+## Reference
+
+-   World Bank Data. *Fertility rate, total (births per woman).* <https://data.worldbank.org/indicator/SP.DYN.TFRT.IN>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
