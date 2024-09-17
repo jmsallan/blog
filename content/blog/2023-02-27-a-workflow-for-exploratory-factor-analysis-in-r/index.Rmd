@@ -141,11 +141,11 @@ scree_plot +
   annotate("text", 4.1, 2, label = "elbow point", color = "red", hjust = 0)
 ```
 
-We observe that the elbow method occurs with four facgtor` and that we have three factors with eigenvalue greater than one. I have chosen to obtain a three-factor solution.
+We observe that the elbow method occurs with four factors and that we have three factors with eigenvalue greater than one. I have chosen to obtain a three-factor solution.
 
 ## Factor Loadings and Rotations
 
-Factor loedings $f_{ij}$ are defined for each variable $i$ and factor $j$, and represent the correlation between both. A high value of $f_{ij}$ means that a large amount of variability of variable $i$ can be explained by factor $j$.
+Factor loadings $f_{ij}$ are defined for each variable $i$ and factor $j$, and represent the correlation between both. A high value of $f_{ij}$ means that a large amount of variability of variable $i$ can be explained by factor $j$.
 
 Factor loadings of a model are unique up to a rotation. We prefer rotation methods that obtain factor loadings that allow relating one factor to each variable. **Orthogonal rotations** yield a set of uncorrelated factors. The most common orthogonal rotation methods are:
 
@@ -155,7 +155,7 @@ Factor loadings of a model are unique up to a rotation. We prefer rotation metho
 
 **Oblique rotations** lead to a set of correlated factors. The most common oblique rotation methods are **oblimin** and **promax**.
 
-In `psych::fa`, the type of rotation is passed with the `rotate` parameter.
+In `psych::fa()`, the type of rotation is passed with the `rotate` parameter.
 
 For a factor analysis, we can split the variance of each variable in:
 
@@ -164,13 +164,13 @@ For a factor analysis, we can split the variance of each variable in:
 
 ## Interpreting the Results
 
-We can perform the factor analysis using the `psych::fa` function. This function allows several methods to do the factor analysis specifying `fm` parameter. The main options available are:
+We can perform the factor analysis using the `psych::fa()` function. This function allows several methods to do the factor analysis specifying `fm` parameter. The main options available are:
 
 * `fm = "minres"` for the minimum residual solution (the default).
 * `fm = "ml"` for the maximum likelihood solution.
 * `fm = "pa"` for the principal axis solution.
 
-Let's do the factor analysis using the principal axis method and the varimax rotation. The other parameters are the correlation matrix and the number of factors `nfactors = 3`.
+Let's do the factor analysis using the maximum likelihood method and the varimax rotation. The other parameters are the correlation matrix and the number of factors `nfactors = 3`.
 
 ```{r}
 hz_factor <- fa(r = cor_mat, nfactors = 3, fm = "ml", rotate = "varimax")
@@ -195,11 +195,13 @@ We can see better the pattern of factor loadings printing them with a cutoff val
 print(hz_factor$loadings, cutoff = 0.3)
 ```
 
-We can see that we can group variables `x1` to `x3` in a factor `ML1`, variables `x4` to `x6` in factor ML3 and variables `x7` to `x9` in factor `ML2`. For this dataset, this result is in correspondence with the meaning of the variables. `ML1` would be realated with visual ability, `ML3` with verbal ability and `ML2` with mathematical ability.
+We can group variables `x1` to `x3` in a factor `ML3`, variables `x4` to `x6` in factor ML1 and variables `x7` to `x9` in factor `ML2`. For this dataset, this result is in correspondence with the meaning of the variables. `ML1` would be related with visual ability, `ML3` with verbal ability and `ML2` with mathematical ability.
+
+Variable `x9` has a high factor loading in factor `ML2`, so that the result of the exploratory analysis is not corresponding perfectly with the *a priori* assumptions we had about the data. In the obtained model, this variable results to be related with verbal and mathematical ability. Although we may consider obtaining a four-factor solution, which was advised by the elbow point method, in the correlation plot `x9` is highly correlated not only with `x7`, but also with variables `x1` to `x3`. That is the reason why I have chosen to stick with the three-factor solution in this case. If `x9` were not correlated with any variable, maybe a four-factor solution would have been useful.
 
 ## Factor Scores
 
-While factor loadings help to interpret the meaning of the factors, factor scores allow obtaining values of factors for each observation. The arguments of `psych::factor.scores` are the observations for which we want to compute the scores and the factor analysis model:
+While factor loadings help to interpret the meaning of the factors, factor scores allow obtaining values of factors for each observation. The arguments of `psych::factor.scores()` are the observations for which we want to compute the scores and the factor analysis model:
 
 ```{r}
 hz_scores <- factor.scores(HolzingerSwineford1939 |> select(x1:x9), hz_factor)
@@ -247,8 +249,7 @@ The plot show two uncorrelated factors, uniformly distributed among the two gend
 
 ```{r, echo=FALSE}
 sessionInfo()
-
 ```
 
-
+Updated on `r Sys.time()`. Thanks to Damon Tutunjian for pointing out previous mistakes. All remaining errors are my own.
 
