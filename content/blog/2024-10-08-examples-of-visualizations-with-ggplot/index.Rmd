@@ -1,0 +1,55 @@
+---
+title: Examples of Visualizations with ggplot
+author: Jose M Sallan
+date: '2024-10-08'
+slug: examples-of-visualizations-with-ggplot
+categories:
+  - R
+tags:
+  - data visualization
+  - ggplot
+  - post index
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This is a listing of posts of this blog presenting examples of data visualization using ggplot2. The post is updated on **8 October 2024** (posterior examples may not be listed here).
+
+## Basic Plots
+
+-   Line and bar plots: <https://jmsallan.netlify.app/blog/line_and_bar_plots_ggplot2/>
+-   Multiple line plots: <https://jmsallan.netlify.app/blog/plotting-a-multiple-line-plot/>
+-   Horizontal bar chart: <https://jmsallan.netlify.app/blog/plotting-an-horizontal-bar-chart/>
+
+## Advanced Plots
+
+-   Dual axis line plot: <https://jmsallan.netlify.app/blog/a-dual-axis-line-plot/>
+-   Faceted horizontal bar chart: <https://jmsallan.netlify.app/blog/a-faceted-horizontal-bar-chart/>
+-   Candlestick plot: <https://jmsallan.netlify.app/blog/a-candlestick-plot-of-big-stock-companies/>
+-   Dumbbell plots: <https://jmsallan.netlify.app/blog/a-dummbell-plot-of-the-evolution-of-eu-gini-index/>
+-   Grouping and direct labels: <https://jmsallan.netlify.app/blog/line-plots-with-grouping-and-direct-labels/>
+
+## Colors and Shapes
+
+-   Brewer palettes: <https://jmsallan.netlify.app/blog/the-brewer-palettes/>
+-   Viridis palettes: <https://jmsallan.netlify.app/blog/the-viridis-palettes/>
+-   Color blindness: <https://jmsallan.netlify.app/blog/color-blindness-in-r/>
+-   Colors and shapes of points: <https://jmsallan.netlify.app/blog/2021-03-12-colors-and-shapes-of-points-in-ggplot2/>
+-   Visualization of dense plots: <https://jmsallan.netlify.app/blog/dense-visualization-in-r-with-ggrepel-and-plotly/>
+
+## Exploratory Analysis
+
+-   Environmental impact of the F1 road show: <https://jmsallan.netlify.app/blog/environmental-impact-of-the-barcelona-f1-road-show/>
+-   Barcelona sunset and sunrise hours: <https://jmsallan.netlify.app/blog/getting-barcelona-sunset-and-sunrise-hours/>
+-   Three measures of inequality: <https://jmsallan.netlify.app/blog/three-measures-of-inequality/>
+-   Plotting World Bank Data: <https://jmsallan.netlify.app/blog/plotting-world-bank-data/>
+-   Evolution of the Spanish inflation: <https://jmsallan.netlify.app/blog/recent-evolution-of-the-spanish-inflation/>
+
+
+
+
+
