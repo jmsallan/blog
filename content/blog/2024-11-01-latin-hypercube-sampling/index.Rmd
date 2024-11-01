@@ -1,0 +1,262 @@
+---
+title: Latin Hypercube Sampling
+author: Jose M Sallan
+date: '2024-11-01'
+slug: latin-hypercube-sampling
+categories:
+  - R
+  - simulation
+tags:
+  - distributions
+  - ggplot
+  - purrr
+  - Monte Carlo
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+**Latin Hypercube Sampling (LHS)** is a statistical method for generating a sample of plausible values from a multidimensional distribution. It is a type of stratified sampling, particularly useful in computer simulations and statistical experiments where multiple variables are involved. The main goal of LHS is to ensure that each parameter is sampled according to the probability distribution.
+
+Here’s a step-by-step breakdown of how it works:
+
+1. **Divide the Range**: Each parameter's range is divided into equal intervals (strata). For example, if you want 10 samples, each parameter's range is divided into 10 equal parts.
+
+2. **Stratify Sampling**: Within each interval of every parameter, a single sample point is randomly selected. This ensures that each parameter is sampled across its entire range without redundancy.
+
+3. **Combine Parameter Values**: The sampled values of each parameter are then randomly paired to form unique combinations, or samples, across the multidimensional space. When two variables are samples, each row and column of the grid has a single observation, thus forming a **Latin square**. The extrapolation of this idea to more dimensions is the Latin hypercube.
+
+LHS is advantageous because it improves sampling efficiency. It is particularly useful in methods like Monte Carlo, when we need to simulate variables following a probability distribution.
+
+In this post, I will introduce the `lhs` package to generate basic Latin hypercube samples and designs. I also use the `mc2d` package to model the Pert distribution, and the tidyverse and `GGally` for data handling and plotting.
+
+```{r}
+library(tidyverse)
+library(lhs)
+library(GGally)
+library(mc2d)
+```
+
+We need methods like LHS because simulating with straigth random sampling can give sets of values that do not represent the distribution adequately. To illustrate, let's see the output of generating one thousand values of an uniform distribution.
+
+```{r}
+set.seed(111)
+unif_sample <- tibble(obs = runif(1000))
+
+unif_sample |>
+  ggplot(aes(obs)) +
+  geom_histogram(aes(y = after_stat(count / sum(count))), fill = "#A0A0A0") +
+  geom_hline(yintercept = 1/30, color = "red") +
+  labs(title = "Uniform distribution (random sampling)", x = NULL, y = NULL) +
+  theme_minimal()
+```
+
+The obtained distribution is quite irregular. We can improve that with `lhs::randomLHS()`, which has two main inputs:
+
+-   the number of observations `n`.
+-   the number of variables `k`.
+
+The result is a matrix with `n` rows and `k` columns. Each column is a stratified sampling of a uniform distribution between zero and one. Let's see the output of this sampling.
+
+```{r}
+set.seed(111)
+lhs_unif_sample <- tibble(obs = randomLHS(1000, 1)[, 1])
+
+lhs_unif_sample |>
+  ggplot(aes(obs)) +
+  geom_histogram(aes(y = after_stat(count / sum(count))), fill = "#A0A0A0") +
+  geom_hline(yintercept = 1/30, color = "red") +
+  labs(title = "Uniform distribution (LHS sampling)", x = NULL, y = NULL) +
+  theme_minimal()
+```
+
+The outcome is a more regular sampling of the uniform probability distribution.
+
+## Probability Distributions
+
+If instead of the uniform distribution we simulate the N(0, 1) distribution we also obtain distorted results.
+
+```{r}
+set.seed(444)
+norm_sample <- tibble(obs = rnorm(1000))
+
+norm_sample |>
+  ggplot(aes(obs)) +
+  geom_histogram(aes(y = after_stat(count / sum(count))), fill = "#A0A0A0") +
+  geom_hline(yintercept = 1/30, color = "red") +
+  labs(title = "Normal distribution (random sampling)", x = NULL, y = NULL) +
+  theme_minimal()
+```
+
+We can generate stratified samples of any probability distribution using functions analogous to the `qnorm()` function for the normal distribution. This function returns the value of the quantiles of the N(0, 1) distribution. Let's generate a stratified sampling of a normal distribution doing as follows.
+
+```{r}
+set.seed(444)
+lhs_norm_sample <- tibble(u_obs = randomLHS(1000, 1)[, 1]) |>
+  mutate(obs = qnorm(u_obs))
+
+lhs_norm_sample |>
+  ggplot(aes(obs)) +
+  geom_histogram(aes(y = after_stat(count / sum(count))), fill = "#A0A0A0") +
+  geom_hline(yintercept = 1/30, color = "red") +
+  labs(title = "Normal distribution (LHS sampling)", x = NULL, y = NULL) +
+  theme_minimal()
+```
+
+Again the result looks more regular than the simulation with non-stratified sampling.
+
+## Multivariate Distribution
+
+Let's illustrate the principle of the Latin square with a sampling of ten observations:
+
+```{r}
+set.seed(555)
+randomLHS(10, 2) |> 
+  data.frame() |>
+  ggplot(aes(X1, X2)) +
+  geom_point() +
+  geom_hline(yintercept = seq(0, 1, length.out = 11), color = "#A0A0A0") +
+  geom_vline(xintercept = seq(0, 1, length.out = 11), color = "#A0A0A0") +
+  theme_minimal() +
+  labs(title = "Random Latin square sampling", x = NULL, y = NULL)
+```
+
+Each row and column of the grid contains a single observation. Thus, we ensure that the correlation between both samples is low.
+
+Let's generate a multivariate distribution with the following properties:
+
+-   One variable follows a normal distribution.
+-   A second variable follows a lognormal distribution.
+-   A third variable follows a Pert distribution.
+-   The three variables are uncorrelated.
+
+The code to generate the sample is:
+
+```{r}
+multiv_lhs <- randomLHS(1000, 3) |>
+  data.frame()
+
+multiv_lhs <- multiv_lhs |>
+  mutate(norm = qnorm(X1),
+         lnorm = qlnorm(X2),
+         pert = qpert(X3, 1, 4, 5)) |>
+  select(norm:pert)
+```
+
+Let's examine `multiv_lhs` with `GGally::multiv_lhs()`
+
+```{r}
+ggpairs(multiv_lhs) +
+  theme_linedraw()
+```
+
+Each of the variables follows the requested distribution, and simultaneously the correlation between variables is small.
+
+## Application to Monte Carlo
+
+Let's examine how the Latin hypercube sampling can help us in a classical elementary application of Monte Carlo consisting in estimating $\pi$.
+
+To do so, we consider a square with four sides with values ranging between zero and one. The area of the square is equal to 4, and the circle of radius one inscribed in the square has area $\pi$. Therefore, the probability of an arbitrary point of the square of falling within the circle is $p = \pi/4$. If we estimate the probability $p$ with Monte Carlo simulation we can estimate $\pi$ as $\pi = 4p$.
+
+We implement this procedure in the pi_mc function, which has two arguments:
+
+-   the number of observations `n`.
+-   the method to obtain random numbers `eval`, which can take two values: `"random"` for purely random generation, and `"lhs"` for Latin hypercube sampling.
+
+```{r}
+pi_mc <- function(n, eval = "random"){
+  
+  if(eval == "random"){
+    t <- data.frame(x = runif(n, -1 ,1),
+                y = runif(n, -1, 1))
+  }
+  
+  if(eval == "lhs"){
+    m <- randomLHS(n, 2)
+    m <- apply(m, 2, \(x) x*2 - 1)
+    t <- data.frame(m)
+    names(t) <- c("x", "y")
+  }
+  
+  t <- t |>
+    mutate(inside = ifelse(x^2 + y^2 <= 1, 1, 0))
+  
+  pi <- 4*mean(t$inside)
+  
+  return(list(t = t, pi = pi))
+
+}
+```
+
+Let's see how this estimation operates.
+
+```{r}
+set.seed(33)
+pi_estimation <- pi_mc(n = 1000)
+```
+
+The estimation of $\pi$ obtained is:
+
+```{r}
+pi_estimation$pi
+```
+
+The value of $\pi$ is estimated as the fraction of blue points falling within the circle times four.
+
+```{r, fig.height=5, fig.width=5, fig.align='center'}
+circle <- tibble(grades = seq(0, 2*pi, length.out = 100),
+                 x = cos(grades),
+                 y = sin(grades))
+
+pi_estimation$t |>
+  ggplot(aes(x, y)) +
+  geom_point(aes(color = factor(inside)), size = 2) +
+  theme_void() +
+  geom_path(data = circle, aes(x, y)) +
+  theme(legend.position = "none")
+```
+
+To examine the effect of Latin hypercube sampling, I will run 100 times the simulation with three different numbers of points and the two methods.
+
+```{r}
+set.seed(44)
+test <- expand_grid(n = c(100, 1000, 10000), eval = 1:100)
+
+test <- test |>
+  mutate(pi_random = map_dbl(n, ~ pi_mc(. , "random")$pi),
+         pi_lhs = map_dbl(n, ~ pi_mc(., "lhs")$pi))
+```
+
+The results shows that, while the two sampling methods are unbiaised, meaning that the average across samples is close to $\pi$, the Latin hypercube sampling method has less variability because of better sampling. This advantage tends to vanish as we use a large number of points to do the estimation.
+
+```{r, out.width='100%'}
+test |>
+  pivot_longer(starts_with("pi")) |>
+  ggplot(aes(factor(n), value)) +
+    geom_boxplot() +
+  geom_hline(yintercept = pi, color = "red", linetype = "dashed") +
+    facet_grid(name ~ .) +
+  theme_classic(base_size = 12) +
+  labs(title = "Finding pi with Monte Carlo", x = "sample size", y = NULL)
+```
+
+Latin Hypercube Sampling (LHS) is a statistical method for generating a sample of plausible values from a multidimensional distribution. LHS uses stratified sampling to ensure that each parameter is sampled across all ranges of values of the probability distribution. With LHS, we can generate multivariate samples of uncorrelated variables of any probability distribution. 
+
+We can use the `lhs` package to generate LHS samples. The output of this sampling can be used as input of other packages for Monte Carlo simulation like `mc2d`.
+
+## References
+
+-   Carnieli, R. (2024). *Basic Latin hypercube samples and designs with package lhs.* <https://cran.r-project.org/web/packages/lhs/vignettes/lhs_basics.html>. Accessed 26 October 2024.
+-   `lhs` github page. <https://bertcarnell.github.io/lhs/>. Accessed 26 October 2024.
+
+The introduction to the Latin hypercube sampling is an edition of a ChatGPT text.
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
+

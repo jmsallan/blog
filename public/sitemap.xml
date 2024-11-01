@@ -3,27 +3,39 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>//localhost:4321/blog/</loc>
-    <lastmod>2024-10-11T00:00:00+00:00</lastmod>
+    <lastmod>2024-11-01T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/categories/</loc>
-    <lastmod>2024-10-11T00:00:00+00:00</lastmod>
+    <lastmod>2024-11-01T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/tags/distributions/</loc>
-    <lastmod>2024-10-11T00:00:00+00:00</lastmod>
+    <lastmod>2024-11-01T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/tags/ggplot/</loc>
+    <lastmod>2024-11-01T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/</loc>
-    <lastmod>2024-10-11T00:00:00+00:00</lastmod>
+    <lastmod>2024-11-01T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/blog/latin-hypercube-sampling/</loc>
+    <lastmod>2024-11-01T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/tags/monte-carlo/</loc>
-    <lastmod>2024-10-11T00:00:00+00:00</lastmod>
+    <lastmod>2024-11-01T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/tags/purrr/</loc>
+    <lastmod>2024-11-01T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/categories/r/</loc>
-    <lastmod>2024-10-11T00:00:00+00:00</lastmod>
+    <lastmod>2024-11-01T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>//localhost:4321/categories/statistics/</loc>
-    <lastmod>2024-10-11T00:00:00+00:00</lastmod>
+    <loc>//localhost:4321/categories/simulation/</loc>
+    <lastmod>2024-11-01T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/tags/</loc>
+    <lastmod>2024-11-01T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/categories/statistics/</loc>
     <lastmod>2024-10-11T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/blog/triangular-and-pert-probability-distributions/</loc>
@@ -35,9 +47,6 @@
     <loc>//localhost:4321/blog/examples-of-visualizations-with-ggplot/</loc>
     <lastmod>2024-10-08T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>//localhost:4321/tags/ggplot/</loc>
-    <lastmod>2024-10-08T00:00:00+00:00</lastmod>
-  </url><url>
     <loc>//localhost:4321/tags/post-index/</loc>
     <lastmod>2024-10-08T00:00:00+00:00</lastmod>
   </url><url>
@@ -47,13 +56,7 @@
     <loc>//localhost:4321/tags/r/</loc>
     <lastmod>2024-10-04T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>//localhost:4321/categories/simulation/</loc>
-    <lastmod>2024-10-04T00:00:00+00:00</lastmod>
-  </url><url>
     <loc>//localhost:4321/blog/a-faceted-horizontal-bar-chart/</loc>
-    <lastmod>2024-09-05T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>//localhost:4321/tags/purrr/</loc>
     <lastmod>2024-09-05T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/tags/air-quality/</loc>
