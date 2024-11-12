@@ -1,0 +1,434 @@
+---
+title: Cross Validation of Time Series Models
+author: Jose M Sallan
+date: '2024-11-12'
+slug: cross-validation-of-time-series-models
+categories:
+  - R
+tags:
+  - data visualization
+  - ggplot
+  - machine learning
+  - time series
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>When we build predictive models for time series, forecasting consists of predicting values of the future with values of the past or present. Therefore, the strategies of cross validation are different from cross sectional datasets.</p>
+<p>In this post, I will present three cross validation strategies for time series: stretching windows, sliding windows and tiling windows. Then, I will show how to implement these strategies with the tidyverts family of packages:</p>
+<pre class="r"><code>library(tidyverse)
+
+library(tsibble)
+library(feasts)
+library(fable)</code></pre>
+<div id="stretching-windows" class="section level2">
+<h2>Stretching Windows</h2>
+<p><strong>Stretching windows</strong> (also called expanding windows) begin with a smaller window and then expand over time, gradually including more of the past data points. With each step forward, the window size increases, covering all the data points from the start to the current point.</p>
+<p>Stretching windows are useful when you want to incorporate all available historical data up to a certain point for modeling. The idea is to use all the past information to predict the future as time progresses. It can be useful for cumulative modelling in time series, where each additional data point is important to forecast the time series.</p>
+<pre class="r"><code>n_y &lt;- 10
+s_x &lt;- 3 # for stretching windows
+n_x &lt;- n_y + s_x
+
+grid_stretch &lt;- expand_grid(x = 1:n_x, y = 1:n_y)
+
+grid_stretch &lt;- grid_stretch |&gt;
+  mutate(stretch = case_when(
+    x &lt;= n_y + s_x - y ~ &quot;stretch&quot;,
+    x == n_y + s_x +1 -y ~ &quot;test&quot;,
+    TRUE ~ &quot;future&quot;
+  ))
+
+grid_stretch |&gt;
+  ggplot(aes(x, y, color = stretch)) +
+  geom_hline(yintercept = 1:n_y, color = &quot;#E0E0E0&quot;) +
+  geom_point(size = 2) +
+  theme_void() +
+  theme(legend.position = &quot;none&quot;) +
+  scale_color_manual(values = c(&quot;#E0E0E0&quot;, &quot;#0000FF&quot;, &quot;#FF8000&quot;)) +
+  ggtitle(label = &quot;Stretching windows&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="sliding-windows" class="section level2">
+<h2>Sliding Windows</h2>
+<p>The <em>sliding window</em> method uses a fixed-size window that “slides” over the time series data. At each step, the window shifts by one or more time points, moving forward in time.</p>
+<p>This method makes predictions so that each step captures the most recent observations. It is useful in context where temporal dependencies are critical, and observations too far in time are not useful for the prediction job.</p>
+<pre class="r"><code>n_x &lt;- 15
+s_w &lt;- 5  # for sliding windows
+n_y &lt;- n_x
+
+
+grid_slide &lt;- expand_grid(x = 1:n_x, y = 1:n_y)
+
+grid_slide &lt;- grid_slide |&gt;
+  mutate(slide = case_when(x &lt;= n_y - y &amp; x &gt;= n_y - s_w + 1 - y ~ &quot;slide&quot;,
+                           x == n_y + 1 - y ~ &quot;test&quot;,
+                           TRUE ~ &quot;future&quot;
+  ))
+
+grid_slide |&gt;
+  filter(y &lt;= n_y - s_w) |&gt;
+  ggplot(aes(x, y, color = slide)) +
+  geom_hline(yintercept = 1:(n_y - s_w), color = &quot;#E0E0E0&quot;) +
+  geom_point(size = 2) +
+  theme_void() +
+  theme(legend.position = &quot;none&quot;) +
+  scale_color_manual(values = c(&quot;#E0E0E0&quot;, &quot;#0000FF&quot;, &quot;#FF8000&quot;)) +
+  ggtitle(label = &quot;Sliding windows&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="tiling-windows" class="section level2">
+<h2>Tiling Windows</h2>
+<p><strong>Tiling windows</strong> divide the time series into disjoint (non-overlapping) windows or segments. Each window contains a fixed number of consecutive data points, and once a window is processed, the next segment of data is used without overlap. This method can be suitable for situations where partitioning the time series into non-overlapping sections makes sense, like periodic tasks or batch processing where you’re analyzing discrete segments independently.</p>
+<pre class="r"><code>n_x &lt;- 23
+w_t &lt;- 5  # for tiling windows
+n_y &lt;- floor(n_x/w_t) + 1
+
+grid_tile &lt;- expand_grid(x = 1:n_x, y = 1:n_y)
+
+x_min &lt;- c(w_t*(n_y-1):1 + 1, 1)
+x_max &lt;- c(n_x-1, w_t*(n_y-1):1)
+
+bounds &lt;- tibble(y = 1:n_y, x_min = x_min, x_max = x_max)
+
+grid_tile &lt;- grid_tile |&gt;
+  left_join(bounds, by = &quot;y&quot;)
+
+grid_tile &lt;- grid_tile |&gt;
+  mutate(tile = case_when(x &gt;= x_min &amp; x &lt;= x_max ~ &quot;slide&quot;,
+                           x == x_max + 1 ~ &quot;test&quot;,
+                           TRUE ~ &quot;future&quot;
+  ))
+
+grid_tile |&gt;
+  ggplot(aes(x, y, color = tile)) +
+  geom_hline(yintercept = 1:n_y, color = &quot;#E0E0E0&quot;) +
+  geom_point(size = 2) +
+  theme_void() +
+  theme(legend.position = &quot;none&quot;) +
+  scale_color_manual(values = c(&quot;#E0E0E0&quot;, &quot;#0000FF&quot;, &quot;#FF8000&quot;)) +
+  ggtitle(label = &quot;Tiling windows&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+</div>
+<div id="dataset-tourism" class="section level2">
+<h2>Dataset <code>tourism</code></h2>
+<p>To illustrate how to perform cross validation with time series using the methods described above, I will use a subset of the <code>tourism</code> dataset, provided with the <code>tsibble</code> package. The <code>adelaide_holiday</code> time series include the number of holiday trips to Adelaide:</p>
+<pre class="r"><code>adelaide_holiday &lt;- tourism |&gt; 
+  filter(Region == &quot;Adelaide&quot;, Purpose == &quot;Holiday&quot;)</code></pre>
+<p>We can obtain a plot of the time series with <code>autoplot()</code>.</p>
+<pre class="r"><code>adelaide_holiday |&gt;
+  autoplot(.vars = Trips) +
+  theme_minimal(base_size = 12) +
+  labs(x = NULL, title = &quot;Holiday stays (Adelaide)&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+<p>The dataset has 80 observations.</p>
+</div>
+<div id="cross-validation-with-stretching-windows" class="section level2">
+<h2>Cross Validation with Stretching Windows</h2>
+<p>To use stretching windows we will use the <code>tsibble::stretch_tsibble()</code> function. Its outcome is a table including each of the tables needed to apply stretching windows, identified with the <code>.id</code> variable. The <code>.init</code> variable sets the length of the first stretching window, here fixed to 12 observations.</p>
+<pre class="r"><code>adelaide_holiday_stretch &lt;- adelaide_holiday |&gt;
+  stretch_tsibble(.init = 12) |&gt;
+  relocate(.id)
+
+adelaide_holiday_stretch |&gt;
+  group_by(.id) |&gt;
+  count() |&gt; 
+  slice(1:10)</code></pre>
+<pre><code>## # A tibble: 69 × 2
+## # Groups:   .id [69]
+##      .id     n
+##    &lt;int&gt; &lt;int&gt;
+##  1     1    12
+##  2     2    13
+##  3     3    14
+##  4     4    15
+##  5     5    16
+##  6     6    17
+##  7     7    18
+##  8     8    19
+##  9     9    20
+## 10    10    21
+## # ℹ 59 more rows</code></pre>
+<p>We have 69 sliding windows: 80-12 = 68 sliding windows, plus the starting window.</p>
+<p>Let’s train an ARIMA(1, 0, 0)(1, 0, 0)<sub>4</sub> model on each of the values of <code>.id</code>, and gather parameters of each run with <code>accuracy()</code>.</p>
+<pre class="r"><code>stretch &lt;- adelaide_holiday_stretch |&gt;
+  model(ARIMA(Trips ~ 1 + pdq(1, 0, 0) + PDQ(1, 0, 0, period = 4))) |&gt;
+  accuracy()
+
+stretch</code></pre>
+<pre><code>## # A tibble: 69 × 14
+##      .id Region   State Purpose .model .type    ME  RMSE   MAE   MPE  MAPE  MASE
+##    &lt;int&gt; &lt;chr&gt;    &lt;chr&gt; &lt;chr&gt;   &lt;chr&gt;  &lt;chr&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+##  1     1 Adelaide Sout… Holiday ARIMA… Trai… -4.12  16.8  13.8 -3.54  8.31 1.05 
+##  2     2 Adelaide Sout… Holiday ARIMA… Trai… -4.25  17.6  14.2 -3.67  8.55 0.988
+##  3     3 Adelaide Sout… Holiday ARIMA… Trai… -4.47  16.7  13.1 -3.70  7.95 1.00 
+##  4     4 Adelaide Sout… Holiday ARIMA… Trai… -4.03  16.1  12.6 -3.35  7.71 1.00 
+##  5     5 Adelaide Sout… Holiday ARIMA… Trai… -2.74  17.4  13.9 -2.71  8.44 0.979
+##  6     6 Adelaide Sout… Holiday ARIMA… Trai… -2.49  16.8  13.0 -2.44  7.94 0.946
+##  7     7 Adelaide Sout… Holiday ARIMA… Trai… -3.08  17.2  13.7 -3.06  8.66 0.970
+##  8     8 Adelaide Sout… Holiday ARIMA… Trai… -3.54  17.3  13.7 -3.37  8.85 0.927
+##  9     9 Adelaide Sout… Holiday ARIMA… Trai… -4.13  19.2  15.0 -4.04  9.97 0.882
+## 10    10 Adelaide Sout… Holiday ARIMA… Trai… -4.00  18.7  14.3 -3.86  9.55 0.829
+## # ℹ 59 more rows
+## # ℹ 2 more variables: RMSSE &lt;dbl&gt;, ACF1 &lt;dbl&gt;</code></pre>
+<p>With <code>dplyr::summarise()</code> we can obtain the mean values of each estimate:</p>
+<pre class="r"><code>stretch &lt;- stretch |&gt;
+  summarise(across(RMSE:ACF1, mean))
+
+stretch</code></pre>
+<pre><code>## # A tibble: 1 × 7
+##    RMSE   MAE   MPE  MAPE  MASE RMSSE    ACF1
+##   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt;
+## 1  21.7  17.4 -2.89  11.6 0.878 0.876 -0.0620</code></pre>
+<div id="cross-validation-with-sliding-windows" class="section level3">
+<h3>Cross Validation with Sliding Windows</h3>
+<p>For sliding windows we use <code>tsibble::slide_tsibble()</code>, using as parameter the <code>.size</code> of the sliding window.</p>
+<pre class="r"><code>adelaide_holiday_slide &lt;- adelaide_holiday |&gt;
+  slide_tsibble(.size = 12) |&gt;
+  relocate(.id)
+
+adelaide_holiday_slide |&gt;
+  group_by(.id) |&gt;
+  count() |&gt; 
+  slice(1:10)</code></pre>
+<pre><code>## # A tibble: 69 × 2
+## # Groups:   .id [69]
+##      .id     n
+##    &lt;int&gt; &lt;int&gt;
+##  1     1    12
+##  2     2    12
+##  3     3    12
+##  4     4    12
+##  5     5    12
+##  6     6    12
+##  7     7    12
+##  8     8    12
+##  9     9    12
+## 10    10    12
+## # ℹ 59 more rows</code></pre>
+<p>The number of sliding windows is equal to the number of rows minus size window plus one.</p>
+<p>The workflow to obtain the fit parameters is similar to the case above.</p>
+<pre class="r"><code>slide &lt;- adelaide_holiday_slide |&gt;
+  model(ARIMA(Trips ~ 1 + pdq(1, 0, 0) + PDQ(1, 0, 0, period = 4), method = &quot;ML&quot;)) |&gt;
+  accuracy() |&gt;
+  summarise(across(RMSE:ACF1, mean))
+
+slide</code></pre>
+<pre><code>## # A tibble: 1 × 7
+##    RMSE   MAE   MPE  MAPE  MASE RMSSE     ACF1
+##   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;    &lt;dbl&gt;
+## 1  20.3  16.9 -2.07  11.4 0.783 0.769 -0.00850</code></pre>
+</div>
+<div id="cross-validation-with-tiling-windows" class="section level3">
+<h3>Cross Validation with Tiling Windows</h3>
+<p>Finally, cross validation with tiling windows is obtained applying the workflow describe in the two previous cases to the table obtained with <code>tsibble::tile_tsibble()</code>. The <code>.size</code> parameter has a meaning similar to the parameter of slide_tsibble() of the same name.</p>
+<pre class="r"><code>adelaide_holiday_tile &lt;- adelaide_holiday |&gt;
+  tile_tsibble(.size = 12) |&gt;
+  relocate(.id)
+
+adelaide_holiday_tile |&gt;
+  group_by(.id) |&gt;
+  count()</code></pre>
+<pre><code>## # A tibble: 7 × 2
+## # Groups:   .id [7]
+##     .id     n
+##   &lt;int&gt; &lt;int&gt;
+## 1     1    12
+## 2     2    12
+## 3     3    12
+## 4     4    12
+## 5     5    12
+## 6     6    12
+## 7     7     8</code></pre>
+<p>With tiling windows the number of resamples is seven: six samples of size 12 plus a last sample of size eigth.</p>
+<pre class="r"><code>tile &lt;- adelaide_holiday_tile |&gt;
+  filter(.id &lt;= 6) |&gt;
+  model(ARIMA(Trips ~ 1 + pdq(1, 0, 0) + PDQ(1, 0, 0, period = 4))) |&gt;
+  accuracy() |&gt;
+  summarise(across(RMSE:ACF1, mean))</code></pre>
+</div>
+</div>
+<div id="final-results" class="section level2">
+<h2>Final Results</h2>
+<p>As the tidyverts packages deliver results with the broom philosophy of delivering data frames, we can bind them together easily and compare the results.</p>
+<pre class="r"><code>results &lt;- bind_rows(stretch, slide, tile) |&gt;
+  mutate(method = c(&quot;stretch&quot;, &quot;slide&quot;, &quot;tile&quot;)) |&gt;
+  relocate(method)
+
+library(kableExtra)
+
+results |&gt;
+  kbl() |&gt;
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+method
+</th>
+<th style="text-align:right;">
+RMSE
+</th>
+<th style="text-align:right;">
+MAE
+</th>
+<th style="text-align:right;">
+MPE
+</th>
+<th style="text-align:right;">
+MAPE
+</th>
+<th style="text-align:right;">
+MASE
+</th>
+<th style="text-align:right;">
+RMSSE
+</th>
+<th style="text-align:right;">
+ACF1
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+stretch
+</td>
+<td style="text-align:right;">
+21.66917
+</td>
+<td style="text-align:right;">
+17.42917
+</td>
+<td style="text-align:right;">
+-2.889530
+</td>
+<td style="text-align:right;">
+11.62760
+</td>
+<td style="text-align:right;">
+0.8779697
+</td>
+<td style="text-align:right;">
+0.8757515
+</td>
+<td style="text-align:right;">
+-0.0619643
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+slide
+</td>
+<td style="text-align:right;">
+20.29919
+</td>
+<td style="text-align:right;">
+16.86981
+</td>
+<td style="text-align:right;">
+-2.066401
+</td>
+<td style="text-align:right;">
+11.39605
+</td>
+<td style="text-align:right;">
+0.7833774
+</td>
+<td style="text-align:right;">
+0.7687637
+</td>
+<td style="text-align:right;">
+-0.0085044
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+tile
+</td>
+<td style="text-align:right;">
+20.56861
+</td>
+<td style="text-align:right;">
+16.84560
+</td>
+<td style="text-align:right;">
+-2.306104
+</td>
+<td style="text-align:right;">
+11.29240
+</td>
+<td style="text-align:right;">
+0.7859747
+</td>
+<td style="text-align:right;">
+0.7847511
+</td>
+<td style="text-align:right;">
+-0.0498362
+</td>
+</tr>
+</tbody>
+</table>
+<p>For this dataset, the results obtained are similar for each cross validation method.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Hyndman, R.J., &amp; Athanasopoulos, G. (2021). <em>Forecasting: principles and practice, 3rd edition.</em> OTexts: Melbourne, Australia. <a href="https://otexts.com/fpp3/" class="uri">https://otexts.com/fpp3/</a>. Accessed on 12 November 2024.</li>
+</ul>
+<p>The description of the cross validation strategies is an edition of a ChatGPT text.</p>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.4.2 (2024-10-31)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] kableExtra_1.4.0 fable_0.4.0      feasts_0.4.1     fabletools_0.5.0
+##  [5] tsibble_1.1.5    lubridate_1.9.3  forcats_1.0.0    stringr_1.5.1   
+##  [9] dplyr_1.1.4      purrr_1.0.2      readr_2.1.5      tidyr_1.3.1     
+## [13] tibble_3.2.1     ggplot2_3.5.1    tidyverse_2.0.0 
+## 
+## loaded via a namespace (and not attached):
+##  [1] sass_0.4.9           utf8_1.2.4           generics_0.1.3      
+##  [4] anytime_0.3.9        xml2_1.3.6           blogdown_1.19       
+##  [7] stringi_1.8.3        hms_1.1.3            digest_0.6.35       
+## [10] magrittr_2.0.3       evaluate_0.23        grid_4.4.2          
+## [13] timechange_0.3.0     bookdown_0.39        fastmap_1.1.1       
+## [16] jsonlite_1.8.8       fansi_1.0.6          viridisLite_0.4.2   
+## [19] scales_1.3.0         jquerylib_0.1.4      cli_3.6.2           
+## [22] rlang_1.1.3          ellipsis_0.3.2       munsell_0.5.1       
+## [25] withr_3.0.0          cachem_1.0.8         yaml_2.3.8          
+## [28] tools_4.4.2          tzdb_0.4.0           colorspace_2.1-0    
+## [31] vctrs_0.6.5          R6_2.5.1             lifecycle_1.0.4     
+## [34] pkgconfig_2.0.3      progressr_0.14.0     pillar_1.9.0        
+## [37] bslib_0.7.0          gtable_0.3.5         glue_1.7.0          
+## [40] Rcpp_1.0.12          systemfonts_1.0.6    highr_0.10          
+## [43] xfun_0.43            tidyselect_1.2.1     rstudioapi_0.16.0   
+## [46] knitr_1.46           farver_2.1.1         htmltools_0.5.8.1   
+## [49] svglite_2.1.3        labeling_0.4.3       rmarkdown_2.26      
+## [52] compiler_4.4.2       distributional_0.5.0</code></pre>
+</div>

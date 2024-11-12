@@ -1,0 +1,267 @@
+---
+title: Cross Validation of Time Series Models
+author: Jose M Sallan
+date: '2024-11-12'
+slug: cross-validation-of-time-series-models
+categories:
+  - R
+tags:
+  - data visualization
+  - ggplot
+  - machine learning
+  - time series
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+When we build predictive models for time series, forecasting consists of predicting values of the future with values of the past or present. Therefore, the strategies of cross validation are different from cross sectional datasets.
+
+In this post, I will present three cross validation strategies for time series: stretching windows, sliding windows and tiling windows. Then, I will show how to implement these strategies with the tidyverts family of packages:
+
+```{r, message=FALSE}
+library(tidyverse)
+
+library(tsibble)
+library(feasts)
+library(fable)
+```
+
+## Stretching Windows
+
+**Stretching windows** (also called expanding windows) begin with a smaller window and then expand over time, gradually including more of the past data points. With each step forward, the window size increases, covering all the data points from the start to the current point.
+
+Stretching windows are useful when you want to incorporate all available historical data up to a certain point for modeling. The idea is to use all the past information to predict the future as time progresses. It can be useful for cumulative modelling in time series, where each additional data point is important to forecast the time series.
+
+```{r, fig.align='center'}
+n_y <- 10
+s_x <- 3 # for stretching windows
+n_x <- n_y + s_x
+
+grid_stretch <- expand_grid(x = 1:n_x, y = 1:n_y)
+
+grid_stretch <- grid_stretch |>
+  mutate(stretch = case_when(
+    x <= n_y + s_x - y ~ "stretch",
+    x == n_y + s_x +1 -y ~ "test",
+    TRUE ~ "future"
+  ))
+
+grid_stretch |>
+  ggplot(aes(x, y, color = stretch)) +
+  geom_hline(yintercept = 1:n_y, color = "#E0E0E0") +
+  geom_point(size = 2) +
+  theme_void() +
+  theme(legend.position = "none") +
+  scale_color_manual(values = c("#E0E0E0", "#0000FF", "#FF8000")) +
+  ggtitle(label = "Stretching windows")
+```
+
+## Sliding Windows
+
+The *sliding window* method uses a fixed-size window that "slides" over the time series data. At each step, the window shifts by one or more time points, moving forward in time. 
+
+This method makes predictions so that each step captures the most recent observations. It is useful in context where temporal dependencies are critical, and observations too far in time are not useful for the prediction job.
+
+```{r, fig.align='center'}
+n_x <- 15
+s_w <- 5  # for sliding windows
+n_y <- n_x
+
+
+grid_slide <- expand_grid(x = 1:n_x, y = 1:n_y)
+
+grid_slide <- grid_slide |>
+  mutate(slide = case_when(x <= n_y - y & x >= n_y - s_w + 1 - y ~ "slide",
+                           x == n_y + 1 - y ~ "test",
+                           TRUE ~ "future"
+  ))
+
+grid_slide |>
+  filter(y <= n_y - s_w) |>
+  ggplot(aes(x, y, color = slide)) +
+  geom_hline(yintercept = 1:(n_y - s_w), color = "#E0E0E0") +
+  geom_point(size = 2) +
+  theme_void() +
+  theme(legend.position = "none") +
+  scale_color_manual(values = c("#E0E0E0", "#0000FF", "#FF8000")) +
+  ggtitle(label = "Sliding windows")
+```
+
+## Tiling Windows
+
+**Tiling windows** divide the time series into disjoint (non-overlapping) windows or segments. Each window contains a fixed number of consecutive data points, and once a window is processed, the next segment of data is used without overlap. This method can be suitable for situations where partitioning the time series into non-overlapping sections makes sense, like periodic tasks or batch processing where you're analyzing discrete segments independently.
+
+```{r}
+n_x <- 23
+w_t <- 5  # for tiling windows
+n_y <- floor(n_x/w_t) + 1
+
+grid_tile <- expand_grid(x = 1:n_x, y = 1:n_y)
+
+x_min <- c(w_t*(n_y-1):1 + 1, 1)
+x_max <- c(n_x-1, w_t*(n_y-1):1)
+
+bounds <- tibble(y = 1:n_y, x_min = x_min, x_max = x_max)
+
+grid_tile <- grid_tile |>
+  left_join(bounds, by = "y")
+
+grid_tile <- grid_tile |>
+  mutate(tile = case_when(x >= x_min & x <= x_max ~ "slide",
+                           x == x_max + 1 ~ "test",
+                           TRUE ~ "future"
+  ))
+
+grid_tile |>
+  ggplot(aes(x, y, color = tile)) +
+  geom_hline(yintercept = 1:n_y, color = "#E0E0E0") +
+  geom_point(size = 2) +
+  theme_void() +
+  theme(legend.position = "none") +
+  scale_color_manual(values = c("#E0E0E0", "#0000FF", "#FF8000")) +
+  ggtitle(label = "Tiling windows")
+```
+
+## Dataset `tourism`
+
+To illustrate how to perform cross validation with time series using the methods described above, I will use a subset of the `tourism` dataset, provided with the `tsibble` package. The `adelaide_holiday` time series include the number of holiday trips to Adelaide:
+
+```{r}
+adelaide_holiday <- tourism |> 
+  filter(Region == "Adelaide", Purpose == "Holiday")
+```
+
+We can obtain a plot of the time series with `autoplot()`.
+
+```{r}
+adelaide_holiday |>
+  autoplot(.vars = Trips) +
+  theme_minimal(base_size = 12) +
+  labs(x = NULL, title = "Holiday stays (Adelaide)")
+```
+
+The dataset has `r nrow(adelaide_holiday)` observations.
+
+## Cross Validation with Stretching Windows
+
+To use stretching windows we will use the `tsibble::stretch_tsibble()` function. Its outcome is a table including each of the tables needed to apply stretching windows, identified with the `.id` variable. The `.init` variable sets the length of the first stretching window, here fixed to 12 observations.
+
+```{r}
+adelaide_holiday_stretch <- adelaide_holiday |>
+  stretch_tsibble(.init = 12) |>
+  relocate(.id)
+
+adelaide_holiday_stretch |>
+  group_by(.id) |>
+  count() |> 
+  slice(1:10)
+```
+
+We have 69 sliding windows: 80-12 = 68 sliding windows, plus the starting window.
+
+Let's train an ARIMA(1, 0, 0)(1, 0, 0)<sub>4</sub> model on each of the values of `.id`, and gather parameters of each run with `accuracy()`.
+
+```{r}
+stretch <- adelaide_holiday_stretch |>
+  model(ARIMA(Trips ~ 1 + pdq(1, 0, 0) + PDQ(1, 0, 0, period = 4))) |>
+  accuracy()
+
+stretch
+```
+
+With `dplyr::summarise()` we can obtain the mean values of each estimate:
+
+```{r}
+stretch <- stretch |>
+  summarise(across(RMSE:ACF1, mean))
+
+stretch
+```
+
+### Cross Validation with Sliding Windows
+
+For sliding windows we use `tsibble::slide_tsibble()`, using as parameter the `.size` of the sliding window.
+
+```{r}
+adelaide_holiday_slide <- adelaide_holiday |>
+  slide_tsibble(.size = 12) |>
+  relocate(.id)
+
+adelaide_holiday_slide |>
+  group_by(.id) |>
+  count() |> 
+  slice(1:10)
+```
+
+The number of sliding windows is equal to the number of rows minus size window plus one.
+
+The workflow to obtain the fit parameters is similar to the case above.
+
+```{r}
+slide <- adelaide_holiday_slide |>
+  model(ARIMA(Trips ~ 1 + pdq(1, 0, 0) + PDQ(1, 0, 0, period = 4), method = "ML")) |>
+  accuracy() |>
+  summarise(across(RMSE:ACF1, mean))
+
+slide
+```
+
+### Cross Validation with Tiling Windows
+
+Finally, cross validation with tiling windows is obtained applying the workflow describe in the two previous cases to the table obtained with `tsibble::tile_tsibble()`. The `.size` parameter has a meaning similar to the parameter of slide_tsibble() of the same name.
+
+```{r}
+adelaide_holiday_tile <- adelaide_holiday |>
+  tile_tsibble(.size = 12) |>
+  relocate(.id)
+
+adelaide_holiday_tile |>
+  group_by(.id) |>
+  count()
+```
+
+With tiling windows the number of resamples is seven: six samples of size 12 plus a last sample of size eigth.
+
+```{r}
+tile <- adelaide_holiday_tile |>
+  filter(.id <= 6) |>
+  model(ARIMA(Trips ~ 1 + pdq(1, 0, 0) + PDQ(1, 0, 0, period = 4))) |>
+  accuracy() |>
+  summarise(across(RMSE:ACF1, mean))
+```
+
+## Final Results
+
+As the tidyverts packages deliver results with the broom philosophy of delivering data frames, we can bind them together easily and compare the results.
+
+```{r, message=FALSE}
+results <- bind_rows(stretch, slide, tile) |>
+  mutate(method = c("stretch", "slide", "tile")) |>
+  relocate(method)
+
+library(kableExtra)
+
+results |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+For this dataset, the results obtained are similar for each cross validation method.
+
+## References
+
+-   Hyndman, R.J., & Athanasopoulos, G. (2021). *Forecasting: principles and practice, 3rd edition.* OTexts: Melbourne, Australia. <https://otexts.com/fpp3/>. Accessed on 12 November 2024.
+
+The description of the cross validation strategies is an edition of a ChatGPT text.
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
