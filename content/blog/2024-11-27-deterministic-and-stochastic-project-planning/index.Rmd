@@ -1,0 +1,296 @@
+---
+title: Deterministic and Stochastic Project Planning
+author: Jose M Sallan
+date: '2024-11-27'
+slug: deterministic-and-stochastic-project-planning
+categories:
+  - R
+  - optimization
+  - simulation
+tags:
+  - linear programming
+  - Monte Carlo
+  - distributions
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+PERT (Program Evaluation and Review Technique) is a project management tool used to schedule, organize, and coordinate tasks within a project. It was developed in the 1950s for the U.S. Navy's Polaris missile project. PERT is widely used in industries like construction, engineering, research and development, and software development, where tasks have variable duration and projects are complex.
+
+Carrying out a PERT analysis requires:
+
+-   Breaking the project into smaller **tasks** or activities.
+-   Identifying the sequence in which tasks need to be completed and their interdependence. This requires finding the immediate **predecessors** of each task.
+
+PERT analysis allows us to obtain:
+
+-   The **expected time** to finish the project.
+-   The sequence of tasks that has the longest duration, which dictates the project's time of completion. This sequence is the **critical path**.
+
+In this post, I will present how to use linear programming to obtain the expected time and critical path of a project in two contexts:
+
+-   **Deterministic planning**, where the time of each activity is fixed.
+-   **Stochastic planning**, where the time of a subset of all activities shows variability, and therefore follows a probability distribution. Stochastic planning is usually carried out through Monte Carlo simulation.
+
+I will be using `Rglpk` for linear programming and `mc2d` for Monte Carlo simulation. The rest of packages are for data handling and plotting.
+
+```{r, message=FALSE}
+library(tidyverse)
+library(kableExtra)
+library(Rglpk)
+library(mc2d)
+```
+
+## Deterministic Planning
+
+The following table shows an example of deterministic planning of a project with six activities with fixed time of execution.
+
+```{r}
+pert <- data.frame(
+  Activity = letters[1:6],
+  Precedessors = c("--", "a", "--", "c", "b, d", "c"),
+  Time = c(400, 600, 500, 600, 400, 900)
+)
+
+pert |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+With this table of activities and predecessors we can construct the **PERT chart**. This chart is a graph where edges are activities and nodes are milestones. A milestone is a moment in time when one or more activities start or end.
+
+```{r, message=FALSE, fig.align='center'}
+library(igraph)
+pert_df <- data.frame(orig = c(0, 1, 0, 2, 3, 2),
+                      dest = c(1, 3, 2, 3, 4, 4),
+                      labels = letters[1:6])
+
+pert_graph <- graph_from_data_frame(pert_df)
+
+pert_layout <- matrix(c(1, 2,
+                        2, 3,
+                        2, 1,
+                        3, 3,
+                        3, 1), ncol = 2, byrow = TRUE)
+
+plot(pert_graph, layout = pert_layout, edge.label = pert_df$labels,
+     vertex.size = 25, vertex.color = "#E0E0A0")
+```
+
+I have used the `igraph` library to plot the PERT chart for this project. The starting of the project is at milestone 0, and the end of the project at milestone 4.
+
+Once defined the PERT chart, the duration of this project can be determined with a linear programming formulation with the following components:
+
+-   **Decision variables**: one for each milestone, representing the minimum time to reach it, considered the duration of activities.
+-   **Constraints**: one for each activity, relating its ending time with its immediate predecessors.
+-   **Objective function**: equal to the minimum time to reach the ending milestone.
+
+For this specific project, we define four decision variables $x_1$ to $x_4$ for each milestone. The resulting linear programming formulation to find the project expected time is:
+
+\begin{align}
+\text{MIN } & z = x_4 \\
+\text{s. t.} & x_1 \geq  400 \\
+ & x_3 - x_1 \geq 600 \\
+ & x_2 \geq 500 \\
+ & x_3 - x_2 \geq 600 \\
+ & x_4 - x_3 \geq 400 \\
+ & x_4 - x_2 \geq 900 \\
+ & x_i \geq 0
+\end{align}
+
+Let's use `Rglpk` to solve this problem. The solution is stored in the `sol` variable. Note how I am obtaining the right-hand side values of the formulation from the `Time` column of the `pert` table.
+
+```{r}
+obj <- c(0, 0, 0, 1)
+mat <- matrix(c(1, 0, 0, 0,
+              -1, 0, 1, 0,
+              0, 1, 0, 0,
+              0, -1, 1, 0,
+              0, 0, -1, 1,
+              0, -1, 0, 1), nrow = 6, byrow = TRUE)
+dir <- rep(">=", 6)
+rhs <- pert$Time
+max <- FALSE
+
+sol <- Rglpk_solve_LP(obj = obj, mat = mat, dir = dir, rhs = rhs, max = max)
+```
+
+The value of the objective function at the optimum is the **expected time** to finish the project:
+
+```{r}
+sol$optimum
+```
+
+To obtain the **critical path** we can examine the dual prices of the constraints. The activities with constraints with non-zero dual prices will form the critical path. In this formulation, a non-zero dual price for the constraint means that increasing the duration of the activity associated to the constraint will increase the expected time to finish the project.
+
+```{r}
+sol$auxiliary$dual
+letters[which(sol$auxiliary$dual == 1)]
+```
+
+Then, for this problem we obtain that:
+
+-   The **expected time** to finish the project is 1500.
+-   The **critical path** of the project includes activities `c`, `d` and `e`.
+
+## Stochastic Planning
+
+In the stochastic project planning, the duration of activities is not deterministic, but follows a probability distribution. In this case, activities duration follow a PERT distribution with the following parameters:
+
+-   `Min`: minimum expected time to finish the activity (optimistic).
+-   `Mode`: most frequent expected time to finish the activity.
+-   `Max`: maximum expected time to finish the activity (pessimistic).
+
+In this example, the predecessors of activities are the same as in the example of the deterministic case.
+
+```{r}
+pert_random <- data.frame(
+  Activity = letters[1:6],
+  Precedessors = c("--", "a", "--", "c", "b, d", "c"),
+  Min = c(300, 400, 250, 300, 300, 700),
+  Mode = c(400, 600, 500, 600, 400, 900),
+  Max = c(600, 750, 550, 700, 500, 1100),
+  Distribution = rep("PERT", 6)
+)
+
+pert_random |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+As the duration of activities is probabilistic, so the expected time to finish the project will be. It can also happen that the project could have different critical paths, depending on the specific values of duration of activities.
+
+A stochastic planning problem can be assessed through Monte Carlo simulation. This simulation requires:
+
+-   Obtaining a set of `trials` values of duration of activities. In this example, we will use 1,000 trials.
+-   Obtain the expected time and critical path for each of the trials.
+-   Summarise the results.
+
+The `act_times` variable is a list with 1,000 different values of the duration of activities. I am using `purrr:map()` to obtain a list and `mc2d::rpert()` for sampling the PERT distribution.
+
+```{r}
+trials <- 1000
+
+act_times <- map(1:trials, ~ pmap_dbl(pert_random, ~ rpert(1, min = ..3, mode = ..4, max = ..5)))
+```
+
+The first element of `act_times` is:
+
+```{r}
+act_times[[1]]
+```
+
+Let's see the histogram of values of duration of activity `a`:
+
+```{r, message=FALSE}
+tibble(act_1 = map_dbl(act_times, ~ .[1])) |>
+  ggplot(aes(act_1)) +
+  geom_histogram(aes(y = after_stat(count / sum(count))), fill = "#808080") +
+  theme_minimal() +
+  labs(title = "Distribution of Duration of Activity a", x = NULL, y = NULL)
+```
+
+The values of the histogram lie between 300 and 600, the minimum and maximum value of duration of this activity.
+
+To evaluate the project for each set of activity durations, I have defined the pert_eval() function. This function returns the expected time `exp_time` and the critical path `cp`.
+
+```{r}
+pert_eval <- function(times){
+  
+  obj <- c(0, 0, 0, 1)
+  mat <- matrix(c(1, 0, 0, 0,
+                  -1, 0, 1, 0,
+                  0, 1, 0, 0,
+                  0, -1, 1, 0,
+                  0, 0, -1, 1,
+                  0, -1, 0, 1), nrow = 6, byrow = TRUE)
+  dir <- rep(">=", 6)
+  rhs <- times
+  max <- FALSE
+
+  sol <- Rglpk_solve_LP(obj = obj, mat = mat, 
+                        dir = dir, rhs = rhs, max = max)
+
+  return(list(exp_time = sol$optimum, 
+              cp = sol$auxiliary$dual))
+  
+}
+```
+
+The evaluation of the first set of activity duration returns:
+
+```{r}
+pert_eval(act_times[[1]])
+```
+
+I am using again `purrr:map()` to evaluate `pert_eval()` for all values of `act_times`. The output is stored as a list of lists in `act_times_eval`.
+
+```{r}
+set.seed(1111)
+act_times_eval <- map(act_times, pert_eval)
+```
+
+Let's extract the expected times and store them in the `exp_times` vector.
+
+```{r}
+exp_times <- map_dbl(act_times_eval, ~ .$exp_time)
+```
+
+To extract the critical path, first I put all values in a vector using `purr::list_c()`. Then I create the `critical_paths` data frame with the result and the activity names.
+
+```{r}
+critical_paths <- tibble(activity = rep(letters[1:6], trials),
+                         cp = map(act_times_eval, ~ .$cp) |> list_c())
+```
+
+Let's examine the properties of the expected time. It is now a probability distribution, of which we can examine the quantiles:
+
+```{r}
+quantile(exp_times, seq(0, 1, 0.1))
+```
+
+From this result, we can make statements like estimating that 20% of times project time will be longer than `r format(quantile(exp_times, seq(0, 1, 0.1))[9], digits = 6)`.
+
+It can also be useful to plot the probability distribution of expected times.
+
+```{r, message=FALSE}
+tibble(et = exp_times) |>
+  ggplot(aes(et)) +
+  geom_histogram(aes(y = after_stat(count / sum(count))), fill = "#808080") +
+  theme_minimal() +
+  labs(title = "Distribution of Project Expected Time", x = NULL, y = NULL)
+```
+
+Respect to the critical path, we can examine how often each activity will be part of the critical path.
+
+```{r}
+critical_paths |>
+  filter(cp == 1) |>
+  group_by(activity) |>
+  summarise(freq = sum(cp)/trials) |>
+  ggplot(aes(freq, activity)) +
+  geom_col(fill = "#808080") +
+  theme_minimal() +
+  labs(title = "Probability of Being Critical", x = "probability", y = "activity")
+```
+
+The activity most likely of being critical is activity `e`, although in this case any activity can be critical depending on actual duration of the set of activities.
+
+# References:
+
+-   PERT probability distribution: <https://jmsallan.netlify.app/blog/triangular-and-pert-probability-distributions/>
+-   Monte Carlo simulation: <https://jmsallan.netlify.app/blog/2024-10-04-analyzing-a-lottery-with-monte-carlo-simulation/>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
+
+
