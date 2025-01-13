@@ -17,7 +17,7 @@ description: Description for the page
 knitr::opts_chunk$set(echo = TRUE, message = FALSE)
 ```
 
-In this post, I will present how oversampling and undersampling can help us in a classification job on an unbalanced dataset. In unbalanced datasets, the target variable has an uneven distribution, with salient majority and minority classes. Undersampling and oversampling try to improve model performance training the model with a balanced dataset. When using **undersampling**, we train the model with a set removing observations of the majority class. With **oversampling*, we train the model with a dataset with additional artificial elements of the minority class.
+In this post, I will present how oversampling and undersampling can help us in a classification job on an unbalanced dataset. In unbalanced datasets, the target variable has an uneven distribution, with salient majority and minority classes. Undersampling and oversampling try to improve model performance training the model with a balanced dataset. When using **undersampling**, we train the model with a set removing observations of the majority class. With **oversampling**, we train the model with a dataset with additional artificial elements of the minority class.
 
 I will be using `tidymodels` for the prediction workflow, `BAdatasets` to access the dataset and `themis` to perform undersampling and oversampling.
 
@@ -27,35 +27,37 @@ library(themis)
 library(BAdatasets)
 ```
 
-I will be using the `LoanDefaults` dataset. It is a dataset of defaults payments in Taiwan, presented in Yeh & Lien (2009).
+I will be using the `cc_defaults` dataset. It is a dataset of defaults payments in Taiwan, presented in Yeh & Lien (2009).
 
 ```{r}
-data("LoanDefaults")
+data("cc_defaults")
 ```
 
 When plotting the proportion of observations for each case, we observe that the number of negative cases (not defaulted) is much larger than the positive cases (defaulted). Therefore, the set of positive cases is the minority class. This is a frequent situation in contexts like loan defaults or credit card fraud.
 
 ```{r, fig.align='center'}
-LoanDefaults %>%
+cc_defaults |>
   ggplot(aes(factor(default))) + 
-  geom_bar(aes(y = (..count..)/sum(..count..))) +
+  geom_bar(aes(y = after_stat(count)/sum(after_stat(count)))) +
   scale_y_continuous(labels=percent) +
   labs(x = "default", y = "% of cases") +
   theme_minimal()
 ```
 
+## Workflow elements
+
 Let's define the elements of the `tidymodels` workflow. We start transforming the target `default` variable into a factor, setting the level of positive cases first.
 
 ```{r}
-LoanDefaults <- LoanDefaults %>%
-  mutate(default = factor(default, levels = c("1", "0")))
+cc_defaults <- cc_defaults |>
+  mutate(default = factor(default, levels = c("yes", "no")))
 ```
 
-Then, we need to split the data into train and test. As the dataset is large, I have selected a large `prop` value. Being the dataset unbalanced, it is important to set `strata = default`, so that the distribution of target variable in train and test sets will be similar to the original dataset. I have applied a similar logic to split the training set into five `folds` to apply cross validation.
+Then, we need to split the data into train and test. As the dataset is large, I have selected a large `prop` value to include in the train set. Being the dataset unbalanced, it is important to set `strata = "default"`, so that the distribution of target variable in train and test sets will be similar to the original dataset. I have applied a similar logic to split the training set into five `folds` to apply cross validation.
 
 ```{r}
 set.seed(1313)
-split <- initial_split(LoanDefaults, prop = 0.9, strata = "default")
+split <- initial_split(cc_defaults, prop = 0.9, strata = "default")
 
 folds <- vfold_cv(training(split), v = 5, strata = "default")
 ```
@@ -71,34 +73,30 @@ To evaluate model performance, I have chosen the following metrics:
 class_metrics <- metric_set(accuracy, sens, spec, roc_auc)
 ```
 
-In unbalanced datasets, accuracy can be a bad metric of performance. If 90% of observations, we obtain an accuracy of 0.9 simply classifying all observations as negative. In that context, usually sensitivity is a more adequate metric. Additionnally, in jobs like loan defaults or credit card fraud, the cost of a false negative is much higher than of a false positive.
+In unbalanced datasets, accuracy can be a bad metric of performance. If 90% of observations belong to the negative class, we obtain an accuracy of 0.9 simply classifying all observations as negative. In that context, usually sensitivity is a more adequate metric. Additionally, in jobs like loan defaults or credit card fraud, the cost of a false negative is much higher than of a false positive.
 
 I will use a decision tree `dt` model, setting standard parameters.
 
 ```{r}
-dt <- decision_tree(mode = "classification", cost_complexity = 0.1, min_n = 10) %>%
+dt <- decision_tree(mode = "classification", cost_complexity = 0.1, min_n = 10) |>
   set_engine("rpart")
 ```
 
 The preprocessing recipe has the following steps:
 
-* variables `ID` and `PAY0` to `PAY6` are removed. Before that, I am replacing `PAY_0` with payment_status.
-* variables `payment_status`, `MARRIAGE` and `EDUCATION` are transformed so that abormal values are set to `NA`.
+* variables `id` and `pay_sep` to `pay_apr` are removed. Before that, I am replacing `pay_sep` with payment_status.
+* variables `payment_status`, `marriage` and `education` are transformed so that abnormal values are set to `NA`.
 * `NA` values of predictors are imputed usign *k* nearest neighbors.
-* `SEX`,  `MARRIAGE` and `EDUCATION` are transformed into factors.
 
 ```{r}
-rec_base <- training(split) %>%
-  recipe(default ~ .) %>%
-  step_rm(ID) %>%
-  step_mutate(payment_status = ifelse(PAY_0 < 1, 0, PAY_0)) %>%
-  step_rm(PAY_0:PAY_6) %>%
-  step_mutate(MARRIAGE = ifelse(!MARRIAGE %in% 1:3, NA, MARRIAGE)) %>%
-  step_mutate(EDUCATION = ifelse(!EDUCATION %in% 1:4, NA, EDUCATION)) %>%
-  step_impute_knn(all_predictors(), neighbors = 3) %>%
-  step_num2factor(SEX, levels = c("male", "female")) %>%
-  step_num2factor(MARRIAGE, levels = c("marriage", "single", "others")) %>% 
-  step_num2factor(EDUCATION, levels = c("graduate", "university", "high_school", "others"))
+rec_base <- training(split) |>
+  recipe(default ~ .) |>
+  step_rm(id) |>
+  step_mutate(payment_status = ifelse(pay_sep < 1, 0, pay_sep)) |>
+  step_rm(pay_sep:pay_apr) |>
+  step_mutate(marriage = ifelse(!marriage %in% 1:3, NA, marriage)) |>
+  step_mutate(education = ifelse(!education %in% 1:4, NA, education)) |>
+  step_impute_knn(impute_with = all_predictors(), neighbors = 5)
 ```
 
 The steps to perform undersampling and oversampling are provided by `themis` package. Here I am using the following methods:
@@ -109,10 +107,10 @@ The steps to perform undersampling and oversampling are provided by `themis` pac
 These steps are added to the `rec_base` recipe to obtain new recipes `rec_us` and `rec_os` for under and oversampling, respectively.
 
 ```{r}
-rec_us <- rec_base %>%
+rec_us <- rec_base |>
   step_downsample(default, under_ratio = 1)
 
-rec_os <- rec_base %>%
+rec_os <- rec_base |>
   step_upsample(default, over_ratio = 1)
 ```
 
@@ -140,16 +138,16 @@ cv_os <- fit_resamples(object = dt,
 Now we can extract the metrics for each of the cross-validations. We can stack them all in a single data frame `m`.
 
 ```{r}
-m_unb <- collect_metrics(cv_unb) %>%
+m_unb <- collect_metrics(cv_unb) |>
   mutate(train = "unbalanced")
 
-m_us <- collect_metrics(cv_us) %>%
+m_us <- collect_metrics(cv_us) |>
   mutate(train = "undersampling")
 
-m_os <- collect_metrics(cv_os) %>%
+m_os <- collect_metrics(cv_os) |>
   mutate(train = "oversampling")
 
-m <- bind_rows(m_unb, m_us, m_os) %>%
+m <- bind_rows(m_unb, m_us, m_os) |>
   mutate(train = factor(train, levels = c("unbalanced", "undersampling", "oversampling")))
 ```
 
@@ -162,11 +160,11 @@ ggplot(m, aes(.metric, mean, fill = train)) +
   labs(title = "Performance of cross validation", x = "metric", y = "value")
 ```
 
-In this case, oversampling and undersampling obtain similar results. Both allow improving sensitivity significantly (although the obtained value is quite poor), paying the price of worsening specificity. Global parameters like accuracy and AUC are not signficantly affected.
+In this case, oversampling and undersampling obtain the same results. Both allow improving sensitivity significantly (although the obtained value is quite poor), paying the price of slightly worsening specificity. Global parameters like accuracy and AUC are not significantly affected.
 
 ## Evaluating the model in the test set
 
-Now I will fit the model on the train set and examine its performance in the test set. In `class_metrics2` I am excluding `roc_auc` because I will obtain the class predicted only.
+Now I will fit the model with the whole train set and examine its performance in the test set. In `class_metrics2` I am excluding `roc_auc` because I will obtain the class predicted only.
 
 ```{r}
 class_metrics2 <- metric_set(accuracy, sens, spec)
@@ -175,31 +173,31 @@ class_metrics2 <- metric_set(accuracy, sens, spec)
 Objects `unb_model`, `us_model` and `os_model` contain the model trained in the original, undersampled and oversampled recipes respectively.
 
 ```{r}
-unb_model <- workflow() %>%
-  add_recipe(rec_base) %>%
-  add_model(dt) %>%
+unb_model <- workflow() |>
+  add_recipe(rec_base) |>
+  add_model(dt) |>
   fit(training(split))
 
-us_model <- workflow() %>%
-  add_recipe(rec_us) %>%
-  add_model(dt) %>%
+us_model <- workflow() |>
+  add_recipe(rec_us) |>
+  add_model(dt) |>
   fit(training(split))
 
-os_model <- workflow() %>%
-  add_recipe(rec_os) %>%
-  add_model(dt) %>%
+os_model <- workflow() |>
+  add_recipe(rec_os) |>
+  add_model(dt) |>
   fit(training(split))
 ```
 
 Next, I am storing in `df_test` the results of evaluating each of the models in the test set. Note that we evaluate the model in the original dataset. Under- and oversampling are only performed to train the model. The datasets where the model is evaluated are not modified.
 
 ```{r}
-m_test <- lapply(list(unb_model, us_model, os_model), function(x) x %>%
-         predict(testing(split)) %>%
-         bind_cols(testing(split)) %>%
+m_test <- lapply(list(unb_model, us_model, os_model), function(x) x |>
+         predict(testing(split)) |>
+         bind_cols(testing(split)) |>
          class_metrics2(truth = default, estimate = .pred_class))
-df_test <- bind_rows(m_test) %>%
-  mutate(train = rep(c("unbalanced", "undersampling", "oversampling"), each = 3)) %>%
+df_test <- bind_rows(m_test) |>
+  mutate(train = rep(c("unbalanced", "undersampling", "oversampling"), each = 3)) |>
   mutate(train = factor(train, levels = c("unbalanced", "undersampling", "oversampling")))
 ```
 
@@ -212,7 +210,7 @@ ggplot(df_test, aes(.metric, .estimate, fill = train)) +
   labs(title = "Performance of test set", x = "metric", y = "value")
 ```
 
-Under- and oversampling can be useful techniques to improve the ratio of true evaluations of the minority class in unbalanced datasets. So these techniques tend to increase sensitivity at the price of worse values of specificity. This can be a good compromise in classification jobs where the cost of a false negative is much higher than of a false positive.
+Under- and oversampling can be useful techniques to improve the ratio of true evaluations of the minority class in unbalanced datasets. So these techniques tend to increase sensitivity at the price of worse values of specificity. This can be a good compromise in classification jobs where the cost of a false positive is much higher than of a false negative.
 
 ## References
 
@@ -226,3 +224,4 @@ Under- and oversampling can be useful techniques to improve the ratio of true ev
 sessionInfo()
 ```
 
+Modified for small typos and dataset update on 2025-01-13.
