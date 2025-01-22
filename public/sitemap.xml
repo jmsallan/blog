@@ -3,18 +3,39 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>http://localhost:4321/blog/</loc>
-    <lastmod>2024-11-27T00:00:00+00:00</lastmod>
+    <lastmod>2025-01-22T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/categories/</loc>
-    <lastmod>2024-11-27T00:00:00+00:00</lastmod>
+    <lastmod>2025-01-22T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/categories/data-analysis/</loc>
+    <lastmod>2025-01-22T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/tags/data-visualization/</loc>
+    <lastmod>2025-01-22T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/categories/economics/</loc>
+    <lastmod>2025-01-22T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/tags/ggplot/</loc>
+    <lastmod>2025-01-22T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/</loc>
+    <lastmod>2025-01-22T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/tags/population/</loc>
+    <lastmod>2025-01-22T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/blog/population-growth-in-catalonia/</loc>
+    <lastmod>2025-01-22T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>http://localhost:4321/tags/</loc>
+    <lastmod>2025-01-22T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/blog/deterministic-and-stochastic-project-planning/</loc>
     <lastmod>2024-11-27T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/tags/distributions/</loc>
-    <lastmod>2024-11-27T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>http://localhost:4321/</loc>
     <lastmod>2024-11-27T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/tags/linear-programming/</loc>
@@ -32,16 +53,7 @@
     <loc>http://localhost:4321/categories/simulation/</loc>
     <lastmod>2024-11-27T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>http://localhost:4321/tags/</loc>
-    <lastmod>2024-11-27T00:00:00+00:00</lastmod>
-  </url><url>
     <loc>http://localhost:4321/blog/cross-validation-of-time-series-models/</loc>
-    <lastmod>2024-11-12T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>http://localhost:4321/tags/data-visualization/</loc>
-    <lastmod>2024-11-12T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>http://localhost:4321/tags/ggplot/</loc>
     <lastmod>2024-11-12T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/tags/machine-learning/</loc>
@@ -192,9 +204,6 @@
     <lastmod>2023-09-13T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/blog/a-dummbell-plot-of-the-evolution-of-eu-gini-index/</loc>
-    <lastmod>2023-05-26T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>http://localhost:4321/categories/economics/</loc>
     <lastmod>2023-05-26T00:00:00+00:00</lastmod>
   </url><url>
     <loc>http://localhost:4321/blog/cleaning-the-credit-card-defaults-dataset/</loc>

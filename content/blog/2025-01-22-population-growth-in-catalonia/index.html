@@ -1,0 +1,77 @@
+---
+title: Population Growth in Catalonia
+author: Jose M Sallan
+date: '2025-01-22'
+slug: population-growth-in-catalonia
+categories:
+  - economics
+  - data analysis
+tags:
+  - data visualization
+  - ggplot
+  - population
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>World human population has been growing since the Black Death around 1350, but recently it has been observed a steady decrease of births in most countries, which could lead to a decrease of human population in the near future. This can have relevant economic and social implications.</p>
+<p>In many long-range planning techniques, like scenario planning, population growth is used as a trend, as it is relevant and relatively easy to predict. Most countries and regions publish open data about population evolution. These data are a good opportunity to practice data analysis on issues of social and economic relevance.</p>
+<p>In this post, I will present some insights about the population growth in Catalonia since 1982.</p>
+<div id="data" class="section level2">
+<h2>Data</h2>
+<p>I have merged the two datasets from Idescat referred below so we can have annual data of:</p>
+<ul>
+<li>Total population.</li>
+<li>Total births.</li>
+<li>Total deaths.</li>
+</ul>
+<p>Data ranges from 1981 to 2023, the range of years for which data of population, births and deaths are available.</p>
+</div>
+<div id="model" class="section level2">
+<h2>Model</h2>
+<p>I have applied an elementary model of population growth, based on the assumption that changes of total population come from:</p>
+<ul>
+<li>Balance of births and deaths, called natural increase.</li>
+<li>The balance between immigration and emigration, called net migration.</li>
+</ul>
+<p>Population change in a given year is equal to:</p>
+<p><span class="math display">\[ \text{Population change}_t = \text{Population}_t - \text{Population}_{t-1}  \]</span></p>
+<p>Natural increase in a year is calculated as:</p>
+<p><span class="math display">\[ \text{Natural increase}_t = \text{Births}_t - \text{Deaths}_t \]</span></p>
+<p>Then, we can proxy net migration as:</p>
+<p><span class="math display">\[ \text{Net migration}_t =  \text{Population change}_t - \text{Natural increase}_t \]</span></p>
+<p>As I am examining a single region, I have used raw population numbers instead of rates. Rate metrics can be obtained dividing each value by total population at a given year.</p>
+</div>
+<div id="evolution-of-catalan-population" class="section level1">
+<h1>Evolution of Catalan Population</h1>
+<p>Let’s start examining how Catalan population has evolved in recent years.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-1-1.png" width="100%" /></p>
+<p>Catalan population has experienced a relevant increase in the last forty years, from almost six million people in 1981 to almost eight million in 2023. Let’s see how much has increased the population each year.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="100%" /></p>
+<p>There is a period of large increase of population starting around 2002 and ending by 2008, a period of decrease of population between 2012 and 2014 and a second period of increase, interrupted temporarily by the COVID-19 pandemic.</p>
+<div id="natural-increase-and-net-migration" class="section level2">
+<h2>Natural Increase and Net Migration</h2>
+<p>Let’s examine more closely the two components of population change. We can start examining births and deaths, the two components of natural increase of population.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="100%" /></p>
+<p>While deaths increase steadily with time, discounting the peak of deaths caused by COVID-19, the pattern of births follow two trends. Births were growing steadily until the 2008, when a housing crisis arrived. Since then, births have been decreasing steadily until today. Natural increase of population (births minus deaths) has been <em>negative</em> in Catalonia since 2018.</p>
+<p>Therefore, the growth of Catalan population can be explained mainly by variations of net migration, coming from other parts of Spain and from other countries. Let’s compare the temporal evolution of natural increase and net migration. This net migration value has been obtained as the difference of variation of population and natural increase, so it is an approximate value.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="100%" /></p>
+<p>This plot shows that the variations of population in Catalonia in the recent years can be explained by the net migration component, rather than by natural growth. The first increase of net migration came in the early 2000, where started the extraordinary regularization process of foreign migrants started (Villaverde, 2024). The inflow of migrants to Catalonia lasted until the 2008 crisis arrived. As a result of this crisis, net migration was negative between 2012 and 2014. The recovery of migration flows was slowed by COVID-19, and has increased abruptly in 2022 and 2023.</p>
+</div>
+<div id="population-growth-in-catalonia" class="section level2">
+<h2>Population Growth in Catalonia</h2>
+<p>Catalan population has grown steadily since 1982, with small decreases in 1985 and the period 2012-2014. This growth has been achieved with a small natural increase of population: while deaths have been increasing steadily, births have started to plunge since 2009. Therefore, most of the growth of Catalan population can be attributed to large values of net migration, specially in the early 2000s and in the late 2010s and 2020s. Although a more accurate research is needed, the evolution of net migration seems to be influenced by the economic cycle, as the 2008 crisis slowed down net migration.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Wikipedia article of population growth: <a href="https://en.wikipedia.org/wiki/Population_growth" class="uri">https://en.wikipedia.org/wiki/Population_growth</a></li>
+<li>Idescat data of births and deaths: <a href="https://www.idescat.cat/pub/?id=naix&amp;n=79" class="uri">https://www.idescat.cat/pub/?id=naix&amp;n=79</a></li>
+<li>Idescat data of population by gender: <a href="https://www.idescat.cat/pub/?id=ep&amp;n=9122" class="uri">https://www.idescat.cat/pub/?id=ep&amp;n=9122</a></li>
+<li>Villaverde, Javier (2024). Las regularizaciones extraordinarias de inmigrantes que ha habido en España. <em>Newtral</em> <a href="https://www.newtral.es/las-regularizaciones-extraordinarias-de-inmigrantes-que-ha-habido-en-espana/20240412/" class="uri">https://www.newtral.es/las-regularizaciones-extraordinarias-de-inmigrantes-que-ha-habido-en-espana/20240412/</a></li>
+</ul>
+<p><em>Websites accessed and data retrieved at 22 January 2025.</em></p>
+</div>
+</div>
