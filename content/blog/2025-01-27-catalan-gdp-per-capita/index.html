@@ -1,0 +1,60 @@
+---
+title: Catalan GDP per capita
+author: Jose M Sallan
+date: '2025-01-27'
+slug: catalan-gdp-per-capita
+categories:
+  - economics
+tags:
+  - data visualization
+  - ggplot
+  - economics
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p><strong>Gross Domestic Product (GDP)</strong> is a monetary measure of the value of all final goods and services rendered in a specific time period by a region or country. GDP is often used as a metric of economic progress, and* <strong>GDP per capita</strong> (GDP divided by population) as a metric of standard of living. As GDP is evaluated by maket price of final goods and services, GDP comparisons may be distorted by inflation or exchange rates. To compare the standard of living of different countries, we can use GDP per capita at purchasing power parity (PPP). To assess the evolution of the standard of living of a country or region, we can use <strong>deflated GDP per capita</strong>. The GDP deflator is an index that allows us to compare GDP values of different years in the same region, as it discounts the effect of inflation.</p>
+<p>In this post, I will present some insights about evolution of standard of living in Catalonia since 2000, examining GDP per capita and deflated GDP per capita.</p>
+<div id="data" class="section level2">
+<h2>Data</h2>
+<p>I have merged the three datasets referred below to obain annual data of:</p>
+<ul>
+<li>Total population.</li>
+<li>GDP.</li>
+<li>GDP deflator.</li>
+</ul>
+<p>As population data is presented on a yearly basis, I have used the values of GDP and GDP deflator of the last quarter of each year. Data is available from 2000 to 2023.</p>
+</div>
+<div id="evolution-of-gdp-per-capita" class="section level2">
+<h2>Evolution of GDP per Capita</h2>
+<p>Let’s start presenting the evolution of GDP at market prices:</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
+<p>Catalan PIB has significantly increased since 2000, almost doubling its value. The 2008 crisis and the COVID-19 pandemic lead to periods of decrease of GDP. Since 2021 (year marks in the graph correspond to the end of each year) Catalan GDP has sharply increased.</p>
+<p>Let’s examine the evolution of GDP through its yearly increase, a more popular measure of GDP.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<p>This graph shows in a more conventional perspective the effects of the 2008 crisis and COVID-19, and also the large values of GDP growth since 2021.</p>
+<p>Let’s examine now the evolution of Catalan GDP per capita.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+<p>The Catalan GDP per capita has almost doubled in the last 23 years, from 5,243 euros per capita in 2000 to 9,357 euros per capita in 2023. Therefore, we should conclude that the standard of living in Catalonia has dramatically improved in the last twenty years.</p>
+</div>
+<div id="the-effect-of-inflation" class="section level2">
+<h2>The Effect of Inflation</h2>
+<p>The conclusion stated above must be taken with caution, as GDP data is presented in current prices. To compare GDP values of different years, we must take into account the effect of inflation. The metric most adequate for this is the <strong>GDP deflator</strong>, a price index that considers all components of GDP.</p>
+<p>Let’s examine the evolution of the growth of deflated GDP. The deflator used by Idescat is referred to 2015 prices.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+<p>Here we observe that the values of GDP growth are smaller than the obtained with current prices. This suggests that a part of GDP growth, specially from 2021, can be attributed to inflation.</p>
+<p>Let’s examine now the deflated GDP per capita. Arguably, this metric can reflect better the evolution of the standard of living, as discounts the effect of inflation.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
+<p>This plot presents a quite different story than the non-deflated GDP per capita. As values are presented with 2015 prices, values of deflated GDP per capita of before 2015 are higher than current values, and values after 2015 are lower. The 2008 had a devastating effect on standard of living. Between 2012 and 2014 GDP per capita decreased <em>while total population was decreasing</em> because of negative net migration. The COVID-19 pandemic had a faster, although smaller, effect on GDP per capita. In 2023, Catalonia has recovered the standards of living previous to COVID-19, but has not reached yet the values previous to the 2008 crisis.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Idescat data of population by gender: <a href="https://www.idescat.cat/pub/?id=ep&amp;n=9122" class="uri">https://www.idescat.cat/pub/?id=ep&amp;n=9122</a></li>
+<li>Idescat GDP deflator: <a href="https://www.idescat.cat/pub/?id=piba&amp;n=13241" class="uri">https://www.idescat.cat/pub/?id=piba&amp;n=13241</a></li>
+<li>Idescat GDP data: <a href="https://www.idescat.cat/indicadors/?id=basics&amp;n=10438" class="uri">https://www.idescat.cat/indicadors/?id=basics&amp;n=10438</a></li>
+</ul>
+<p><em>Data retrieved at 27 January 2025.</em></p>
+</div>
