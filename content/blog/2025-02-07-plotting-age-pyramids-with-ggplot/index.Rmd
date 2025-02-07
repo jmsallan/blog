@@ -1,0 +1,213 @@
+---
+title: Plotting Age Pyramids with ggplot
+author: Jose M Sallan
+date: '2025-02-07'
+slug: plotting-age-pyramids-with-ggplot
+categories:
+  - data analysis
+  - economics
+  - R
+tags:
+  - data visualization
+  - economics
+  - ggplot
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+A **population pyramid** is a graphical illustration of the distribution of a population by age groups and sex. When the population is growing, this representation takes the shape of a pyramid, whence its name. Males are usually shown on the left and females on the right, and they may be measured in absolute numbers or as a percentage of the total population.
+
+If we have data by age group available, we can draw our own age pyramids using the tidyverse functions for plotting and handling data. This representation, though, requires some formatting and adjusting of the dataset.
+
+```{r, message=FALSE}
+library(tidyverse)
+```
+
+Let's read with the `read_csv()` function from the `readr` package a .csv file from Idescat with population data by nationality and age group for different years.
+
+```{r}
+pop <- read_csv("censph-536-19792-cat.csv") |>
+  janitor::clean_names()
+pop
+```
+
+
+## Formatting and Adjusting Data
+
+Let's format and adjust data to draw an age pyramid. I will start with filtering, removing some columns with unnecessary information and rows of total values of population for each year regarding age groups and gender.
+
+```{r}
+pop <- pop |>
+  select(any, nacionalitat, sexe, edat_quinquennal, valor) |>
+  filter(edat_quinquennal != "total", sexe != "total")
+```
+
+I will present values for each gender and age group as percentage of total population, so I will obtain the `prop` variable by dividing each value by the total value of population of each year. Note how I am using `group:by()` together with `mutate()` to do this.
+
+```{r}
+pop <- pop |>
+  group_by(any) |>
+  mutate(prop = valor/sum(valor)) |>
+  ungroup()
+```
+
+Now I need to relabel the values of age groups so that they can be presented in a more compact way. I am generating a `tab_groups` table with the present and desired labels for age groups.
+
+```{r}
+tab_groups <- tibble(edat_quinquennal = sort(unique(pop$edat_quinquennal)))
+
+grups <- c("85 +  ", "  0 - 4", "10 - 14", "15 - 19", "20 - 24", "25 - 29",
+           "30 - 34", "35 - 39", "40 - 44", "45 - 49", "  5 - 9", "50 - 54",
+           "55 - 59", "60 - 64", "65 - 69", "70 - 74", "75 - 79", "80 - 84")
+
+tab_groups <- tab_groups |>
+  mutate(age_groups = grups)
+
+tab_groups
+```
+
+Then, I am attaching the new labels for age groups joining the obtained table with the original table.
+
+```{r}
+pop <- inner_join(pop, tab_groups, by = "edat_quinquennal")
+```
+
+Now let's format the `age_groups` column as an ordered factor, so that the age groups will be plotted in the correct order.
+
+```{r}
+grups_ord <- grups[c(2, 11, 3:10, 12:18, 1)]
+
+pop <- pop |>
+  mutate(age_groups = factor(age_groups, ordered = TRUE, levels = grups_ord))
+```
+
+Finally, we can remove the `edat_quinquennal` and `valor` columns, which have been replaced by `age_group` and `prop`.
+
+```{r}
+pop <- pop |>
+  select(-c(edat_quinquennal, valor))
+```
+
+This is how the dataset looks like after formatting and adjusting:
+
+```{r}
+pop
+```
+
+## Plotting an Age Pyramid
+
+Let's plot an age pyramid with these data. An age pyramid is a stacked, horizontal barplot, with negative values for men and positive values for women. Here I am selecting data from 2011 and total population.
+
+```{r, fig.align='center'}
+pop |>
+  filter(any == 2011, nacionalitat == "total") |>
+  mutate(valor_pir = ifelse(sexe == "homes", -prop, prop)) |>
+  select(sexe, valor_pir, age_groups) |>
+  ggplot(aes(valor_pir, age_groups, fill = sexe)) +
+  geom_col()
+```
+
+Once obtained the pyramid, let's edit it to make it more readable by using:
+
+-   `scale_fill_manual()` to change color bars and edit the legend.
+-   `scale_x_continuous()` to set percentages in absolute value in the x axis and remove label of x axis.
+-   `theme_minimal()` and `theme()` to change theme and position legend at bottom.
+-   `labs()` to put a title and a caption to the plot, and remove label of y axis.
+
+```{r, fig.align='center'}
+pop |>
+  filter(any == 2011, nacionalitat == "total") |>
+  mutate(valor_pir = ifelse(sexe == "homes", -prop, prop)) |>
+  select(sexe, valor_pir, age_groups) |>
+  ggplot(aes(valor_pir, age_groups, fill = sexe)) +
+  geom_col() +
+  scale_fill_manual(name = "sex", values = c("#FF0000", "#0000FF"), labels = c("female", "male"))  +
+  scale_x_continuous(name = NULL,
+                     breaks = seq(-0.05, 0.05, 0.01),
+                     labels = \(x) paste0(abs(x*100), "%")) +
+  theme_minimal() +
+  labs(title = "Catalan age pyramid (2011)", y = NULL, caption = "source: Idescat") +
+  theme(legend.position = "bottom")
+```
+
+## Age Pyramid with Gender Excess
+
+An alternative representation of age pyramids is presenting **gender excess**, that is, indicating which of the two genders has more individuals for an age group. This requires creating new variables from the original table for each age group:
+
+-   `min_m` and `min_w`, representing the minimum value of men and women. Both variables have the same value.
+-   `excess_m` equal to the difference between men and women if it is positive and zero otherwise.
+-   `excess_w` equal to the difference between women and men if it is positive and zero otherwise.
+
+I am using `pivot_wider()` to get values of men and women of an age group in the same row, and `pivot_longer()` to put the table in long format after the calculations. I have also formatted the `gender` column as an ordered factor.
+
+```{r}
+pop_excess <- pop |>
+  pivot_wider(names_from = "sexe", values_from = "prop") |>
+  mutate(min_m = ifelse(homes < dones, homes, dones),
+         min_w = min_m,
+         excess_m = ifelse(homes > dones, homes - dones, 0),
+         excess_w = ifelse(homes < dones, dones - homes, 0)) |>
+  select(-c(homes, dones)) |>
+  pivot_longer(min_m:excess_w, 
+               names_to = "gender", values_to = "prop") |>
+  mutate(gender = factor(gender, 
+                         levels = c("excess_m", "min_m", "excess_w", "min_w"), 
+                         ordered = TRUE))
+pop_excess
+```
+
+Now we can plot the age pyramid from the `pop_excess` table. Instead of a legend, I have set an annotation to signal data for men and women.
+
+```{r, fig.align='center'}
+pop_excess |>
+  filter(any == 1991, nacionalitat == "total") |>
+  mutate(prop = ifelse(gender %in% c("min_m", "excess_m"), -prop, prop)) |>
+  ggplot(aes(prop, age_groups, fill = gender)) +
+  geom_col() +
+  scale_fill_manual(values = c("#0000FF", "#9999FF", "#FF0000", "#FF9999")) +
+  scale_x_continuous(name = NULL,
+                     breaks = seq(-0.05, 0.05, 0.01),
+                     labels = \(x) paste0(abs(x*100), "%")) +
+  theme_light(base_size = 12) +
+  labs(title = "Catalan age pyramid (1991)", y = NULL) +
+  theme(legend.position = "none") +
+  annotate("text", x = -0.015, y = "70 - 74", label = "men", size = 5) +
+  annotate("text", x = 0.015, y = "70 - 74", label = "women", size = 5)
+```
+
+## Faceted Plot of Age Pyramids
+
+The original data has values for nationality and year, so we can present age pyramids for different years by facetting with `facet_wrap()`.
+
+```{r, out.width='100%'}
+pop_excess |>
+  filter(any %in% c(1991, 2001, 2011, 2021), nacionalitat == "total") |>
+  mutate(prop = ifelse(gender %in% c("min_m", "excess_m"), -prop, prop)) |>
+  ggplot(aes(prop, age_groups, fill = gender)) +
+  geom_col() +
+  scale_fill_manual(values = c("#0000FF", "#9999FF", "#FF0000", "#FF9999")) +
+  scale_x_continuous(name = NULL,
+                     breaks = seq(-0.05, 0.05, 0.01),
+                     labels = \(x) paste0(abs(x*100), "%")) +
+  theme_light(base_size = 10) +
+  labs(title = "Catalan age pyramid", y = NULL, caption = "source: Idescat") +
+  theme(legend.position = "none") +
+  facet_wrap(. ~ any, ncol = 2)
+```
+
+## References
+
+-   Idescat data of population by nationality (continents), sex and five-year age group. <https://www.idescat.cat/pub/?id=censph&n=536>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+*Data retrieved at 29 January 2025.*
+
