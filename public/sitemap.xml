@@ -3,10 +3,34 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>//localhost:4321/blog/</loc>
-    <lastmod>2025-02-07T00:00:00+00:00</lastmod>
+    <lastmod>2025-02-13T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/categories/</loc>
-    <lastmod>2025-02-07T00:00:00+00:00</lastmod>
+    <lastmod>2025-02-13T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/tags/factor-analysis/</loc>
+    <lastmod>2025-02-13T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/blog/features-with-principal-component-analysis-pca-with-tidymodels/</loc>
+    <lastmod>2025-02-13T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/</loc>
+    <lastmod>2025-02-13T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/tags/logistic-regression/</loc>
+    <lastmod>2025-02-13T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/tags/machine-learning/</loc>
+    <lastmod>2025-02-13T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/categories/r/</loc>
+    <lastmod>2025-02-13T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/tags/</loc>
+    <lastmod>2025-02-13T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/tags/tidymodels/</loc>
+    <lastmod>2025-02-13T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/categories/data-analysis/</loc>
     <lastmod>2025-02-07T00:00:00+00:00</lastmod>
@@ -23,16 +47,7 @@
     <loc>//localhost:4321/tags/ggplot/</loc>
     <lastmod>2025-02-07T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>//localhost:4321/</loc>
-    <lastmod>2025-02-07T00:00:00+00:00</lastmod>
-  </url><url>
     <loc>//localhost:4321/blog/plotting-age-pyramids-with-ggplot/</loc>
-    <lastmod>2025-02-07T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>//localhost:4321/categories/r/</loc>
-    <lastmod>2025-02-07T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>//localhost:4321/tags/</loc>
     <lastmod>2025-02-07T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/blog/catalan-gdp-per-capita/</loc>
@@ -63,9 +78,6 @@
     <lastmod>2024-11-27T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/blog/cross-validation-of-time-series-models/</loc>
-    <lastmod>2024-11-12T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>//localhost:4321/tags/machine-learning/</loc>
     <lastmod>2024-11-12T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/tags/time-series/</loc>
@@ -185,9 +197,6 @@
     <loc>//localhost:4321/categories/reviews/</loc>
     <lastmod>2024-01-29T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>//localhost:4321/tags/tidymodels/</loc>
-    <lastmod>2024-01-29T00:00:00+00:00</lastmod>
-  </url><url>
     <loc>//localhost:4321/blog/a-dual-axis-line-plot/</loc>
     <lastmod>2024-01-22T00:00:00+00:00</lastmod>
   </url><url>
@@ -249,9 +258,6 @@
     <lastmod>2023-02-27T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/tags/correlation/</loc>
-    <lastmod>2023-02-27T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>//localhost:4321/tags/factor-analysis/</loc>
     <lastmod>2023-02-27T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/tags/chatgpt/</loc>
@@ -318,9 +324,6 @@
     <lastmod>2022-07-11T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/blog/cross-validation-and-parameter-tuning-with-tiydmodels/</loc>
-    <lastmod>2022-07-04T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>//localhost:4321/tags/logistic-regression/</loc>
     <lastmod>2022-07-04T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/tags/linear-regression/</loc>

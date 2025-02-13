@@ -1,0 +1,201 @@
+---
+title: Features with Principal Component Analysis (PCA) with tidymodels
+author: Jose M Sallan
+date: '2025-02-13'
+slug: features-with-principal-component-analysis-pca-with-tidymodels
+categories:
+  - R
+tags:
+  - factor analysis
+  - logistic regression
+  - machine learning
+  - tidymodels
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+One of the key elements of predicting modelling workflow is feature selection. It is frequent that original data must be transformed in some way, as they may impact on model performance without additional computational complexity. A frequent data transformation in predictive modelling is **principal component analysis (PCA)**. PCA returns a set of latent variables or components that capture a significant proportion of dataset variability. As components are uncorrelated, each of them is a distinct source of variability and solve multicollinearity issues.
+
+To illustrate PCA transformation in the tidymodels framework, I will train a logistic regression model on the `Sonar` dataset fromt the `mlbench` package. 
+
+```{r, message=FALSE}
+library(tidymodels)
+library(mlbench)
+```
+
+The task of the `Sonar` dataset is to train a network to discriminate between sonar signals bounced off a metal cylinder `M` and those bounced off a roughly cylindrical rock `R`. The object to which correspond each set of signals is stored in the `Class` variable. Each pattern is a set of 60 numbers in the range 0.0 to 1.0. Each number represents the energy within a particular frequency band, integrated over a certain period of time. The signals are encoded in the `V01` to `V60` variables.
+
+```{r}
+data("Sonar")
+```
+
+When representing the proportion of each case, we observe that the number of positive (`M` case) and negative (`R` case) observations is balanced. As the first level corresponds with the positive case, no relevelling of the target variable is required.
+
+```{r}
+Sonar |>
+  ggplot(aes(Class)) +
+  geom_bar(aes(y = after_stat(count/sum(count)))) +
+  scale_y_continuous(name = NULL, labels = scales::percent) +
+  ggtitle(label = "Proportion of positive and negative cases") +
+  theme_minimal(base_size = 12)
+```
+
+## A Straight Logistic Regression
+
+Let's set the elements for a predictive modelling framework. First, we split the dataset into train an test.
+
+```{r}
+set.seed(1111)
+sonar_split <- initial_split(Sonar, prop = 0.8, strata = "Class")
+```
+
+Then, we define the set of metrics `mset` and the folds for cross validation `folds`.
+
+```{r}
+mset <- metric_set(accuracy, sens, spec)
+set.seed(1111)
+folds <- vfold_cv(training(sonar_split), v = 5, repeats = 4, strata = "Class")
+```
+
+The preprocessing `sonar_plain` recipe includes only scaling and centering of predictors.
+
+```{r}
+sonar_plain <- training(sonar_split) |>
+  recipe(Class ~ .) |>
+  step_center(all_numeric_predictors()) |>
+  step_scale(all_numeric_predictors())
+
+
+```
+
+The model to apply is quite simple, a logistic regression `lr` with the R base function `glm()`.
+
+```{r}
+lr <- logistic_reg(mode = "classification",
+                    engine = "glm")
+```
+
+Let's examine the performance of the model with cross validation, and store the results in the `lr_plain_cv` data frame.
+
+```{r}
+lr_plain_cv <- fit_resamples(object = lr,
+                             preprocessor = sonar_plain,
+                             resamples = folds,
+                             metrics = mset) |>
+  collect_metrics()
+
+lr_plain_cv
+```
+
+Here we observe that the model has computational issues, as the algorithm does not converge and finds probabilities numerically 0 or 1 for some folds. 
+
+## Features with Principal Component Analysis (PCA)
+
+Let's try the PCA approach, where we train the model with a set of latent variables uncorrelated with each other. We perform this transformation in tidymodels with `step_pca()`. It has two alternative tuning parameters:
+
+- `num_comp` to specify the number of latent variables.
+- `threshold` to specify the fraction of total variance to be covered by the components.
+
+Here I have chosen to pick as the number of components that accounts for an 80% of variance.
+
+```{r}
+sonar_pca <- training(sonar_split) |>
+  recipe(Class ~ .) |>
+  step_center(all_numeric_predictors()) |>
+  step_scale(all_numeric_predictors()) |>
+  step_pca(all_numeric_predictors(),
+           threshold = 0.8, prefix = "pc_")
+```
+
+If we examine the dataset obtained by the recipe, we observe that now we have 13 explanatory variables instead of 60.
+
+```{r}
+sonar_pca |>
+  prep() |>
+  juice()
+```
+
+## Predicting with PCA Features
+
+Let's test with cross validation the model including the PCA preprocessing.
+
+```{r}
+lr_pca_cv <- fit_resamples(object = lr,
+                           preprocessor = sonar_pca,
+                           resamples = folds,
+                           metrics = mset) |> 
+  collect_metrics()
+
+lr_pca_cv
+```
+
+Contrarily to the previous model, now we have no warnings about model convergence.
+
+## Comparing Models
+
+Let's compare the performance of each model. First I keep the columns that we need for each of the results of the cross validation, and bind both tables together.
+
+```{r}
+lr_plain_cv <- lr_plain_cv |>
+  mutate(model = "no PCA") |>
+  select(.metric, mean, std_err, model)
+
+lr_pca_cv <- lr_pca_cv |>
+  mutate(model = "PCA") |>
+  select(.metric, mean, std_err, model)
+
+lr_table <- bind_rows(lr_plain_cv, lr_pca_cv)
+```
+
+Now we can represent each metric graphically for each model.
+
+```{r, out.width='100%'}
+lr_table |>
+  ggplot(aes(model, mean)) +
+  geom_col(fill = "#C0C0C0", alpha = 0.5) +
+  geom_errorbar(aes(model, ymin = mean - std_err/sqrt(20), ymax = mean + std_err/sqrt(20)), width = 0.3) +
+  facet_grid(. ~ .metric) +
+  theme_minimal(base_size = 12) +
+  labs(title = "Logistic regression results", x = NULL, y = NULL)
+```
+
+The use of PCA improves sensitivity and specificity, therefore improving accuracy.
+
+## Training the final model
+
+We have chosen to train the logistic regression model with the PCA transformation. Let's train the model with the whole training set, and assess performance on the test set.
+
+```{r}
+lr_model <- workflow() |>
+  add_recipe(sonar_pca) |>
+  add_model(lr)
+
+lr_trained_model <- lr_model |>
+  fit(training(sonar_split))
+
+lr_trained_model |>
+  predict(testing(sonar_split)) |>
+  bind_cols(testing(sonar_split) |> select(Class)) |>
+  mset(truth = Class, estimate = .pred_class)
+```
+
+For the final model, results shows better performance on specificity `spec` and worse performance of sensitivity `sens`.
+
+## References
+
+- Gorman, R. P., and Sejnowski, T. J. (1988). Analysis of Hidden Units in a Layered Network Trained to Classify Sonar Targets. *Neural Networks*, (1):75-89.
+- A workflow for exploratory factor analysis in R. <https://jmsallan.netlify.app/blog/a-workflow-for-exploratory-factor-analysis-in-r/>.
+- Why am I getting "algorithm did not converge" and "fitted prob numerically 0 or 1" warnings with glm? <https://stackoverflow.com/questions/8596160/why-am-i-getting-algorithm-did-not-converge-and-fitted-prob-numerically-0-or>
+- PCA signal extraction. <https://recipes.tidymodels.org/reference/step_pca.html>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
