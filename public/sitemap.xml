@@ -17,9 +17,6 @@
     <loc>//localhost:4321/categories/economics/</loc>
     <lastmod>2025-03-18T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>//localhost:4321/blog/evolution-of-the-spanish-incidence-rate-of-occupational-accidents/</loc>
-    <lastmod>2025-03-18T00:00:00+00:00</lastmod>
-  </url><url>
     <loc>//localhost:4321/</loc>
     <lastmod>2025-03-18T00:00:00+00:00</lastmod>
   </url><url>
@@ -27,6 +24,9 @@
     <lastmod>2025-03-18T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/categories/r/</loc>
+    <lastmod>2025-03-18T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/blog/evolution-of-the-spanish-incidence-rate-of-occupational-accidents/</loc>
     <lastmod>2025-03-18T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/tags/</loc>

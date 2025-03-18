@@ -1,5 +1,5 @@
 ---
-title: Evolution of the Spanish Incidence Rate of Occupational Accidents
+title: Spanish Incidence Rate of Occupational Accidents
 author: Jose M Sallan
 date: '2025-03-18'
 slug: evolution-of-the-spanish-incidence-rate-of-occupational-accidents
@@ -85,8 +85,8 @@ iind</code></pre>
   scale_x_continuous(name = element_blank(), 
                      breaks = seq(2013, 2023, 2), 
                      limits = c(2013, 2025)) +
-  labs(title = &quot;Índice de incidencia baja en jornada&quot;, 
-       caption = &quot;Fuente: MITES&quot;, y = NULL) +
+  labs(title = &quot;Índice Rate of Occupational Accidents&quot;, 
+       caption = &quot;Source: MITES&quot;, y = NULL) +
   geom_text(data = iind_dl, 
             aes(year, index, color = sector, label = sector), 
             hjust = 0, show.legend = FALSE, size = 3) +
@@ -198,7 +198,7 @@ iind_iso |&gt;
   facet_wrap(. ~  sector, ncol = 2) +
   theme_minimal() +
   theme(legend.position = &quot;none&quot;) +
-  labs(title = &quot;Incidence Index in Spain (ES) and Balearics (ES-IB)&quot;, y = NULL)</code></pre>
+  labs(title = &quot;Incidence Rate in Spain (ES) and Balearics (ES-IB)&quot;, y = NULL)</code></pre>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-14-1.png" width="672" /></p>
 <p>In the plot above I have compared the evolution of the incidence index in Balearic Islands and all Spain. We observe that the values in Balearic Islands are significantly higher in all sectors than in all Spain. Further research is needed to account for this difference.</p>
 </div>
