@@ -1,0 +1,247 @@
+---
+title: Evolution of the Spanish Incidence Rate of Occupational Accidents
+author: Jose M Sallan
+date: '2025-03-18'
+slug: evolution-of-the-spanish-incidence-rate-of-occupational-accidents
+categories:
+  - economics
+  - R
+tags:
+  - data visualization
+  - economics
+  - maps
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r, message=FALSE}
+library(tidyverse)
+library(readxl)
+library(mapSpain)
+```
+
+The incidence rate is a measure of occupational accidents, equal to the number of accidents occurring at work and requiring a leave period per 100,000 workers exposed to the risk. In Spain, it is usually calculated for four sectors of economic activity: construction *(construcción)*, manufacturing *(industria)*, agriculture *(agricultura)* and services *(servicios)*. In this post, we will examine the evolution of this metric across regions *(comunidades autónomas)* in 2013-2023 period. Doing this analysis requires:
+
+- Reading the data from an Excel file with the `readxl`.
+- Handling and analyzing data with the `tidyverse`.
+- Doing choroplethic maps with the `mapSpain`.
+
+## Reading and Processing Data
+
+Let's start reading the sheet ATR-I.1.3 of the ATR_2023_I.xls file. I need to input the lines to skip and the lines to read, to avoid headers and footnotes. Then, I remove the empty lines between blocks of data.
+
+```{r}
+iind <- read_excel("ATR_2023_I.xlsx",
+                   sheet = "ATR-I.1.3",
+                   skip = 6,
+                   n_max = 106) # 105 rows
+
+iind <- iind |>
+  filter(!is.na(`2013`)) # 95 rows
+```
+
+The `types` vector includes the Spanish name of all sectors of activity. I use this vector to create a `sector` column to report the sector the data belongs to, and replace the `TOTAL` values of `region` with `España`.
+
+```{r}
+types <- c("TOTAL", "AGRARIO", "INDUSTRIA", "CONSTRUCCIÓN", "SERVICIOS")
+
+iind <- iind |>
+  mutate(sector = rep(types, each = 19)) |>
+  relocate(sector, .after = ...1)
+
+iind <- iind |>
+  rename(region = ...1) |>
+  mutate(region = ifelse(region %in% types, "España", region))
+```
+
+Finally, I am using `pivot_longer()` to present the data as a long table, and update the data type of `year` to numeric.
+
+```{r}
+iind <- iind |>
+  pivot_longer(-c(region, sector), names_to = "year", values_to = "index") |>
+  mutate(year = as.numeric(year))
+iind
+```
+
+# Analyzing Data: Temporal Evolution
+
+Let's create a plot representing the evolution of the incidence rate for each sector in Spain. I want to attach direct labels to the table, so I am creating the `iind_dl` table to position the sector name.
+
+```{r}
+iind_dl <- iind |>
+  group_by(sector) |>
+  filter(region == "España", year == max(year))
+```
+
+Here is the line plot representing the evolution of the incidence rate from 2013 to 2023. Some of the modifications to the plot are:
+
+-   Temporal labels are modified with `scale_x_continuous()`. Here I am also removing the axis title and modifying the limits of the axis to make room for the direct labels.
+-   Direct labels are attached with `geom_text()`.
+-   In the `labs()` function I give a title to the plot and remove the y axis label.
+
+```{r, fig.align='center'}
+iind |>
+  filter(region == "España") |>
+  ggplot(aes(year, index, color = sector)) +
+  geom_line(linewidth = 1) +
+  scale_x_continuous(name = element_blank(), 
+                     breaks = seq(2013, 2023, 2), 
+                     limits = c(2013, 2025)) +
+  labs(title = "Índice de incidencia baja en jornada", 
+       caption = "Fuente: MITES", y = NULL) +
+  geom_text(data = iind_dl, 
+            aes(year, index, color = sector, label = sector), 
+            hjust = 0, show.legend = FALSE, size = 3) +
+  theme_minimal() +
+  scale_color_viridis_d() +
+  theme(legend.position = "none")
+```
+
+We observe that the construction sector has the highest values of incidence rate along the years. Agriculture and manufacturing have similar values, and services sector has the lowest values of incidence rate. Global levels of incidence rate are close to services because of the high weight of services in the Spanish economy. Incidence rates peaked around 2018, have a slight decrease during the COVID years and have raised slightly since then. The reduction of the incidence rates during COVID is moderate because lowered accidents and people working on each sector at a similar pace.
+
+## Analyzing Data: Regional Differences
+
+To account for geographical differences, I will build choropleth maps with the `mapSpain` package. Here is a regional map of Spain using this package.
+
+```{r, fig.align='center'}
+ccaa_sf <- esp_get_ccaa_siane()
+can <- esp_get_can_box()
+ggplot(ccaa_sf) +
+  geom_sf() +
+  geom_sf(data = can, color = "grey70") +
+  theme_void()
+```
+
+I need to bind incidence rates with regions of the map, so I need to match the iso2 codes of each region with the region names presented in the data. I am doing this with the `iso_ccaa` table.
+
+```{r}
+iso_ccaa <- ccaa_sf$iso2.ccaa.code
+tabla_ccaa <- tibble(region = unique(iind$region),
+                     iso = c("ES", iso_ccaa[c(1:6, 8, 7, 9:18)]))
+```
+
+I use `inner_join()` to attach iso2 codes of regions to the data:
+
+```{r}
+iind_iso <- inner_join(iind, tabla_ccaa, by = "region")
+```
+
+... and use left_join() to attach to the map values of incidence rates in construction in 2023.
+
+```{r, fig.align='center'}
+map_constr <- left_join(ccaa_sf,
+                        iind_iso |>
+                          filter(sector == "CONSTRUCCIÓN", year == 2023),
+                        by = c("iso2.ccaa.code" = "iso"))
+
+
+ggplot(map_constr) +
+  geom_sf(aes(fill = index)) +
+  geom_sf(data = can, color = "grey70") +
+  scale_fill_gradient(low = "#FFFF99", high = "#990000") +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(title = "Incidence Rate in Construction (2023)")
+```
+
+We observe that Barcelona and Madrid have moderate values of incidence rate. The highest values seem to correspond to Balearic Islands, La Rioja and Andalusia.
+
+Let's proceed in the same way with manufacturing in 2023:
+
+```{r, fig.align='center'}
+map_indust <- left_join(ccaa_sf,
+                        iind_iso |>
+                          filter(sector == "INDUSTRIA", year == 2023),
+                        by = c("iso2.ccaa.code" = "iso"))
+
+ggplot(map_indust) +
+  geom_sf(aes(fill = index)) +
+  geom_sf(data = can, color = "grey70") +
+  scale_fill_gradient(low = "#FFFF99", high = "#990000") +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(title = "Incidence Rate in Manufacturing (2023)")
+```
+
+Again, Barcelona and Madrid have relatively low values of incidence rate. The highest values are for Balearic Islands, Basque Country and Navarre.
+
+```{r, fig.align='center'}
+map_agricu <- left_join(ccaa_sf,
+                        iind_iso |>
+                          filter(sector == "AGRARIO", year == 2023),
+                        by = c("iso2.ccaa.code" = "iso"))
+
+ggplot(map_agricu) +
+  geom_sf(aes(fill = index)) +
+  geom_sf(data = can, color = "grey70") +
+  scale_fill_gradient(low = "#FFFF99", high = "#990000") +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(title = "Incidence Rate in Agriculture (2023)")
+```
+
+This is the mop of agriculture. Here incidence rates are more evenly distributed. The highest values are for Valencia, Extremadura, Cantabria and Basque Country.
+
+```{r, fig.align='center'}
+map_servic <- left_join(ccaa_sf,
+                        iind_iso |>
+                          filter(sector == "SERVICIOS", year == 2023),
+                        by = c("iso2.ccaa.code" = "iso"))
+
+ggplot(map_servic) +
+  geom_sf(aes(fill = index)) +
+  geom_sf(data = can, color = "grey70") +
+  scale_fill_gradient(low = "#FFFF99", high = "#990000") +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(title = "Incidence Rate in Services (2023)")
+```
+
+The services map is of high relevance, because it is the sector where most people are working in Spain. Here, Balearic Islands is the region with highest value of incidence rate.
+
+## Conclusions
+
+From this analysis we obtain several conclusions:
+
+-   Construction is the sector with highest value of incidence rate, followed by agriculture and manufacturing. Services has the lowest values of incidence rate. Global levels of incidence rate are close to services because of the high weight of services in the Spanish economy.
+-   Incidence rates began to lower in all sectors in 2019. The arrival of COVID reduced slightly the incidence rates, as the number of accidents reduced slightly faster than the number of people working in each sector. Since 2021, we can observe a slight increase of incidence rates.
+-   Regarding spatial distribution, we observe that Balearic Islands is leading the statistics of incidence rates in construction, manufacturing and services.
+
+```{r}
+ib_dl <- iind_iso |>
+  filter(iso %in% c("ES", "ES-IB"), sector != "TOTAL") |>
+  group_by(sector) |>
+  filter(year == max(year))
+
+iind_iso |>
+  filter(iso %in% c("ES", "ES-IB"), sector != "TOTAL") |>
+  ggplot(aes(year, index, color = iso)) +
+  geom_line() +
+  scale_x_continuous(name = element_blank(), 
+                     breaks = seq(2013, 2023, 2), 
+                     limits = c(2013, 2024)) +
+  geom_text(data = ib_dl, 
+            aes(year, index, color = iso, label = iso), 
+            hjust = 0, show.legend = FALSE, size = 3) +
+  scale_color_manual(values = c("#CC0000", "#0000CC")) +
+  facet_wrap(. ~  sector, ncol = 2) +
+  theme_minimal() +
+  theme(legend.position = "none") +
+  labs(title = "Incidence Index in Spain (ES) and Balearics (ES-IB)", y = NULL)
+```
+
+In the plot above I have compared the evolution of the incidence index in Balearic Islands and all Spain. We observe that the values in Balearic Islands are significantly higher in all sectors than in all Spain. Further research is needed to account for this difference.
+
+## References
+
+- Ministerio de Trabajo y Economía Social. Estadísticas de accidentes de trabajo del año 2023. <https://www.mites.gob.es/estadisticas/eat/eat23/TABLAS%20ESTADISTICAS/ATR_2023_I.xlsx>
+- `mapSpain` package. <https://ropenspain.github.io/mapSpain/index.html>
+- Última Hora (2025), *Baleares continúa atrapada en el ciclo de la siniestralidad laboral sin fin* <https://www.ultimahora.es/noticias/local/2025/01/19/2308089/trabajo-baleares-atrapados-ciclo-siniestralidad-laboral-fin.html>.
+
+All websites accessed on 2025-03-17.
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```

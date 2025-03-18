@@ -1,0 +1,259 @@
+---
+title: Evolution of the Spanish Incidence Rate of Occupational Accidents
+author: Jose M Sallan
+date: '2025-03-18'
+slug: evolution-of-the-spanish-incidence-rate-of-occupational-accidents
+categories:
+  - economics
+  - R
+tags:
+  - data visualization
+  - economics
+  - maps
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<pre class="r"><code>library(tidyverse)
+library(readxl)
+library(mapSpain)</code></pre>
+<p>The incidence rate is a measure of occupational accidents, equal to the number of accidents occurring at work and requiring a leave period per 100,000 workers exposed to the risk. In Spain, it is usually calculated for four sectors of economic activity: construction <em>(construcción)</em>, manufacturing <em>(industria)</em>, agriculture <em>(agricultura)</em> and services <em>(servicios)</em>. In this post, we will examine the evolution of this metric across regions <em>(comunidades autónomas)</em> in 2013-2023 period. Doing this analysis requires:</p>
+<ul>
+<li>Reading the data from an Excel file with the <code>readxl</code>.</li>
+<li>Handling and analyzing data with the <code>tidyverse</code>.</li>
+<li>Doing choroplethic maps with the <code>mapSpain</code>.</li>
+</ul>
+<div id="reading-and-processing-data" class="section level2">
+<h2>Reading and Processing Data</h2>
+<p>Let’s start reading the sheet ATR-I.1.3 of the ATR_2023_I.xls file. I need to input the lines to skip and the lines to read, to avoid headers and footnotes. Then, I remove the empty lines between blocks of data.</p>
+<pre class="r"><code>iind &lt;- read_excel(&quot;ATR_2023_I.xlsx&quot;,
+                   sheet = &quot;ATR-I.1.3&quot;,
+                   skip = 6,
+                   n_max = 106) # 105 rows</code></pre>
+<pre><code>## New names:
+## • `` -&gt; `...1`</code></pre>
+<pre class="r"><code>iind &lt;- iind |&gt;
+  filter(!is.na(`2013`)) # 95 rows</code></pre>
+<p>The <code>types</code> vector includes the Spanish name of all sectors of activity. I use this vector to create a <code>sector</code> column to report the sector the data belongs to, and replace the <code>TOTAL</code> values of <code>region</code> with <code>España</code>.</p>
+<pre class="r"><code>types &lt;- c(&quot;TOTAL&quot;, &quot;AGRARIO&quot;, &quot;INDUSTRIA&quot;, &quot;CONSTRUCCIÓN&quot;, &quot;SERVICIOS&quot;)
+
+iind &lt;- iind |&gt;
+  mutate(sector = rep(types, each = 19)) |&gt;
+  relocate(sector, .after = ...1)
+
+iind &lt;- iind |&gt;
+  rename(region = ...1) |&gt;
+  mutate(region = ifelse(region %in% types, &quot;España&quot;, region))</code></pre>
+<p>Finally, I am using <code>pivot_longer()</code> to present the data as a long table, and update the data type of <code>year</code> to numeric.</p>
+<pre class="r"><code>iind &lt;- iind |&gt;
+  pivot_longer(-c(region, sector), names_to = &quot;year&quot;, values_to = &quot;index&quot;) |&gt;
+  mutate(year = as.numeric(year))
+iind</code></pre>
+<pre><code>## # A tibble: 1,045 × 4
+##    region sector  year index
+##    &lt;chr&gt;  &lt;chr&gt;  &lt;dbl&gt; &lt;dbl&gt;
+##  1 España TOTAL   2013 3009.
+##  2 España TOTAL   2014 3111.
+##  3 España TOTAL   2015 3252.
+##  4 España TOTAL   2016 3364.
+##  5 España TOTAL   2017 3409.
+##  6 España TOTAL   2018 3409.
+##  7 España TOTAL   2019 3020.
+##  8 España TOTAL   2020 2455.
+##  9 España TOTAL   2021 2810.
+## 10 España TOTAL   2022 2951.
+## # ℹ 1,035 more rows</code></pre>
+</div>
+<div id="analyzing-data-temporal-evolution" class="section level1">
+<h1>Analyzing Data: Temporal Evolution</h1>
+<p>Let’s create a plot representing the evolution of the incidence rate for each sector in Spain. I want to attach direct labels to the table, so I am creating the <code>iind_dl</code> table to position the sector name.</p>
+<pre class="r"><code>iind_dl &lt;- iind |&gt;
+  group_by(sector) |&gt;
+  filter(region == &quot;España&quot;, year == max(year))</code></pre>
+<p>Here is the line plot representing the evolution of the incidence rate from 2013 to 2023. Some of the modifications to the plot are:</p>
+<ul>
+<li>Temporal labels are modified with <code>scale_x_continuous()</code>. Here I am also removing the axis title and modifying the limits of the axis to make room for the direct labels.</li>
+<li>Direct labels are attached with <code>geom_text()</code>.</li>
+<li>In the <code>labs()</code> function I give a title to the plot and remove the y axis label.</li>
+</ul>
+<pre class="r"><code>iind |&gt;
+  filter(region == &quot;España&quot;) |&gt;
+  ggplot(aes(year, index, color = sector)) +
+  geom_line(linewidth = 1) +
+  scale_x_continuous(name = element_blank(), 
+                     breaks = seq(2013, 2023, 2), 
+                     limits = c(2013, 2025)) +
+  labs(title = &quot;Índice de incidencia baja en jornada&quot;, 
+       caption = &quot;Fuente: MITES&quot;, y = NULL) +
+  geom_text(data = iind_dl, 
+            aes(year, index, color = sector, label = sector), 
+            hjust = 0, show.legend = FALSE, size = 3) +
+  theme_minimal() +
+  scale_color_viridis_d() +
+  theme(legend.position = &quot;none&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>We observe that the construction sector has the highest values of incidence rate along the years. Agriculture and manufacturing have similar values, and services sector has the lowest values of incidence rate. Global levels of incidence rate are close to services because of the high weight of services in the Spanish economy. Incidence rates peaked around 2018, have a slight decrease during the COVID years and have raised slightly since then. The reduction of the incidence rates during COVID is moderate because lowered accidents and people working on each sector at a similar pace.</p>
+<div id="analyzing-data-regional-differences" class="section level2">
+<h2>Analyzing Data: Regional Differences</h2>
+<p>To account for geographical differences, I will build choropleth maps with the <code>mapSpain</code> package. Here is a regional map of Spain using this package.</p>
+<pre class="r"><code>ccaa_sf &lt;- esp_get_ccaa_siane()
+can &lt;- esp_get_can_box()
+ggplot(ccaa_sf) +
+  geom_sf() +
+  geom_sf(data = can, color = &quot;grey70&quot;) +
+  theme_void()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>I need to bind incidence rates with regions of the map, so I need to match the iso2 codes of each region with the region names presented in the data. I am doing this with the <code>iso_ccaa</code> table.</p>
+<pre class="r"><code>iso_ccaa &lt;- ccaa_sf$iso2.ccaa.code
+tabla_ccaa &lt;- tibble(region = unique(iind$region),
+                     iso = c(&quot;ES&quot;, iso_ccaa[c(1:6, 8, 7, 9:18)]))</code></pre>
+<p>I use <code>inner_join()</code> to attach iso2 codes of regions to the data:</p>
+<pre class="r"><code>iind_iso &lt;- inner_join(iind, tabla_ccaa, by = &quot;region&quot;)</code></pre>
+<p>… and use left_join() to attach to the map values of incidence rates in construction in 2023.</p>
+<pre class="r"><code>map_constr &lt;- left_join(ccaa_sf,
+                        iind_iso |&gt;
+                          filter(sector == &quot;CONSTRUCCIÓN&quot;, year == 2023),
+                        by = c(&quot;iso2.ccaa.code&quot; = &quot;iso&quot;))
+
+
+ggplot(map_constr) +
+  geom_sf(aes(fill = index)) +
+  geom_sf(data = can, color = &quot;grey70&quot;) +
+  scale_fill_gradient(low = &quot;#FFFF99&quot;, high = &quot;#990000&quot;) +
+  theme_void() +
+  theme(legend.position = &quot;none&quot;) +
+  labs(title = &quot;Incidence Rate in Construction (2023)&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>We observe that Barcelona and Madrid have moderate values of incidence rate. The highest values seem to correspond to Balearic Islands, La Rioja and Andalusia.</p>
+<p>Let’s proceed in the same way with manufacturing in 2023:</p>
+<pre class="r"><code>map_indust &lt;- left_join(ccaa_sf,
+                        iind_iso |&gt;
+                          filter(sector == &quot;INDUSTRIA&quot;, year == 2023),
+                        by = c(&quot;iso2.ccaa.code&quot; = &quot;iso&quot;))
+
+ggplot(map_indust) +
+  geom_sf(aes(fill = index)) +
+  geom_sf(data = can, color = &quot;grey70&quot;) +
+  scale_fill_gradient(low = &quot;#FFFF99&quot;, high = &quot;#990000&quot;) +
+  theme_void() +
+  theme(legend.position = &quot;none&quot;) +
+  labs(title = &quot;Incidence Rate in Manufacturing (2023)&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-11-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Again, Barcelona and Madrid have relatively low values of incidence rate. The highest values are for Balearic Islands, Basque Country and Navarre.</p>
+<pre class="r"><code>map_agricu &lt;- left_join(ccaa_sf,
+                        iind_iso |&gt;
+                          filter(sector == &quot;AGRARIO&quot;, year == 2023),
+                        by = c(&quot;iso2.ccaa.code&quot; = &quot;iso&quot;))
+
+ggplot(map_agricu) +
+  geom_sf(aes(fill = index)) +
+  geom_sf(data = can, color = &quot;grey70&quot;) +
+  scale_fill_gradient(low = &quot;#FFFF99&quot;, high = &quot;#990000&quot;) +
+  theme_void() +
+  theme(legend.position = &quot;none&quot;) +
+  labs(title = &quot;Incidence Rate in Agriculture (2023)&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-12-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>This is the mop of agriculture. Here incidence rates are more evenly distributed. The highest values are for Valencia, Extremadura, Cantabria and Basque Country.</p>
+<pre class="r"><code>map_servic &lt;- left_join(ccaa_sf,
+                        iind_iso |&gt;
+                          filter(sector == &quot;SERVICIOS&quot;, year == 2023),
+                        by = c(&quot;iso2.ccaa.code&quot; = &quot;iso&quot;))
+
+ggplot(map_servic) +
+  geom_sf(aes(fill = index)) +
+  geom_sf(data = can, color = &quot;grey70&quot;) +
+  scale_fill_gradient(low = &quot;#FFFF99&quot;, high = &quot;#990000&quot;) +
+  theme_void() +
+  theme(legend.position = &quot;none&quot;) +
+  labs(title = &quot;Incidence Rate in Services (2023)&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-13-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>The services map is of high relevance, because it is the sector where most people are working in Spain. Here, Balearic Islands is the region with highest value of incidence rate.</p>
+</div>
+<div id="conclusions" class="section level2">
+<h2>Conclusions</h2>
+<p>From this analysis we obtain several conclusions:</p>
+<ul>
+<li>Construction is the sector with highest value of incidence rate, followed by agriculture and manufacturing. Services has the lowest values of incidence rate. Global levels of incidence rate are close to services because of the high weight of services in the Spanish economy.</li>
+<li>Incidence rates began to lower in all sectors in 2019. The arrival of COVID reduced slightly the incidence rates, as the number of accidents reduced slightly faster than the number of people working in each sector. Since 2021, we can observe a slight increase of incidence rates.</li>
+<li>Regarding spatial distribution, we observe that Balearic Islands is leading the statistics of incidence rates in construction, manufacturing and services.</li>
+</ul>
+<pre class="r"><code>ib_dl &lt;- iind_iso |&gt;
+  filter(iso %in% c(&quot;ES&quot;, &quot;ES-IB&quot;), sector != &quot;TOTAL&quot;) |&gt;
+  group_by(sector) |&gt;
+  filter(year == max(year))
+
+iind_iso |&gt;
+  filter(iso %in% c(&quot;ES&quot;, &quot;ES-IB&quot;), sector != &quot;TOTAL&quot;) |&gt;
+  ggplot(aes(year, index, color = iso)) +
+  geom_line() +
+  scale_x_continuous(name = element_blank(), 
+                     breaks = seq(2013, 2023, 2), 
+                     limits = c(2013, 2024)) +
+  geom_text(data = ib_dl, 
+            aes(year, index, color = iso, label = iso), 
+            hjust = 0, show.legend = FALSE, size = 3) +
+  scale_color_manual(values = c(&quot;#CC0000&quot;, &quot;#0000CC&quot;)) +
+  facet_wrap(. ~  sector, ncol = 2) +
+  theme_minimal() +
+  theme(legend.position = &quot;none&quot;) +
+  labs(title = &quot;Incidence Index in Spain (ES) and Balearics (ES-IB)&quot;, y = NULL)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-14-1.png" width="672" /></p>
+<p>In the plot above I have compared the evolution of the incidence index in Balearic Islands and all Spain. We observe that the values in Balearic Islands are significantly higher in all sectors than in all Spain. Further research is needed to account for this difference.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Ministerio de Trabajo y Economía Social. Estadísticas de accidentes de trabajo del año 2023. <a href="https://www.mites.gob.es/estadisticas/eat/eat23/TABLAS%20ESTADISTICAS/ATR_2023_I.xlsx" class="uri">https://www.mites.gob.es/estadisticas/eat/eat23/TABLAS%20ESTADISTICAS/ATR_2023_I.xlsx</a></li>
+<li><code>mapSpain</code> package. <a href="https://ropenspain.github.io/mapSpain/index.html" class="uri">https://ropenspain.github.io/mapSpain/index.html</a></li>
+<li>Última Hora (2025), <em>Baleares continúa atrapada en el ciclo de la siniestralidad laboral sin fin</em> <a href="https://www.ultimahora.es/noticias/local/2025/01/19/2308089/trabajo-baleares-atrapados-ciclo-siniestralidad-laboral-fin.html" class="uri">https://www.ultimahora.es/noticias/local/2025/01/19/2308089/trabajo-baleares-atrapados-ciclo-siniestralidad-laboral-fin.html</a>.</li>
+</ul>
+<p>All websites accessed on 2025-03-17.</p>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.4.3 (2025-02-28)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] mapSpain_0.10.0 readxl_1.4.3    lubridate_1.9.4 forcats_1.0.0  
+##  [5] stringr_1.5.1   dplyr_1.1.4     purrr_1.0.2     readr_2.1.5    
+##  [9] tidyr_1.3.1     tibble_3.2.1    ggplot2_3.5.1   tidyverse_2.0.0
+## 
+## loaded via a namespace (and not attached):
+##  [1] rappdirs_0.3.3     utf8_1.2.4         sass_0.4.9         generics_0.1.3    
+##  [5] class_7.3-23       KernSmooth_2.23-26 blogdown_1.19      stringi_1.8.3     
+##  [9] countrycode_1.6.0  hms_1.1.3          digest_0.6.35      magrittr_2.0.3    
+## [13] evaluate_0.23      grid_4.4.3         timechange_0.3.0   bookdown_0.39     
+## [17] fastmap_1.1.1      cellranger_1.1.0   jsonlite_1.8.9     e1071_1.7-14      
+## [21] DBI_1.2.2          viridisLite_0.4.2  scales_1.3.0       jquerylib_0.1.4   
+## [25] cli_3.6.2          rlang_1.1.5        units_0.8-5        munsell_0.5.1     
+## [29] withr_3.0.0        cachem_1.0.8       yaml_2.3.8         tools_4.4.3       
+## [33] tzdb_0.4.0         colorspace_2.1-0   vctrs_0.6.5        R6_2.5.1          
+## [37] proxy_0.4-27       lifecycle_1.0.4    classInt_0.4-10    pkgconfig_2.0.3   
+## [41] pillar_1.10.1      bslib_0.7.0        gtable_0.3.5       glue_1.7.0        
+## [45] Rcpp_1.0.12        sf_1.0-16          highr_0.10         xfun_0.43         
+## [49] tidyselect_1.2.1   rstudioapi_0.16.0  knitr_1.46         farver_2.1.1      
+## [53] htmltools_0.5.8.1  labeling_0.4.3     rmarkdown_2.26     compiler_4.4.3</code></pre>
+</div>
+</div>

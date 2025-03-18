@@ -3,18 +3,39 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>//localhost:4321/blog/</loc>
-    <lastmod>2025-02-13T00:00:00+00:00</lastmod>
+    <lastmod>2025-03-18T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/categories/</loc>
-    <lastmod>2025-02-13T00:00:00+00:00</lastmod>
+    <lastmod>2025-03-18T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/tags/data-visualization/</loc>
+    <lastmod>2025-03-18T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/tags/economics/</loc>
+    <lastmod>2025-03-18T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/categories/economics/</loc>
+    <lastmod>2025-03-18T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/blog/evolution-of-the-spanish-incidence-rate-of-occupational-accidents/</loc>
+    <lastmod>2025-03-18T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/</loc>
+    <lastmod>2025-03-18T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/tags/maps/</loc>
+    <lastmod>2025-03-18T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/categories/r/</loc>
+    <lastmod>2025-03-18T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>//localhost:4321/tags/</loc>
+    <lastmod>2025-03-18T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/tags/factor-analysis/</loc>
     <lastmod>2025-02-13T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/blog/features-with-principal-component-analysis-pca-with-tidymodels/</loc>
-    <lastmod>2025-02-13T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>//localhost:4321/</loc>
     <lastmod>2025-02-13T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/tags/logistic-regression/</loc>
@@ -23,25 +44,10 @@
     <loc>//localhost:4321/tags/machine-learning/</loc>
     <lastmod>2025-02-13T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>//localhost:4321/categories/r/</loc>
-    <lastmod>2025-02-13T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>//localhost:4321/tags/</loc>
-    <lastmod>2025-02-13T00:00:00+00:00</lastmod>
-  </url><url>
     <loc>//localhost:4321/tags/tidymodels/</loc>
     <lastmod>2025-02-13T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/categories/data-analysis/</loc>
-    <lastmod>2025-02-07T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>//localhost:4321/tags/data-visualization/</loc>
-    <lastmod>2025-02-07T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>//localhost:4321/tags/economics/</loc>
-    <lastmod>2025-02-07T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>//localhost:4321/categories/economics/</loc>
     <lastmod>2025-02-07T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/tags/ggplot/</loc>
@@ -352,9 +358,6 @@
   </url><url>
     <loc>//localhost:4321/blog/combinatorial-explosion/</loc>
     <lastmod>2022-02-15T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>//localhost:4321/tags/maps/</loc>
-    <lastmod>2022-02-11T00:00:00+00:00</lastmod>
   </url><url>
     <loc>//localhost:4321/blog/optimizing-the-odyssey/</loc>
     <lastmod>2022-02-11T00:00:00+00:00</lastmod>
