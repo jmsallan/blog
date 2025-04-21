@@ -1,0 +1,290 @@
+---
+title: Fuel Consumption in mtcars
+author: Jose M Sallan
+date: '2025-04-21'
+slug: fuel-consumption-in-mtcars
+categories:
+  - R
+  - data analysis
+  - statistics
+tags:
+  - ggplot
+  - linear regression
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>In this post, I present an explanatory model of fuel consumption for the <code>mtcars</code> dataset with high explanatory power. Then, I will present an alternative model using an alternative measure of fuel consumption. This is an example of the role that a good theoretical background can do in exploratory data analysis.</p>
+<p>The <code>mtcars</code> dataset presents fuel consumption and ten aspects of automobile design and performance reported on <em>Motor Trend US</em> in 1974. Let’s start loading the tidyverse and presenting <code>mtcars</code> as a tibble.</p>
+<pre class="r"><code>library(tidyverse)
+mtcars &lt;- mtcars |&gt;
+  mutate(model = rownames(mtcars))
+mtcars &lt;- tibble(mtcars)
+mtcars</code></pre>
+<pre><code>## # A tibble: 32 × 12
+##      mpg   cyl  disp    hp  drat    wt  qsec    vs    am  gear  carb model      
+##    &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt;      
+##  1  21       6  160    110  3.9   2.62  16.5     0     1     4     4 Mazda RX4  
+##  2  21       6  160    110  3.9   2.88  17.0     0     1     4     4 Mazda RX4 …
+##  3  22.8     4  108     93  3.85  2.32  18.6     1     1     4     1 Datsun 710 
+##  4  21.4     6  258    110  3.08  3.22  19.4     1     0     3     1 Hornet 4 D…
+##  5  18.7     8  360    175  3.15  3.44  17.0     0     0     3     2 Hornet Spo…
+##  6  18.1     6  225    105  2.76  3.46  20.2     1     0     3     1 Valiant    
+##  7  14.3     8  360    245  3.21  3.57  15.8     0     0     3     4 Duster 360 
+##  8  24.4     4  147.    62  3.69  3.19  20       1     0     4     2 Merc 240D  
+##  9  22.8     4  141.    95  3.92  3.15  22.9     1     0     4     2 Merc 230   
+## 10  19.2     6  168.   123  3.92  3.44  18.3     1     0     4     4 Merc 280   
+## # ℹ 22 more rows</code></pre>
+<p>Let’s turn all categorical variables into factors:</p>
+<pre class="r"><code>mtcars &lt;- mtcars |&gt;
+  mutate(across(c(cyl, vs:carb), as.factor))
+mtcars</code></pre>
+<pre><code>## # A tibble: 32 × 12
+##      mpg cyl    disp    hp  drat    wt  qsec vs    am    gear  carb  model      
+##    &lt;dbl&gt; &lt;fct&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;fct&gt; &lt;fct&gt; &lt;fct&gt; &lt;fct&gt; &lt;chr&gt;      
+##  1  21   6      160    110  3.9   2.62  16.5 0     1     4     4     Mazda RX4  
+##  2  21   6      160    110  3.9   2.88  17.0 0     1     4     4     Mazda RX4 …
+##  3  22.8 4      108     93  3.85  2.32  18.6 1     1     4     1     Datsun 710 
+##  4  21.4 6      258    110  3.08  3.22  19.4 1     0     3     1     Hornet 4 D…
+##  5  18.7 8      360    175  3.15  3.44  17.0 0     0     3     2     Hornet Spo…
+##  6  18.1 6      225    105  2.76  3.46  20.2 1     0     3     1     Valiant    
+##  7  14.3 8      360    245  3.21  3.57  15.8 0     0     3     4     Duster 360 
+##  8  24.4 4      147.    62  3.69  3.19  20   1     0     4     2     Merc 240D  
+##  9  22.8 4      141.    95  3.92  3.15  22.9 1     0     4     2     Merc 230   
+## 10  19.2 6      168.   123  3.92  3.44  18.3 1     0     4     4     Merc 280   
+## # ℹ 22 more rows</code></pre>
+<p>Let’s use the <code>corrr</code> package to examine the correlations among numerical variables.</p>
+<pre class="r"><code>library(corrr)
+mtcars |&gt;
+  select(c(mpg, disp:qsec)) |&gt;
+  correlate() |&gt;    # correlation matrix
+  rearrange() |&gt;    # reorder values
+  shave() |&gt;        # show lower diagona
+  fashion()         # present two decimals</code></pre>
+<pre><code>##   term  mpg drat qsec   hp   wt disp
+## 1  mpg                              
+## 2 drat  .68                         
+## 3 qsec  .42  .09                    
+## 4   hp -.78 -.45 -.71               
+## 5   wt -.87 -.71 -.17  .66          
+## 6 disp -.85 -.71 -.43  .79  .89</code></pre>
+<p>The highest correlation of mpg is with weight <code>wt</code>. It is negative, as higher weight means higher fuel consumption and therefore less miles per gallon <code>mpg</code>. The second variable is displacement <code>disp</code>, but it is highly correlated with <code>wt</code>, so let’s keep a parsimonious model <code>mpg ~ wt</code>.</p>
+<pre class="r"><code>mtcars |&gt;
+  ggplot(aes(wt, mpg)) +
+  geom_point() + 
+  geom_smooth() +
+  theme_minimal()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>After doing a scatterplot of <code>wt</code> and <code>mpg</code>, we observe that the relationship is nonlinear. A remedy for this can be using the transmission type <code>am</code> variable (0 = automatic, 1 = manual).</p>
+<pre class="r"><code>mtcars |&gt;
+  ggplot(aes(wt, mpg, color = am)) +
+  geom_point() + 
+  geom_smooth(method = &quot;lm&quot;) +
+  scale_color_manual(name = &quot;transmission&quot;, 
+                     labels = c(&quot;automatic&quot;, &quot;manual&quot;),
+                     values = c(&quot;red&quot;, &quot;blue&quot;)) +
+  theme_minimal() +
+  theme(legend.position = &quot;bottom&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>According to this model, <code>am</code> moderates the relationship between <code>wt</code> and <code>mpg</code>. The slope of automatic transmission is smaller than manual, suggesting that automatic transmission reduces fuel consumption.</p>
+<p>Let’s use the stargazer package to examine the effect of the moderating variable.</p>
+<pre class="r"><code>library(stargazer)
+m1 &lt;- lm(mpg ~ wt, mtcars)
+m2 &lt;- lm(mpg ~ wt*am, mtcars)
+stargazer(m1, m2, type = &quot;text&quot;)</code></pre>
+<pre><code>## 
+## =================================================================
+##                                  Dependent variable:             
+##                     ---------------------------------------------
+##                                          mpg                     
+##                              (1)                    (2)          
+## -----------------------------------------------------------------
+## wt                        -5.344***              -3.786***       
+##                            (0.559)                (0.786)        
+##                                                                  
+## am1                                              14.878***       
+##                                                   (4.264)        
+##                                                                  
+## wt:am1                                           -5.298***       
+##                                                   (1.445)        
+##                                                                  
+## Constant                  37.285***              31.416***       
+##                            (1.878)                (3.020)        
+##                                                                  
+## -----------------------------------------------------------------
+## Observations                  32                     32          
+## R2                          0.753                  0.833         
+## Adjusted R2                 0.745                  0.815         
+## Residual Std. Error    3.046 (df = 30)        2.591 (df = 28)    
+## F Statistic         91.375*** (df = 1; 30) 46.567*** (df = 3; 28)
+## =================================================================
+## Note:                                 *p&lt;0.1; **p&lt;0.05; ***p&lt;0.01</code></pre>
+<p>The coefficients of variables <code>wt</code> and <code>am</code>, and of the interaction term <code>wt:am</code> are significant. Besides, the model with interaction term adds explanatory power to the model.</p>
+<pre class="r"><code>anova(m1, m2)</code></pre>
+<pre><code>## Analysis of Variance Table
+## 
+## Model 1: mpg ~ wt
+## Model 2: mpg ~ wt * am
+##   Res.Df    RSS Df Sum of Sq      F   Pr(&gt;F)   
+## 1     30 278.32                                
+## 2     28 188.01  2    90.314 6.7253 0.004119 **
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<p>From this model, we can conclude that fuel consumption in miles per gallon depends on car weight, and that this relationship is moderated by type of transmission.</p>
+<div id="an-alternative-measure-of-fuel-consumption" class="section level2">
+<h2>An Alternative Measure of Fuel Consumption</h2>
+<p>While in the United States fuel consumption is measured in miles per gallon, in other parts of the word is measured in liters of fuel per 100 Km. One measure of fuel consumption is inverse of the other. Let’s calculate fuel consumption per 100 Km <code>l100</code> from <code>mpg</code>.</p>
+<pre class="r"><code>mtcars &lt;- mtcars |&gt;
+  mutate(l100 = 235.2146/mpg)</code></pre>
+<p>And let’s see how this measure of fuel consumption relates with weight.</p>
+<pre class="r"><code>mtcars |&gt;
+  ggplot(aes(wt, l100)) +
+  geom_point() + 
+  geom_smooth() +
+  theme_minimal()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Here we observe a direct, linear relationship between <code>wt</code> and <code>l100</code>. Let’s introduce type of transmission.</p>
+<pre class="r"><code>mtcars |&gt;
+  ggplot(aes(wt, l100, color = am)) +
+  geom_point() + 
+  geom_smooth(method = &quot;lm&quot;) +
+  scale_color_manual(name = &quot;transmission&quot;, 
+                     labels = c(&quot;automatic&quot;, &quot;manual&quot;),
+                     values = c(&quot;red&quot;, &quot;blue&quot;)) +
+  theme_minimal() +
+  theme(legend.position = &quot;bottom&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>In this model, the slope of both types of transmission looks quite similar. Let’s confirm that with a regression model.</p>
+<pre class="r"><code>m3 &lt;- lm(l100 ~ wt, mtcars)
+m4 &lt;- lm(l100 ~ wt*am, mtcars)
+stargazer(m3, m4, type = &quot;text&quot;)</code></pre>
+<pre><code>## 
+## ==================================================================
+##                                  Dependent variable:              
+##                     ----------------------------------------------
+##                                          l100                     
+##                               (1)                    (2)          
+## ------------------------------------------------------------------
+## wt                         3.514***                3.791***       
+##                             (0.329)                (0.545)        
+##                                                                   
+## am1                                                 -0.039        
+##                                                    (2.959)        
+##                                                                   
+## wt:am1                                              0.418         
+##                                                    (1.003)        
+##                                                                   
+## Constant                     1.451                  0.165         
+##                             (1.104)                (2.096)        
+##                                                                   
+## ------------------------------------------------------------------
+## Observations                  32                      32          
+## R2                           0.792                  0.804         
+## Adjusted R2                  0.785                  0.783         
+## Residual Std. Error     1.791 (df = 30)        1.798 (df = 28)    
+## F Statistic         114.168*** (df = 1; 30) 38.365*** (df = 3; 28)
+## ==================================================================
+## Note:                                  *p&lt;0.1; **p&lt;0.05; ***p&lt;0.01</code></pre>
+<p>In this model, the coefficients of <code>am</code> and <code>am:wt</code> are not significant. The analysis of variance confirms that the model with interaction terms does not add explanatory power to the model.</p>
+<pre class="r"><code>anova(m3, m4)</code></pre>
+<pre><code>## Analysis of Variance Table
+## 
+## Model 1: l100 ~ wt
+## Model 2: l100 ~ wt * am
+##   Res.Df    RSS Df Sum of Sq      F Pr(&gt;F)
+## 1     30 96.276                           
+## 2     28 90.531  2    5.7456 0.8885 0.4225</code></pre>
+<p>Therefore, according to this model fuel consumption in liters per kilometer depends on car weight, and we cannot appreciate any relationship between fuel consumption and type of transmission.</p>
+</div>
+<div id="which-model-is-better" class="section level2">
+<h2>Which Model Is Better?</h2>
+<p>Now we have two competing models to explain fuel consumption.</p>
+<ul>
+<li>The model <code>m2</code>, with formula <code>mpg ~ wt*am</code> and adjusted R2 of 0.815.</li>
+<li>The model <code>m3</code>, with formula <code>l100 ~ wt</code> and adjusted R2 of 0.785.</li>
+</ul>
+<p>Although <code>m2</code> has a better fit than <code>m3</code>, I argue that the best model is <code>m3</code>. My choice is grounded on the plot of <code>m2</code>.</p>
+<pre class="r"><code>mtcars |&gt;
+  ggplot(aes(wt, mpg, color = am)) +
+  geom_point() + 
+  geom_smooth(method = &quot;lm&quot;) +
+  scale_color_manual(name = &quot;transmission&quot;, 
+                     labels = c(&quot;automatic&quot;, &quot;manual&quot;),
+                     values = c(&quot;red&quot;, &quot;blue&quot;)) +
+  theme_minimal() +
+  theme(legend.position = &quot;bottom&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-13-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>The <code>am</code> variable is a proxy for a variable separating light and heavy cars. While most light cars have manual transmission, heavier cars tend to have automatic transmission. This is because in 1972, American cars had automatic transmission, while European and Japanese cars tended to have manual transmission. To illustrate this, I have imputed the country of manufacturing of each model based on its name.</p>
+<pre class="r"><code>mtcars &lt;- mtcars |&gt;
+  mutate(country = c(rep(&quot;J&quot;, 3),
+                     rep(&quot;A&quot;, 4),
+                     rep(&quot;E&quot;, 7),
+                     rep(&quot;A&quot;, 3),
+                     &quot;E&quot;,
+                     rep(&quot;J&quot;, 3),
+                     rep(&quot;A&quot;, 4),
+                     rep(&quot;E&quot;, 3),
+                     &quot;A&quot;,
+                     rep(&quot;E&quot;, 3)))
+
+mtcars |&gt;
+  ggplot(aes(wt, mpg, color = country)) +
+  geom_point(size = 2) +
+  theme_minimal() +
+  theme(legend.position = &quot;bottom&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-14-1.png" width="672" /></p>
+<p>The plot shows how heavier cars (with <code>wt</code> &gt; 3) tend to be American, while lighter cars are European or Japanese.</p>
+<p>The most relevant argument favouring model <code>m3</code> is that the energy requested to move a car is proportional to weight, and that fuel consumption in liters per 100 Km is a direct proxy of energy, while miles per gallon is inversely proportional to energy spent. Note that it does not have to do with units used: fuel consumption in gallons per 100 miles would be also a direct proxy of energy.</p>
+</div>
+<div id="conclusion" class="section level2">
+<h2>Conclusion</h2>
+<p>I argue that <code>m3</code> is the model that better measures the relationship between weight and fuel consumption. Measuring fuel consumption in liters per 100 kilometers instead of miles per gallon allows using a direct proxy of energy spent to move the car, and allows finding a linear relationship between weight and fuel consumption.</p>
+<p>Furthermore, note that plots have been a better guide than statistical models to graps the relationship between variables. This is a demonstration of the usefulness of plots in exploratory data analysis.</p>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.4.3 (2025-02-28)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] stargazer_5.2.3 corrr_0.4.4     lubridate_1.9.4 forcats_1.0.0  
+##  [5] stringr_1.5.1   dplyr_1.1.4     purrr_1.0.2     readr_2.1.5    
+##  [9] tidyr_1.3.1     tibble_3.2.1    ggplot2_3.5.1   tidyverse_2.0.0
+## 
+## loaded via a namespace (and not attached):
+##  [1] sass_0.4.9        utf8_1.2.4        generics_0.1.3    lattice_0.22-5   
+##  [5] blogdown_1.19     stringi_1.8.3     hms_1.1.3         digest_0.6.35    
+##  [9] magrittr_2.0.3    evaluate_0.23     grid_4.4.3        timechange_0.3.0 
+## [13] bookdown_0.39     iterators_1.0.14  fastmap_1.1.1     Matrix_1.7-3     
+## [17] foreach_1.5.2     jsonlite_1.8.9    seriation_1.5.5   mgcv_1.9-1       
+## [21] scales_1.3.0      codetools_0.2-19  jquerylib_0.1.4   registry_0.5-1   
+## [25] cli_3.6.2         rlang_1.1.5       splines_4.4.3     munsell_0.5.1    
+## [29] withr_3.0.0       cachem_1.0.8      yaml_2.3.8        tools_4.4.3      
+## [33] tzdb_0.4.0        colorspace_2.1-0  ca_0.71.1         vctrs_0.6.5      
+## [37] TSP_1.2-4         R6_2.5.1          lifecycle_1.0.4   pkgconfig_2.0.3  
+## [41] pillar_1.10.1     bslib_0.7.0       gtable_0.3.5      glue_1.7.0       
+## [45] highr_0.10        xfun_0.43         tidyselect_1.2.1  rstudioapi_0.16.0
+## [49] knitr_1.46        farver_2.1.1      nlme_3.1-168      htmltools_0.5.8.1
+## [53] labeling_0.4.3    rmarkdown_2.26    compiler_4.4.3</code></pre>
+</div>

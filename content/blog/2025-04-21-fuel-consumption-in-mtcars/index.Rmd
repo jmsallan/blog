@@ -1,0 +1,205 @@
+---
+title: Fuel Consumption in mtcars
+author: Jose M Sallan
+date: '2025-04-21'
+slug: fuel-consumption-in-mtcars
+categories:
+  - R
+  - data analysis
+  - statistics
+tags:
+  - ggplot
+  - linear regression
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this post, I present an explanatory model of fuel consumption for the `mtcars` dataset with high explanatory power. Then, I will present an alternative model using an alternative measure of fuel consumption. This is an example of the role that a good theoretical background can do in exploratory data analysis.
+
+The `mtcars` dataset presents fuel consumption and ten aspects of automobile design and performance reported on *Motor Trend US* in 1974. Let's start loading the tidyverse and presenting `mtcars` as a tibble.
+
+```{r, message=FALSE}
+library(tidyverse)
+mtcars <- mtcars |>
+  mutate(model = rownames(mtcars))
+mtcars <- tibble(mtcars)
+mtcars
+```
+
+Let's turn all categorical variables into factors:
+
+```{r}
+mtcars <- mtcars |>
+  mutate(across(c(cyl, vs:carb), as.factor))
+mtcars
+```
+
+Let's use the `corrr` package to examine the correlations among numerical variables.
+
+```{r, message=FALSE}
+library(corrr)
+mtcars |>
+  select(c(mpg, disp:qsec)) |>
+  correlate() |>    # correlation matrix
+  rearrange() |>    # reorder values
+  shave() |>        # show lower diagona
+  fashion()         # present two decimals
+```
+
+The highest correlation of mpg is with weight `wt`. It is negative, as higher weight means higher fuel consumption and therefore less miles per gallon `mpg`. The second variable is displacement `disp`, but it is highly correlated with `wt`, so let's keep a parsimonious model `mpg ~ wt`.
+
+```{r, message=FALSE, fig.align='center'}
+mtcars |>
+  ggplot(aes(wt, mpg)) +
+  geom_point() + 
+  geom_smooth() +
+  theme_minimal()
+```
+
+
+After doing a scatterplot of `wt` and `mpg`, we observe that the relationship is nonlinear. A remedy for this can be using the transmission type `am` variable (0 = automatic, 1 = manual).
+
+```{r, message=FALSE, fig.align='center'}
+mtcars |>
+  ggplot(aes(wt, mpg, color = am)) +
+  geom_point() + 
+  geom_smooth(method = "lm") +
+  scale_color_manual(name = "transmission", 
+                     labels = c("automatic", "manual"),
+                     values = c("red", "blue")) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+According to this model, `am` moderates the relationship between `wt` and `mpg`. The slope of automatic transmission is smaller than manual, suggesting that automatic transmission reduces fuel consumption.
+
+Let's use the stargazer package to examine the effect of the moderating variable.
+
+```{r, message=FALSE}
+library(stargazer)
+m1 <- lm(mpg ~ wt, mtcars)
+m2 <- lm(mpg ~ wt*am, mtcars)
+stargazer(m1, m2, type = "text")
+```
+
+The coefficients of variables `wt` and `am`, and of the interaction term `wt:am` are significant. Besides, the model with interaction term adds explanatory power to the model.
+
+```{r}
+anova(m1, m2)
+```
+
+From this model, we can conclude that fuel consumption in miles per gallon depends on car weight, and that this relationship is moderated by type of transmission.
+
+## An Alternative Measure of Fuel Consumption
+
+While in the United States fuel consumption is measured in miles per gallon, in other parts of the word is measured in liters of fuel per 100 Km. One measure of fuel consumption is inverse of the other. Let's calculate fuel consumption per 100 Km `l100` from `mpg`.
+
+```{r}
+mtcars <- mtcars |>
+  mutate(l100 = 235.2146/mpg)
+```
+
+And let's see how this measure of fuel consumption relates with weight.
+
+```{r, message=FALSE, fig.align='center'}
+mtcars |>
+  ggplot(aes(wt, l100)) +
+  geom_point() + 
+  geom_smooth() +
+  theme_minimal()
+```
+
+Here we observe a direct, linear relationship between `wt` and `l100`. Let's introduce type of transmission.
+
+```{r, message=FALSE, fig.align='center'}
+mtcars |>
+  ggplot(aes(wt, l100, color = am)) +
+  geom_point() + 
+  geom_smooth(method = "lm") +
+  scale_color_manual(name = "transmission", 
+                     labels = c("automatic", "manual"),
+                     values = c("red", "blue")) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+In this model, the slope of both types of transmission looks quite similar. Let's confirm that with a regression model.
+
+```{r}
+m3 <- lm(l100 ~ wt, mtcars)
+m4 <- lm(l100 ~ wt*am, mtcars)
+stargazer(m3, m4, type = "text")
+```
+
+In this model, the coefficients of `am` and `am:wt` are not significant. The analysis of variance confirms that the model with interaction terms does not add explanatory power to the model.
+
+```{r}
+anova(m3, m4)
+```
+
+Therefore, according to this model fuel consumption in liters per kilometer depends on car weight, and we cannot appreciate any relationship between fuel consumption and type of transmission.
+
+## Which Model Is Better?
+
+Now we have two competing models to explain fuel consumption.
+
+-   The model `m2`, with formula `mpg ~ wt*am` and adjusted R2 of 0.815.
+-   The model `m3`, with formula `l100 ~ wt` and adjusted R2 of 0.785.
+
+Although `m2` has a better fit than `m3`, I argue that the best model is `m3`. My choice is grounded on the  plot of `m2`.
+
+```{r, message=FALSE, fig.align='center'}
+mtcars |>
+  ggplot(aes(wt, mpg, color = am)) +
+  geom_point() + 
+  geom_smooth(method = "lm") +
+  scale_color_manual(name = "transmission", 
+                     labels = c("automatic", "manual"),
+                     values = c("red", "blue")) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+The `am` variable is a proxy for a variable separating light and heavy cars. While most light cars have manual transmission, heavier cars tend to have automatic transmission. This is because in 1972, American cars had automatic transmission, while European and Japanese cars tended to have manual transmission. To illustrate this, I have imputed the country of manufacturing of each model based on its name.
+
+```{r}
+mtcars <- mtcars |>
+  mutate(country = c(rep("J", 3),
+                     rep("A", 4),
+                     rep("E", 7),
+                     rep("A", 3),
+                     "E",
+                     rep("J", 3),
+                     rep("A", 4),
+                     rep("E", 3),
+                     "A",
+                     rep("E", 3)))
+
+mtcars |>
+  ggplot(aes(wt, mpg, color = country)) +
+  geom_point(size = 2) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+The plot shows how heavier cars (with `wt` > 3) tend to be American, while lighter cars are European or Japanese.
+
+The most relevant argument favouring model `m3` is that the energy requested to move a car is proportional to weight, and that fuel consumption in liters per 100 Km is a direct proxy of energy, while miles per gallon is inversely proportional to energy spent. Note that it does not have to do with units used: fuel consumption in gallons per 100 miles would be also a direct proxy of energy.
+
+## Conclusion
+
+I argue that `m3` is the model that better measures the relationship between weight and fuel consumption. Measuring fuel consumption in liters per 100 kilometers instead of miles per gallon allows using a direct proxy of energy spent to move the car, and allows finding a linear relationship between weight and fuel consumption.
+
+Furthermore, note that plots have been a better guide than statistical models to graps the relationship between variables. This is a demonstration of the usefulness of plots in exploratory data analysis.
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
