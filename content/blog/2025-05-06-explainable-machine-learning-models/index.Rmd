@@ -1,0 +1,264 @@
+---
+title: Explainable Machine Learning Models
+author: Jose M Sallan
+date: '2025-05-06'
+slug: explainable-machine-learning-models
+categories:
+  - R
+tags:
+  - decision trees
+  - logistic regression
+  - machine learning
+  - tidymodels
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Machine learning algorithms are **explainable** when it is possible to track its internal processes: how they make decisions, which variables are using and how variables influence model results. These explanations must be understood not only by developers, but also by users or regulators.
+
+In this post, I will present how we can make explainable decision trees and regression based predictive models. I will apply some of these models to a classification job, and present how can we make these models explainable.
+
+I will use the `tidymodels` framework, the `rpart.plot` package to plot decision trees built with `rpart`, and the `vip` package for variable importance plots.
+
+```{r, message=FALSE}
+library(tidymodels)
+library(rpart.plot)
+library(vip)
+```
+
+The dataset used is `cat_adoption`. It contains data from a subset of the cats at the animal shelter in Long Beach, California, USA. The job consists in predicting the `event` variable. It is equal to one when the cat is being homed or returned to its original location (i.e., owner or community). It is equal to zero when the cat is being transferred to another shelter or dying.
+
+```{r}
+cat_adoption
+```
+
+To use `tidymodels` we need to code the target variable as a factor and make the first level the positive case. I have renamed the levels as `returned` (positive case) and `transfered` for clarity.
+
+```{r}
+cat_adoption <- cat_adoption |>
+  mutate(event = as.factor(event))
+
+#renaming levels
+levels(cat_adoption$event) <- c("transfered", "returned")
+
+# reordering to set positive case first
+cat_adoption <- cat_adoption |>
+  mutate(event = factor(event, levels = c("returned", "transfered")))
+```
+
+Let's examine the target variable:
+
+```{r, fig.align='center'}
+cat_adoption |>
+  ggplot(aes(event, y = after_stat(count/sum(count)))) +
+  geom_bar() +
+  labs(title = "Target Variable", x = NULL, y = NULL) +
+  theme_minimal()
+```
+
+The positive case is more frequent than the negative, and the dataset seems balanced enough.
+
+## Decision Tree Models
+
+Let's start building two decision tree models. First, we need to split the sample into train and test:
+
+```{r}
+set.seed(111)
+split <- initial_split(cat_adoption, prop = 0.2, strata = "event")
+```
+
+The preprocessing recipe for decision tree models is quite simple: filtering non-zero and highly correlated variables, and exclude latitude and longitude.
+
+```{r}
+rec_cats <- recipe(event ~ ., training(split)) |>
+  step_rm(latitude:longitude) |>
+  step_corr() |>
+  step_nzv()
+```
+
+Now we can build two models:
+
+- A decision tree `dt` model with `rpart`.
+- A random forest model `rf` with `ranger`. I have set the engine parameters to extract variable importance.
+
+```{r}
+dt <- decision_tree(mode = "classification") |>
+  set_engine("rpart")
+
+rf <- rand_forest(mode = "classification") |>
+  set_engine("ranger", importance = "impurity")
+```
+
+As the point here is to illustrate model explainability, I am training both models directly on the train set.
+
+```{r}
+dt_model <- workflow() |>
+  add_recipe(rec_cats) |>
+  add_model(dt) |>
+  fit(training(split))
+
+rf_model <- workflow() |>
+  add_recipe(rec_cats) |>
+  add_model(rf) |>
+  fit(training(split))
+```
+
+In the case of the decision tree model, we can see how the model has used variables to make the decision. I am using `extract_fit_engine()` to obtain the `rpart` output, and use this output to plot the decision tree with `rpart.plot()`.
+
+```{r, fig.align='center'}
+dt_model |>
+  extract_fit_engine() |>
+  rpart.plot(roundint = FALSE)
+```
+
+The most relevant variables in the model are `neutered`, `intake_type` and `time`. Specifically, neutered cats seem to have mode chances to be adopted than non-neutered.
+
+Another important element to model transparency is **variable importance**. It is a measure of how useful or valuable each feature is in predicting the target variable. We can use `vi()` to obtain the raw values of variable importance, and `vip()` to do a variable importance plot.
+
+```{r}
+vi(dt_model)
+vip(dt_model) + theme_minimal() + ggtitle(label = "Variable Importance (Decision Tree).")
+```
+
+The variable importance analysis shows similar results to the decision tree plot: `neutered`, `intake_condition` and `time` are the most relevant variables for this model.
+
+As the random forest algorithm uses a set of decision trees to make the decision, it is not possible to obtain a tree plot. But I can obtain variable importance plots with the `vip()` function.
+
+```{r}
+vip(rf_model) + theme_minimal() + ggtitle(label = "Variable Importance (Random Forest).")
+```
+
+The most relevant variable is the same as with decision trees, but time, sex and some fur color variables are more relevant than intake type in random forests.
+
+## Regression Models
+
+Let's create two regression-based models: a straight linear logistic regression and a regularized regression model with `glmnet`. `glmnet` requires all variables to be numeric, so I will preprocess the factors accordingly.
+
+```{r}
+rec_cats_lm <- recipe(event ~ ., training(split)) |>
+  step_rm(latitude:longitude) |>
+  step_nzv() |>
+  step_corr() |>
+  step_dummy(all_nominal_predictors())
+```
+
+Let's test two logistic regression models: a `glm` model and a ridge (L2) model.  Ridge regression models tend to shrink some coefficients, acting as an automated feature selector.
+
+```{r}
+lr <- logistic_reg()
+
+rr <- logistic_reg(penalty = 0.1, mixture = 0) |>
+  set_engine("glmnet")
+```
+
+```{r}
+lr_model <- workflow() |>
+  add_recipe(rec_cats_lm) |>
+  add_model(lr) |>
+  fit(training(split))
+
+rr_model <- workflow() |>
+  add_recipe(rec_cats_lm) |>
+  add_model(rr) |>
+  fit(training(split))
+```
+
+We can obtain variable importance for each model with the `vi()` function. These variable importance factors are based on regression coefficients of variables. These coefficients can be positive or negative.
+
+```{r}
+vi(lr_model)
+vi(rr_model)
+```
+
+Although we can use the `vip()` function to build the plots, I will build them from the `vi()` tables.
+
+```{r, fig.align='center'}
+library(forcats)
+vi(lr_model) |>
+  mutate(Variable = fct_reorder(Variable, Importance)) |>
+  slice(1:10) |>
+  ggplot(aes(Importance, Variable, fill = Sign)) +
+  geom_col() +
+  labs(title = "Variable importance (glm)", x = NULL, y = NULL) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+As the `returned` event is the first level of the target variable, *negative* regression terms are related with variables that *increase* the probability of the positive case.
+
+```{r}
+vi(rr_model) |>
+  mutate(Variable = fct_reorder(Variable, Importance)) |>
+  slice(1:10) |>
+  ggplot(aes(Importance, Variable, fill = Sign)) +
+  geom_col() +
+  labs(title = "Variable importance (glmnet)", x = NULL, y = NULL) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+Contrarily to the other tree models, the `glmnet` model gives more importance to cat fur color.
+
+## Model Performance
+
+Let's evaluate the performance of the four models with cross validation. First I define the set of folds and the metrics used for model performance.
+
+```{r}
+set.seed(111)
+folds <- vfold_cv(training(split), v = 5)
+cm <- metric_set(accuracy, sens, spec)
+```
+
+Then I am testing each model with cross validation, and aggregating all metrics in the `performance_models` tibble.
+
+```{r, fig.align='center'}
+tree_models <- map2_dfr(list(dt, rf), c("dt", "rf"), ~ 
+                     fit_resamples(object = .x,
+                                   preprocessor = rec_cats,
+                                   resamples = folds,
+                                   metrics = cm) |>
+                      collect_metrics() |>
+                      mutate(mod = .y))
+
+reg_models <- map2_dfr(list(lr, rr), c("lr", "rr"), ~ 
+                     fit_resamples(object = .x,
+                                   preprocessor = rec_cats_lm,
+                                   resamples = folds,
+                                   metrics = cm) |>
+                      collect_metrics() |>
+                      mutate(mod = .y))
+
+performance_models <- rbind(tree_models, reg_models)
+
+performance_models
+```
+
+The performance of the tree models is quite similar, but maybe the decision tree `dt` results to be the most explainable model with more balanced performance metrics between sensitivity and specificity.
+
+We have made predictive models explainable through decision tree plots and variable importance plots. All models give great importance to the `neutered` variable, which seems to filter fairly enough positive and negative cases:
+
+```{r, fig.align='center'}
+cat_adoption |>
+  ggplot(aes(event, fill = neutered)) +
+  geom_bar() +
+  labs(title = "Neutered cats more likely to be returned", x = NULL, y = NULL) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+## Reference
+
+- `vip`: variable importance plots: <https://koalaverse.github.io/vip/index.html>
+- Regularized regression with `glmnet`: <https://jmsallan.netlify.app/blog/regularized-regression-with-glmnet/>
+- Logistic regression via `glmnet`: <https://parsnip.tidymodels.org/reference/details_logistic_reg_glmnet.html>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
