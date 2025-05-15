@@ -1,0 +1,273 @@
+---
+title: Spatial Resampling in Predictive Modelling
+author: Jose M Sallan
+date: '2025-05-15'
+slug: spatial-resampling-in-predictive-modelling
+categories:
+  - R
+  - data analysis
+tags:
+  - decision trees
+  - spatial analysis
+  - machine learning
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>When building a predictive model, it is frequent that observations include spatial attributes such as latitude and longitude. The aim of spatial sampling is to evaluate if a model exhibits poorer performace in some regions of the space. This is implemented in <code>tidymodels</code> with the <code>spatialsample</code> package. Package authors present how the package works in the package website using the <code>ames</code> dataset. In this post, I will show another example of use of this package integrated in the tidymodels workflow using the <code>cat_adoption</code> dataset.</p>
+<p>I have also loaded the <code>sf</code> package to create simple features objects from geographical information.</p>
+<pre class="r"><code>library(tidymodels)
+library(spatialsample)
+library(sf)</code></pre>
+<p>In the <code>cat_adoption</code> dataset, the job consists of predicting if a rescued cat will be <code>returned</code> to its owner or community or <code>transfered</code> to another shelter or dying. Here I am transforming the target variable to factor, and placing the positive case first.</p>
+<pre class="r"><code>cat_adoption &lt;- cat_adoption |&gt;
+  mutate(event = as.factor(event))
+
+levels(cat_adoption$event) &lt;- c(&quot;transfered&quot;, &quot;returned&quot;)
+
+cat_adoption &lt;- cat_adoption |&gt;
+  mutate(event = factor(event, levels = c(&quot;returned&quot;, &quot;transfered&quot;)))</code></pre>
+<p>We can see that the problem is quite balanced, being the positive case more prevalent than the negative.</p>
+<pre class="r"><code>cat_adoption |&gt;
+  ggplot(aes(event, y = after_stat(count/sum(count)))) +
+  geom_bar() +
+  labs(title = &quot;Target Variable&quot;, x = NULL, y = NULL)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>The dataset includes the variables <code>longitude</code> and <code>latitude</code> of the intake or capture of each cat. Here I am plotting the locations of all the cats in the dataset, representing the values of the target variable with different colors. We can see that the target variable is equally distributed across space.</p>
+<pre class="r"><code>cat_adoption_sf &lt;- st_as_sf(cat_adoption, 
+                            coords = c(&quot;longitude&quot;, &quot;latitude&quot;), 
+                            crs = 4326)
+
+ggplot(cat_adoption_sf) +
+  geom_sf(aes(color = event), size = 0.25) +
+  labs(title = &quot;Position of cats&quot;, x = NULL, y = NULL) +
+  scale_color_manual(values = c(&quot;red&quot;, &quot;blue&quot;)) +
+  theme_minimal(base_size = 8) +
+  theme(legend.position = &quot;bottom&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="100%" style="display: block; margin: auto;" /></p>
+<div id="a-decision-tree-model" class="section level2">
+<h2>A Decision Tree Model</h2>
+<p>Let’s define the elements of a <code>tidymodels</code> framework for this job. First, I will split the dataset into train and test with <code>initial_split()</code>. Note that I am using the original <code>cat_adoption</code> dataset without spatial attributes.</p>
+<pre class="r"><code>set.seed(111)
+split &lt;- initial_split(cat_adoption, prop = 0.2, strata = &quot;event&quot;)</code></pre>
+<p>Secondly, I am defining a recipe. Apart from the <code>step_corr()</code> and <code>step_nzv()</code> correlation and near-zero variance filters, the recipe includes:</p>
+<ul>
+<li>removing <code>latitude</code> and <code>longitude</code>.</li>
+<li>collapse low-frequency levels of <code>intake_condition</code> into an other level with <code>step_other()</code>.</li>
+</ul>
+<pre class="r"><code>rec_cats &lt;- recipe(event ~ ., training(split)) |&gt;
+  step_rm(latitude:longitude) |&gt;
+  step_corr() |&gt;
+  step_nzv() |&gt;
+  step_other(intake_condition, threshold = 0.1)</code></pre>
+<p>The opportunity of the <code>step_other()</code> recipe comes after exploring the levels of <code>intake_condition</code>.</p>
+<pre class="r"><code>cat_adoption |&gt;
+  ggplot(aes(intake_condition, y = after_stat(count/sum(count)))) +
+  geom_bar() +
+  labs(title = &quot;Intake Condition&quot;, x = NULL, y = NULL)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Here is the distribution of <code>intake_condition</code> after applying the recipe.</p>
+<pre class="r"><code>rec_cats |&gt; prep() |&gt; juice() |&gt;
+  ggplot(aes(intake_condition, y = after_stat(count/sum(count)))) +
+  geom_bar()  +
+  labs(title = &quot;Intake Condition Preprocessed&quot;, x = NULL, y = NULL)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>The rest of elements of the modelling framework are:</p>
+<ul>
+<li><code>dt</code>: a decision tree model with the rpart package.</li>
+<li><code>folds</code>: a split of the training set into five folds for cross validation.</li>
+<li><code>cm</code>: a metric set including accuracy, sensitivity and specificity.</li>
+</ul>
+<pre class="r"><code>dt &lt;- decision_tree(mode = &quot;classification&quot;) |&gt;
+  set_engine(&quot;rpart&quot;)
+
+folds &lt;- vfold_cv(training(split), v = 5, strata = &quot;event&quot;)
+
+cm &lt;- metric_set(sens, spec, accuracy)</code></pre>
+<p>We can use <code>fit_resamples()</code> to evaluate this model with cross validation.</p>
+<pre class="r"><code>fit_resamples(object = dt,
+              preprocessor = rec_cats,
+              resamples = folds,
+              metrics = cm) |&gt;
+  collect_metrics()</code></pre>
+<pre><code>## # A tibble: 3 × 6
+##   .metric  .estimator  mean     n std_err .config             
+##   &lt;chr&gt;    &lt;chr&gt;      &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt; &lt;chr&gt;               
+## 1 accuracy binary     0.820     5  0.0172 Preprocessor1_Model1
+## 2 sens     binary     0.832     5  0.0307 Preprocessor1_Model1
+## 3 spec     binary     0.799     5  0.0152 Preprocessor1_Model1</code></pre>
+<p>In spite of its simplicity, the decision tree model achieves good results in the three classification metrics.</p>
+</div>
+<div id="spatial-resampling" class="section level2">
+<h2>Spatial Resampling</h2>
+<p>The folds for cross validation defined with <code>vfold_cv()</code> are of similar size and each element is assigned to a fold at random without considering its location. The first step to use spatial resampling is to obtain <code>training_sf</code>, a spatial sf object from the training test. I am using <code>training_sf</code> to apply clustering with <code>spatial_clustering_cv()</code> from <code>spatialsample</code>.</p>
+<pre class="r"><code>training_sf &lt;- st_as_sf(training(split), 
+                        coords = c(&quot;longitude&quot;, &quot;latitude&quot;), 
+                        crs = 4326, remove = FALSE)
+
+cluster_folds &lt;- spatial_clustering_cv(training_sf, v = 5)</code></pre>
+<p>The resamplings of <code>spatialsample</code> have an <code>autoplot()</code> method to represent them.</p>
+<pre class="r"><code>autoplot(cluster_folds) +
+  theme_minimal(base_size = 8) +
+  theme(legend.position = &quot;bottom&quot;) +
+  labs(title = &quot;Spatial Resampling of Traning Set&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-12-1.png" width="100%" style="display: block; margin: auto;" /></p>
+<p>The elements of the training set have been grouped by proximity into clusters. Unlike traditional cross validation, the number of elements of each fold can be different. In this case, peripheral observations are included into less crowded folds.</p>
+<p>The aim of spatial resampling is to examine model performance variability across clusters. Then, it does not make sense to average values of metrics across clusters with <code>collect_metrics()</code>. We need to examine the values of metrics in each cluster. We can use <code>fit_resamples()</code> like in cross validation, but using <code>cluster_folds</code> as resamples.</p>
+<pre class="r"><code>spatial_resamples &lt;- fit_resamples(object = dt,
+              preprocessor = rec_cats,
+              resamples = cluster_folds,
+              metrics = cm)
+
+spatial_resamples</code></pre>
+<pre><code>## # Resampling results
+## # 5-fold spatial cross-validation 
+## # A tibble: 5 × 4
+##   splits            id    .metrics         .notes          
+##   &lt;list&gt;            &lt;chr&gt; &lt;list&gt;           &lt;list&gt;          
+## 1 &lt;split [323/127]&gt; Fold1 &lt;tibble [3 × 4]&gt; &lt;tibble [0 × 3]&gt;
+## 2 &lt;split [435/15]&gt;  Fold2 &lt;tibble [3 × 4]&gt; &lt;tibble [0 × 3]&gt;
+## 3 &lt;split [242/208]&gt; Fold3 &lt;tibble [3 × 4]&gt; &lt;tibble [0 × 3]&gt;
+## 4 &lt;split [404/46]&gt;  Fold4 &lt;tibble [3 × 4]&gt; &lt;tibble [0 × 3]&gt;
+## 5 &lt;split [396/54]&gt;  Fold5 &lt;tibble [3 × 4]&gt; &lt;tibble [0 × 3]&gt;</code></pre>
+<p>The result is a tibble with a <code>.metrics</code> column. This column is a list of tibbles, rather than a vector:</p>
+<pre class="r"><code>spatial_resamples |&gt; pull(.metrics)</code></pre>
+<pre><code>## [[1]]
+## # A tibble: 3 × 4
+##   .metric  .estimator .estimate .config             
+##   &lt;chr&gt;    &lt;chr&gt;          &lt;dbl&gt; &lt;chr&gt;               
+## 1 sens     binary         0.85  Preprocessor1_Model1
+## 2 spec     binary         0.745 Preprocessor1_Model1
+## 3 accuracy binary         0.811 Preprocessor1_Model1
+## 
+## [[2]]
+## # A tibble: 3 × 4
+##   .metric  .estimator .estimate .config             
+##   &lt;chr&gt;    &lt;chr&gt;          &lt;dbl&gt; &lt;chr&gt;               
+## 1 sens     binary         0.833 Preprocessor1_Model1
+## 2 spec     binary         0.778 Preprocessor1_Model1
+## 3 accuracy binary         0.8   Preprocessor1_Model1
+## 
+## [[3]]
+## # A tibble: 3 × 4
+##   .metric  .estimator .estimate .config             
+##   &lt;chr&gt;    &lt;chr&gt;          &lt;dbl&gt; &lt;chr&gt;               
+## 1 sens     binary         0.856 Preprocessor1_Model1
+## 2 spec     binary         0.789 Preprocessor1_Model1
+## 3 accuracy binary         0.832 Preprocessor1_Model1
+## 
+## [[4]]
+## # A tibble: 3 × 4
+##   .metric  .estimator .estimate .config             
+##   &lt;chr&gt;    &lt;chr&gt;          &lt;dbl&gt; &lt;chr&gt;               
+## 1 sens     binary         0.9   Preprocessor1_Model1
+## 2 spec     binary         0.812 Preprocessor1_Model1
+## 3 accuracy binary         0.870 Preprocessor1_Model1
+## 
+## [[5]]
+## # A tibble: 3 × 4
+##   .metric  .estimator .estimate .config             
+##   &lt;chr&gt;    &lt;chr&gt;          &lt;dbl&gt; &lt;chr&gt;               
+## 1 sens     binary         0.763 Preprocessor1_Model1
+## 2 spec     binary         0.875 Preprocessor1_Model1
+## 3 accuracy binary         0.796 Preprocessor1_Model1</code></pre>
+</div>
+<div id="spatial-differences-of-metrics" class="section level2">
+<h2>Spatial Differences of Metrics</h2>
+<p>The inspection of the metrics of each cluster reveal some differences of performance. We can consider representing the value of a metric across clusters graphically. Here I have chosen to represent the sensitivity <code>sens</code>. We need to extract the sens row from each cluster and add the results to the <code>training_sf</code> object. For doing that I obtain:</p>
+<ul>
+<li>The assessment sample for each spatial fold, which goes into the <code>cluster_elements</code> list. Each element of this list is a spatial object including the observations of the training set belonging to the cluster.</li>
+<li>The value of sensitivity for each cluster, which goes into the <code>cluster_sens</code> vector.</li>
+</ul>
+<pre class="r"><code>cluster_elements &lt;- map(spatial_resamples |&gt; pull(splits), assessment)
+cluster_sens &lt;- map_dbl(spatial_resamples |&gt; pull(.metrics), ~ .|&gt; filter(.metric == &quot;sens&quot;) |&gt; pull(.estimate))</code></pre>
+<p>I use both objects in map2_dfr() to:</p>
+<ul>
+<li>Attach the value of sensitivity to each element of the cluster.</li>
+<li>Bind the four clusters into a single spatial object.</li>
+</ul>
+<pre class="r"><code>sens_map &lt;- map2_dfr(cluster_elements, cluster_sens, ~ .x |&gt; mutate(sens = .y))</code></pre>
+<p>Then, we can plot the training set as a spatial object, coloring each dot according to its value of sensitivity. I have used a gradient scale to represent sensitivity values.</p>
+<pre class="r"><code>sens_map |&gt;
+  ggplot(aes(color = sens)) +
+  geom_sf() +
+  labs(title = &quot;Sensitivity by Cluster&quot;, x = NULL, y = NULL) +
+  scale_color_gradient(low = &quot;red&quot;, high = &quot;yellow&quot;) +
+  theme_minimal(base_size = 8) +
+  theme(legend.position = &quot;bottom&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-17-1.png" width="100%" style="display: block; margin: auto;" /></p>
+</div>
+<div id="spatial-resampling-1" class="section level2">
+<h2>Spatial Resampling</h2>
+<p>The <code>spatialsample</code> package implements spatial sampling in the tidymodels package. Here I have used clustering to obtain the spatial resample, but there are other methods available, such as spatial blocking, cross validation with buffering or nearest neighbor distance matching. The details for each spatial resampling method can be found in the package website.</p>
+<p>This approach benefits from the benefits of the tidyverse, as sf spatial objects can be used in data wrangling functions. This vigneete has shown how to use spatial resampling in a modelling framework including resampling into train and test set and cross validation.</p>
+</div>
+<div id="reference" class="section level2">
+<h2>Reference</h2>
+<ul>
+<li><code>spatialsample</code> package website: <a href="https://spatialsample.tidymodels.org/" class="uri">https://spatialsample.tidymodels.org/</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.5.0 (2025-04-11)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0  LAPACK version 3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] rpart_4.1.24        sf_1.0-20           spatialsample_0.6.0
+##  [4] yardstick_1.3.2     workflowsets_1.1.0  workflows_1.2.0    
+##  [7] tune_1.3.0          tidyr_1.3.1         tibble_3.2.1       
+## [10] rsample_1.3.0       recipes_1.3.0       purrr_1.0.4        
+## [13] parsnip_1.3.1       modeldata_1.4.0     infer_1.0.8        
+## [16] ggplot2_3.5.2       dplyr_1.1.4         dials_1.4.0        
+## [19] scales_1.3.0        broom_1.0.8         tidymodels_1.3.0   
+## 
+## loaded via a namespace (and not attached):
+##  [1] tidyselect_1.2.1    timeDate_4041.110   farver_2.1.2       
+##  [4] fastmap_1.2.0       blogdown_1.21       digest_0.6.37      
+##  [7] timechange_0.3.0    lifecycle_1.0.4     survival_3.8-3     
+## [10] magrittr_2.0.3      compiler_4.5.0      rlang_1.1.6        
+## [13] sass_0.4.10         tools_4.5.0         utf8_1.2.4         
+## [16] yaml_2.3.10         data.table_1.17.0   knitr_1.50         
+## [19] labeling_0.4.3      classInt_0.4-11     DiceDesign_1.10    
+## [22] KernSmooth_2.23-26  withr_3.0.2         nnet_7.3-20        
+## [25] grid_4.5.0          sparsevctrs_0.3.3   e1071_1.7-16       
+## [28] colorspace_2.1-1    future_1.40.0       globals_0.17.0     
+## [31] iterators_1.0.14    MASS_7.3-65         cli_3.6.4          
+## [34] rmarkdown_2.29      generics_0.1.3      rstudioapi_0.17.1  
+## [37] future.apply_1.11.3 proxy_0.4-27        DBI_1.2.3          
+## [40] cachem_1.1.0        splines_4.5.0       parallel_4.5.0     
+## [43] s2_1.1.7            vctrs_0.6.5         hardhat_1.4.1      
+## [46] Matrix_1.7-3        jsonlite_2.0.0      bookdown_0.43      
+## [49] listenv_0.9.1       foreach_1.5.2       gower_1.0.2        
+## [52] jquerylib_0.1.4     units_0.8-7         glue_1.8.0         
+## [55] parallelly_1.43.0   codetools_0.2-19    lubridate_1.9.4    
+## [58] gtable_0.3.6        munsell_0.5.1       GPfit_1.0-9        
+## [61] pillar_1.10.2       furrr_0.3.1         htmltools_0.5.8.1  
+## [64] ipred_0.9-15        lava_1.8.1          R6_2.6.1           
+## [67] wk_0.9.4            lhs_1.2.0           evaluate_1.0.3     
+## [70] lattice_0.22-5      backports_1.5.0     bslib_0.9.0        
+## [73] class_7.3-23        Rcpp_1.0.14         prodlim_2024.06.25 
+## [76] xfun_0.52           pkgconfig_2.0.3</code></pre>
+</div>

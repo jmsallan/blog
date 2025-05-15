@@ -1,0 +1,223 @@
+---
+title: Spatial Resampling in Predictive Modelling
+author: Jose M Sallan
+date: '2025-05-15'
+slug: spatial-resampling-in-predictive-modelling
+categories:
+  - R
+  - data analysis
+tags:
+  - decision trees
+  - spatial analysis
+  - machine learning
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+When building a predictive model, it is frequent that observations include spatial attributes such as latitude and longitude. The aim of spatial sampling is to evaluate if a model exhibits poorer performace in some regions of the space. This is implemented in `tidymodels` with the `spatialsample` package. Package authors present how the package works in the package website using the `ames` dataset. In this post, I will show another example of use of this package integrated in the tidymodels workflow using the `cat_adoption` dataset.
+
+I have also loaded the `sf` package to create simple features objects from geographical information.
+
+```{r, message=FALSE}
+library(tidymodels)
+library(spatialsample)
+library(sf)
+```
+
+In the `cat_adoption` dataset, the job consists of predicting if a rescued cat will be `returned` to its owner or community or `transfered` to another shelter or dying. Here I am transforming the target variable to factor, and placing the positive case first.
+
+```{r}
+cat_adoption <- cat_adoption |>
+  mutate(event = as.factor(event))
+
+levels(cat_adoption$event) <- c("transfered", "returned")
+
+cat_adoption <- cat_adoption |>
+  mutate(event = factor(event, levels = c("returned", "transfered")))
+```
+
+We can see that the problem is quite balanced, being the positive case more prevalent than the negative.
+
+```{r, fig.align='center'}
+cat_adoption |>
+  ggplot(aes(event, y = after_stat(count/sum(count)))) +
+  geom_bar() +
+  labs(title = "Target Variable", x = NULL, y = NULL)
+```
+
+The dataset includes the variables `longitude` and `latitude` of the intake or capture of each cat. Here I am plotting the locations of all the cats in the dataset, representing the values of the target variable with different colors. We can see that the target variable is equally distributed across space.
+
+```{r, fig.align='center', out.width='100%'}
+cat_adoption_sf <- st_as_sf(cat_adoption, 
+                            coords = c("longitude", "latitude"), 
+                            crs = 4326)
+
+ggplot(cat_adoption_sf) +
+  geom_sf(aes(color = event), size = 0.25) +
+  labs(title = "Position of cats", x = NULL, y = NULL) +
+  scale_color_manual(values = c("red", "blue")) +
+  theme_minimal(base_size = 8) +
+  theme(legend.position = "bottom")
+```
+
+## A Decision Tree Model
+
+Let's define the elements of a `tidymodels` framework for this job. First, I will split the dataset into train and test with `initial_split()`. Note that I am using the original `cat_adoption` dataset without spatial attributes.
+
+```{r}
+set.seed(111)
+split <- initial_split(cat_adoption, prop = 0.2, strata = "event")
+```
+
+Secondly, I am defining a recipe. Apart from the `step_corr()` and `step_nzv()` correlation and near-zero variance filters, the recipe includes:
+
+- removing `latitude` and `longitude`.
+- collapse low-frequency levels of `intake_condition` into an other level with `step_other()`.
+
+```{r}
+rec_cats <- recipe(event ~ ., training(split)) |>
+  step_rm(latitude:longitude) |>
+  step_corr() |>
+  step_nzv() |>
+  step_other(intake_condition, threshold = 0.1)
+```
+
+The opportunity of the `step_other()` recipe comes after exploring the levels of `intake_condition`.
+
+```{r, fig.align='center'}
+cat_adoption |>
+  ggplot(aes(intake_condition, y = after_stat(count/sum(count)))) +
+  geom_bar() +
+  labs(title = "Intake Condition", x = NULL, y = NULL)
+```
+
+Here is the distribution of `intake_condition` after applying the recipe.
+
+```{r, fig.align='center'}
+rec_cats |> prep() |> juice() |>
+  ggplot(aes(intake_condition, y = after_stat(count/sum(count)))) +
+  geom_bar()  +
+  labs(title = "Intake Condition Preprocessed", x = NULL, y = NULL)
+```
+
+The rest of elements of the modelling framework are:
+
+- `dt`: a decision tree model with the rpart package.
+- `folds`: a split of the training set into five folds for cross validation.
+- `cm`: a metric set including accuracy, sensitivity and specificity.
+
+```{r}
+dt <- decision_tree(mode = "classification") |>
+  set_engine("rpart")
+
+folds <- vfold_cv(training(split), v = 5, strata = "event")
+
+cm <- metric_set(sens, spec, accuracy)
+```
+
+We can use `fit_resamples()` to evaluate this model with cross validation.
+
+```{r}
+fit_resamples(object = dt,
+              preprocessor = rec_cats,
+              resamples = folds,
+              metrics = cm) |>
+  collect_metrics()
+```
+
+In spite of its simplicity, the decision tree model achieves good results in the three classification metrics.
+
+## Spatial Resampling
+
+The folds for cross validation defined with `vfold_cv()` are of similar size and each element is assigned to a fold at random without considering its location. The first step to use spatial resampling is to obtain `training_sf`, a spatial sf object from the training test. I am using `training_sf` to apply clustering with `spatial_clustering_cv()` from `spatialsample`.
+
+```{r}
+training_sf <- st_as_sf(training(split), 
+                        coords = c("longitude", "latitude"), 
+                        crs = 4326, remove = FALSE)
+
+cluster_folds <- spatial_clustering_cv(training_sf, v = 5)
+```
+
+The resamplings of `spatialsample` have an `autoplot()` method to represent them.
+
+```{r, fig.align='center', out.width='100%'}
+autoplot(cluster_folds) +
+  theme_minimal(base_size = 8) +
+  theme(legend.position = "bottom") +
+  labs(title = "Spatial Resampling of Traning Set")
+```
+
+The elements of the training set have been grouped by proximity into clusters. Unlike traditional cross validation, the number of elements of each fold can be different. In this case, peripheral observations are included into less crowded folds.
+
+The aim of spatial resampling is to examine model performance variability across clusters. Then, it does not make sense to average values of metrics across clusters with `collect_metrics()`. We need to examine the values of metrics in each cluster. We can use `fit_resamples()` like in cross validation, but using `cluster_folds` as resamples.
+
+```{r, message=FALSE}
+spatial_resamples <- fit_resamples(object = dt,
+              preprocessor = rec_cats,
+              resamples = cluster_folds,
+              metrics = cm)
+
+spatial_resamples
+```
+
+The result is a tibble with a `.metrics` column. This column is a list of tibbles, rather than a vector: 
+
+```{r}
+spatial_resamples |> pull(.metrics)
+```
+
+## Spatial Differences of Metrics 
+
+The inspection of the metrics of each cluster reveal some differences of performance. We can consider representing the value of a metric across clusters graphically. Here I have chosen to represent the sensitivity `sens`. We need to extract the sens row from each cluster and add the results to the `training_sf` object. For doing that I obtain:
+
+- The assessment sample for each spatial fold, which goes into the `cluster_elements` list. Each element of this list is a spatial object including the observations of the training set belonging to the cluster.
+- The value of sensitivity for each cluster, which goes into the `cluster_sens` vector.
+
+```{r}
+cluster_elements <- map(spatial_resamples |> pull(splits), assessment)
+cluster_sens <- map_dbl(spatial_resamples |> pull(.metrics), ~ .|> filter(.metric == "sens") |> pull(.estimate))
+```
+
+I use both objects in map2_dfr() to:
+
+- Attach the value of sensitivity to each element of the cluster.
+- Bind the four clusters into a single spatial object.
+
+```{r}
+sens_map <- map2_dfr(cluster_elements, cluster_sens, ~ .x |> mutate(sens = .y))
+```
+
+Then, we can plot the training set as a spatial object, coloring each dot according to its value of sensitivity. I have used a gradient scale to represent sensitivity values.
+
+```{r, fig.align='center', out.width='100%'}
+sens_map |>
+  ggplot(aes(color = sens)) +
+  geom_sf() +
+  labs(title = "Sensitivity by Cluster", x = NULL, y = NULL) +
+  scale_color_gradient(low = "red", high = "yellow") +
+  theme_minimal(base_size = 8) +
+  theme(legend.position = "bottom")
+```
+
+## Spatial Resampling
+
+The `spatialsample` package implements spatial sampling in the tidymodels package. Here I have used clustering to obtain the spatial resample, but there are other methods available, such as spatial blocking, cross validation with buffering or nearest neighbor distance matching. The details for each spatial resampling method can be found in the package website.
+
+This approach benefits from the benefits of the tidyverse, as sf spatial objects can be used in data wrangling functions. This vigneete has shown how to use spatial resampling in a modelling framework including resampling into train and test set and cross validation.
+
+## Reference
+
+- `spatialsample` package website: <https://spatialsample.tidymodels.org/>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
