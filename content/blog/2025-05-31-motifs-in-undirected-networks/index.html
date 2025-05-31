@@ -14,9 +14,9 @@ description: Description for the page
 
 
 
-<p>Complex network analysis usually examines networks at the global level, with metrics like average path length, average clustering coefficient and global and local efficiency. We also examine graphs at the node or edge level, with measures such as node degree or node and edge betweenness.</p>
+<p>Complex network analysis usually examines networks at the global level, with metrics like average path length, average clustering coefficient and global and local efficiency. They are also examined at the local level, with measures such as node degree or node and edge betweenness.</p>
 <p>In complex networks theory, there is a stream of reseearch focusing on intermediate network structures obtained from the examination of <strong>subgraphs</strong>. A subgraph is a subset of a graph, sharing some or all of its nodes and edges. The analysis of subgraphs allows us to identify <strong>network motifs</strong>. Motifs are patterns of interconnections of a network, occurring at a number significantly higher than in randomized versions of the graph: a random graph with the same number of nodes, edges and degree distribution.</p>
-<p>In this post, I will introduce how to use the R <code>igraph</code> library to identify network motifs. These network motifs can be described as <strong>isomorphism classes</strong> more abundant that would be in a random network. I will also use <code>purrr</code> for functional programming and <code>data.table</code> for data handling.</p>
+<p>In this post, I will introduce how to use the R <code>igraph</code> library to identify network motifs. These network motifs can be described as <strong>isomorphism classes</strong> of subgraphs (usually between three and finve nodes) more abundant than in a random network. I will also use <code>purrr</code> for functional programming and <code>data.table</code> for tabular data handling.</p>
 <pre class="r"><code>library(igraph)
 library(purrr)
 library(data.table)</code></pre>
@@ -38,8 +38,7 @@ iso4 &lt;- list(g1, g2)
 par(mfrow = c(1, 2), oma = c(0.5, 1, 0.5, 1), mar = c(1, 1, 1, 1))
 walk(iso4, ~ plot(., vertex.size = 40, vertex.color = &quot;white&quot;, layout = layout4))</code></pre>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="672" style="display: block; margin: auto;" /></p>
-<p>If these graphs are found as subgraphs of a larger graph, they will be considered as belonging to the same isomorphic class. If subgraphs like this appear at an abnormal rate, they will be considered a motif. When looking for motifs, we group network subgraphs into isomorphic classes.</p>
-<p>To examine subgraphs, we have several functions in <code>igraph</code>:</p>
+<p>If subgraphs of the same isomorphic classe appear in a network at an abnormal rate, they are be considered a motif of that network. To examine subgraphs, we have several functions in <code>igraph</code>:</p>
 <ul>
 <li><code>motifs(g, n)</code> counts the subgraphs of each isomorphic class of size <code>n</code> (number of nodes) in a graph <code>g</code>.</li>
 <li><code>count_motifs(g, n)</code> returns the total number of subgraphs of size <code>n</code> in <code>g</code>.</li>
@@ -73,7 +72,7 @@ titles3 &lt;- paste0(&quot;isomorphism &quot;, 0:3)</code></pre>
 <p>And here are each of the representatives of each of the isomorphic classes of size three.</p>
 <pre class="r"><code>par(mfrow = c(2, 2), oma = c(0.5, 1, 0.5, 1), mar = c(1, 1, 1, 1))
 walk2(graph3_list, titles3, ~ plot(.x, vertex.size = 40, vertex.color = &quot;white&quot;, layout = layout3, main = .y))</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="60%" style="display: block; margin: auto;" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" style="display: block; margin: auto;" /></p>
 <p>When we have applied the <code>motifs()</code> function to the graph, some of the results are <code>NA</code>. These correspond to unconnected graphs that are not considered as candidates to motifs of order three. Then the possible motifs of order three are:</p>
 <pre class="r"><code>motifs3_list &lt;- graph3_list[which(!is.na(motifs(power_grid, 3)))]
 titles_motifs3 &lt;- titles3[which(!is.na(motifs(power_grid, 3)))]
@@ -99,19 +98,18 @@ walk2(graph4_list, titles4, ~ plot(.x, vertex.size = 40, vertex.color = &quot;wh
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-11-1.png" width="100%" /></p>
 <p>Of the eleven isomorphic classes, only six correspond to possible network motifs.</p>
 <pre class="r"><code>motifs4_list &lt;- graph4_list[which(!is.na(motifs(power_grid, 4)))]
-titles_motifs4 &lt;- titles4[which(!is.na(motifs(power_grid, 4)))]</code></pre>
-<p>And here are the six possible motifs of size four:</p>
-<pre class="r"><code>par(mfrow = c(2, 3), oma = c(0.5, 1, 0.5, 1), mar = c(1, 1, 1, 1))
+titles_motifs4 &lt;- titles4[which(!is.na(motifs(power_grid, 4)))]
+
+par(mfrow = c(2, 3), oma = c(0.5, 1, 0.5, 1), mar = c(1, 1, 1, 1))
 walk2(motifs4_list, titles_motifs4, ~ plot(.x, vertex.size = 40, vertex.color = &quot;white&quot;, layout = layout4, main = .y))</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-13-1.png" width="672" style="display: block; margin: auto;" /></p>
-<p>These are the four-node motifs presented in Dey et al. (2019) or Yang and Xiao (2025).</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-12-1.png" width="100%" /></p>
 <p>Let’s count the isomorphic classes of size five.</p>
 <pre class="r"><code>motifs(power_grid, 5)</code></pre>
 <pre><code>##  [1]     NA     NA     NA     NA     NA     NA     NA     NA     NA     NA
 ## [11]     NA  25101     NA 118571   8616  82780  12036   3171   1926     NA
 ## [21]  11703   1785    785     23    107    818    311    355    315     30
 ## [31]    215      8     23     15</code></pre>
-<p>There are 34 isomorphic classes of size five, of which 21 are considered candidates to motifs. Let’s plot the candidates to motifs of size five.</p>
+<p>There are 34 isomorphic classes of size five, of which 21 are considered connected and then candidates to motifs. Let’s plot the possible motifs of size five.</p>
 <pre class="r"><code>graph5_list &lt;- map(0:33, ~ graph_from_isomorphism_class(5, ., directed = FALSE))
 numbers5 &lt;- substr(as.character(100:133), 2, 3)
 titles5 &lt;- paste0(&quot;isomorphism &quot;, numbers5)
@@ -129,8 +127,8 @@ walk2(motifs5_list, titles_motifs5, ~ {plot(.x,
                                     vertex.size = 40, vertex.color = &quot;white&quot;, 
                                     layout = layout5)
   title(.y, cex.main = 0.8)})</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-15-1.png" width="100%" /></p>
-<p>For undirected graphs, igraph goes as far as subgraphs of size six:</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-14-1.png" width="100%" /></p>
+<p>For undirected graphs, <code>igraph</code> goes as far as subgraphs of size six:</p>
 <pre class="r"><code>motifs(power_grid, 6)</code></pre>
 <pre><code>##   [1]     NA     NA     NA     NA     NA     NA     NA     NA     NA     NA
 ##  [11]     NA     NA     NA     NA     NA     NA     NA     NA     NA     NA
@@ -152,7 +150,7 @@ walk2(motifs5_list, titles_motifs5, ~ {plot(.x,
 </div>
 <div id="table-with-isomorphic-classes" class="section level2">
 <h2>Table with Isomorphic Classes</h2>
-<p>To count all isomorphic classes of subgraphs available in igraph, I have defined the <code>motif_count()</code> function. It takes a graph g as argument and returns a data table with all subgraphs of size <code>n</code> belonging to isomorphic class <code>m</code>.</p>
+<p>To count all isomorphic classes of subgraphs available in <code>igraph</code>, I have defined the <code>motif_count()</code> function. It takes a graph <code>g</code> as argument and returns a data table with all subgraphs of size <code>n</code> belonging to isomorphic class <code>m</code>.</p>
 <pre class="r"><code>motif_count &lt;- function(g){
   
   motif_count &lt;- map_dfr(3:6, ~ {
@@ -181,14 +179,14 @@ walk2(motifs5_list, titles_motifs5, ~ {plot(.x,
 </div>
 <div id="detecting-motifs-in-a-graph" class="section level2">
 <h2>Detecting Motifs in a Graph</h2>
-<p>To detect the motifs of the power grid, we need to compare the frequence of each subgraph with the one of random graphs with the same number of nodes, edges and degree sequence. The later is obtained with <code>degree()</code>.</p>
+<p>To detect the motifs of the power grid, we need to compare the frequency of each subgraph with the one of random graphs with the same number of nodes, edges and degree sequence. The later is obtained with <code>degree()</code>.</p>
 <pre class="r"><code>degree_pg &lt;- degree(power_grid)</code></pre>
-<p>We can generate random graphs with a fixed degree sequence with the <code>sample_degseq()</code> function. I wil be using the Viger and Latapy method passing <code>method = "vl"</code>.</p>
+<p>We can generate random graphs with a fixed degree sequence with the <code>sample_degseq()</code> function. I am using using the Viger and Latapy method passing <code>method = "vl"</code>.</p>
 <pre class="r"><code>set.seed(55)
 sample_degseq(degree_pg, method = &quot;vl&quot;)</code></pre>
-<pre><code>## IGRAPH 0331975 U--- 4941 6594 -- Degree sequence random graph
+<pre><code>## IGRAPH f6b8f59 U--- 4941 6594 -- Degree sequence random graph
 ## + attr: name (g/c), method (g/c)
-## + edges from 0331975:
+## + edges from f6b8f59:
 ##  [1]  1--1017  1--1502  1--2461  2--3785  2--2982  2--  10  2--2822  3--2881
 ##  [9]  4-- 790  5-- 545  6--4405  6--1624  7--1105  8--3926  9--3227  9--3873
 ## [17]  9--2198 10--3956 10-- 638 10--1311 10-- 338 10-- 795 11--3839 11-- 670
@@ -203,7 +201,7 @@ sample_degseq(degree_pg, method = &quot;vl&quot;)</code></pre>
 z_i = \frac{N^{real}_{i} - \langle N^{rand}_{i} \rangle}{sd\left( N^{rand}_{i} \right)}
 \end{equation}\]</span></p>
 <p>Where <span class="math inline">\(\langle N^{rand}_{i} \rangle\)</span> and <span class="math inline">\(sd\left( N^{rand}_{i} \right)\)</span> are the mean and the standard deviation of number of motifs <span class="math inline">\(i\)</span>, respectively. As <span class="math inline">\(N^{rand}_{i}\)</span> is normally distributed, network <strong>motifs</strong> will have values of <span class="math inline">\(z_i\)</span> <em>above</em> the upper significance threshold. We can also speak of <strong>antimotifs</strong>, with values of <span class="math inline">\(z_i\)</span> <em>below</em> than the lower significance threshold. Antimotifs are subgraphs that appear with a lesser frequence than in an equivalent random network.</p>
-<p>To perform this test I have written the <code>motif_detector()</code>. In addition to the graph, takes as arguments:</p>
+<p>To perform this test I have written the <code>motif_detector()</code> function. In addition to the graph <code>g</code>, takes as arguments:</p>
 <ul>
 <li><code>sample_size</code>: the number of random graphs to be evaluated.</li>
 <li><code>sig_level</code>: the level of significance to detect motifs and antimotifs.</li>
@@ -271,4 +269,41 @@ z_i = \frac{N^{real}_{i} - \langle N^{rand}_{i} \rangle}{sd\left( N^{rand}_{i} \
 <li>Milo, R., Itzkovitz, S., Kashtan, N., Levitt, R., Shen-Orr, S., Ayzenshtat, I., … &amp; Alon, U. (2004). Superfamilies of evolved and designed networks. <em>Science</em>, 303(5663), 1538-1542.</li>
 <li>Milo, R., Shen-Orr, S., Itzkovitz, S., Kashtan, N., Chklovskii, D., &amp; Alon, U. (2002). Network motifs: simple building blocks of complex networks. <em>Science</em>, 298(5594), 824-827.</li>
 </ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.5.0 (2025-04-11)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0  LAPACK version 3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+## [1] data.table_1.17.0 purrr_1.0.4       igraph_2.1.4     
+## 
+## loaded via a namespace (and not attached):
+##  [1] vctrs_0.6.5       cli_3.6.4         knitr_1.50        rlang_1.1.6      
+##  [5] xfun_0.52         generics_0.1.3    jsonlite_2.0.0    glue_1.8.0       
+##  [9] htmltools_0.5.8.1 sass_0.4.10       rmarkdown_2.29    tibble_3.2.1     
+## [13] evaluate_1.0.3    jquerylib_0.1.4   fastmap_1.2.0     yaml_2.3.10      
+## [17] lifecycle_1.0.4   bookdown_0.43     compiler_4.5.0    dplyr_1.1.4      
+## [21] pkgconfig_2.0.3   rstudioapi_0.17.1 blogdown_1.21     digest_0.6.37    
+## [25] R6_2.6.1          tidyselect_1.2.1  pillar_1.10.2     magrittr_2.0.3   
+## [29] bslib_0.9.0       tools_4.5.0       cachem_1.1.0</code></pre>
 </div>
