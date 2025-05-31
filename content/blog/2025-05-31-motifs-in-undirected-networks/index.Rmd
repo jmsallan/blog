@@ -1,0 +1,304 @@
+---
+title: Motifs in Undirected Networks
+author: Jose M Sallan
+date: '2025-05-31'
+slug: motifs-in-undirected-networks
+categories:
+  - R
+tags:
+  - complex networks
+  - network motifs
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Complex network analysis usually examines networks at the global level, with metrics like average path length, average clustering coefficient and global and local efficiency. We also examine graphs at the node or edge level, with measures such as node degree or node and edge betweenness.
+
+In complex networks theory, there is a stream of reseearch focusing on intermediate network structures obtained from the examination of **subgraphs**. A subgraph is a subset of a graph, sharing some or all of its nodes and edges. The analysis of subgraphs allows us to identify **network motifs**. Motifs are patterns of interconnections of a network, occurring at a number significantly higher than in randomized versions of the graph: a random graph with the same number of nodes, edges and degree distribution.
+
+In this post, I will introduce how to use the R `igraph` library to identify network motifs. These network motifs can be described as **isomorphism classes** more abundant that would be in a random network. I will also use `purrr` for functional programming and `data.table` for data handling.
+
+```{r, message=FALSE}
+library(igraph)
+library(purrr)
+library(data.table)
+```
+
+## Isomorphic Classes of Subgraphs
+
+Two graphs are **isomorphic** when there is a matching between nodes of each graph so that two nodes connected in the first graph correspond to nodes connected in the second graph. A set of isomorphic graphs forms an **isomorphic class**. To be isomorphic, graphs need to have the same number of nodes, so it is frequent to consider isomorphic classes for a given number of nodes. Let's illustrate this with two isomorphic graphs of four nodes.
+
+```{r, fig.align='center'}
+g1 <- graph_from_literal(A -- B, B -- D, C -- D, C -- A)
+g1 <- permute(g1, c(1, 2, 4, 3))
+g2 <- graph_from_literal(A -- D, D -- B, B -- C, C -- A)
+g2 <- permute(g2, c(1, 4, 2, 3))
+
+layout4 <- matrix(c(0, 1,
+                    1, 1,
+                    0, 0,
+                    1, 0), nrow = 4, byrow = TRUE)
+
+iso4 <- list(g1, g2)
+
+par(mfrow = c(1, 2), oma = c(0.5, 1, 0.5, 1), mar = c(1, 1, 1, 1))
+walk(iso4, ~ plot(., vertex.size = 40, vertex.color = "white", layout = layout4))
+```
+
+If these graphs are found as subgraphs of a larger graph, they will be considered as belonging to the same isomorphic class. If subgraphs like this appear at an abnormal rate, they will be considered a motif. When looking for motifs, we group network subgraphs into isomorphic classes.
+
+To examine subgraphs, we have several functions in `igraph`:
+
+- `motifs(g, n)` counts the subgraphs of each isomorphic class of size `n` (number of nodes) in a graph `g`.
+- `count_motifs(g, n)` returns the total number of subgraphs of size `n` in `g`.
+
+To illustrate this, let's consider a power grid network:
+
+```{r, echo=FALSE}
+power_grid <- readRDS("power_grid.RDS")
+```
+
+```{r}
+power_grid
+```
+
+Let's apply the two functions to `power_grid` for subgraphs of size `n = 3` nodes.
+
+```{r}
+motifs(power_grid, 3) # four motifs of size 3
+count_motifs(power_grid, 3)    # total number of motifs of a given size in igraph 
+```
+
+As seen in `motifs()` each isomorphism class has a number, corresponding to its classification in `igraph`. To find a representative of a isomorphism class, we have the function `graph_from_isomorphism_class()`. From the result of `motifs()` we have learned that there are four isomorphism classes of size three. These are labelled from zero to three. Let's obtain each of the representatives:
+
+```{r}
+graph3_list <- map(0:3, ~ graph_from_isomorphism_class(3, ., directed = FALSE))
+titles3 <- paste0("isomorphism ", 0:3)
+```
+
+Let's define a layout for a graph of three nodes.
+
+```{r}
+layout3 <- matrix(c(0, 2,
+                    1, 1,
+                    0, 0), nrow = 3, byrow = TRUE)
+```
+
+And here are each of the representatives of each of the isomorphic classes of size three.
+
+```{r, out.width='60%', fig.align='center'}
+par(mfrow = c(2, 2), oma = c(0.5, 1, 0.5, 1), mar = c(1, 1, 1, 1))
+walk2(graph3_list, titles3, ~ plot(.x, vertex.size = 40, vertex.color = "white", layout = layout3, main = .y))
+```
+
+When we have applied the `motifs()` function to the graph, some of the results are `NA`. These correspond to unconnected graphs that are not considered as candidates to motifs of order three. Then the possible motifs of order three are:
+
+```{r, out.width='60%', fig.align='center'}
+motifs3_list <- graph3_list[which(!is.na(motifs(power_grid, 3)))]
+titles_motifs3 <- titles3[which(!is.na(motifs(power_grid, 3)))]
+
+par(mfrow = c(1, 2), oma = c(0.5, 1, 0.5, 1), mar = c(1, 1, 1, 1))
+walk2(motifs3_list, titles_motifs3, ~ plot(.x, vertex.size = 40, vertex.color = "white", layout = layout3, main = .y))
+```
+
+We can repeat the same workflow to obtain the eleven isomorphic classes of size four. Let's start counting motifs of the sample graph.
+
+```{r}
+motifs(power_grid, 4)
+```
+
+There are eleven isomorphic classes:
+
+```{r, out.width='100%'}
+graph4_list <- map(0:10, ~ graph_from_isomorphism_class(4, ., directed = FALSE))
+numbers4 <- substr(as.character(100:110), 2, 3)
+titles4 <- paste0("isomorphism ", numbers4)
+
+layout4 <- matrix(c(0, 1,
+                    1, 1,
+                    0, 0,
+                    1, 0), nrow = 4, byrow = TRUE)
+
+par(mfrow = c(4, 3), oma = c(0.5, 1, 0.5, 1), mar = c(1, 1, 1, 1))
+walk2(graph4_list, titles4, ~ plot(.x, vertex.size = 40, vertex.color = "white", layout = layout4, main = .y))
+```
+
+Of the eleven isomorphic classes, only six correspond to possible network motifs.
+
+```{r}
+motifs4_list <- graph4_list[which(!is.na(motifs(power_grid, 4)))]
+titles_motifs4 <- titles4[which(!is.na(motifs(power_grid, 4)))]
+```
+
+And here are the six possible motifs of size four:
+
+```{r, fig.align='center'}
+par(mfrow = c(2, 3), oma = c(0.5, 1, 0.5, 1), mar = c(1, 1, 1, 1))
+walk2(motifs4_list, titles_motifs4, ~ plot(.x, vertex.size = 40, vertex.color = "white", layout = layout4, main = .y))
+```
+
+These are the four-node motifs presented in Dey et al. (2019) or Yang and Xiao (2025).
+
+Let's count the isomorphic classes of size five.
+
+```{r}
+motifs(power_grid, 5)
+```
+
+There are 34 isomorphic classes of size five, of which 21 are considered candidates to motifs. Let's plot the candidates to motifs of size five.
+
+```{r, out.width='100%', fig.height=11}
+graph5_list <- map(0:33, ~ graph_from_isomorphism_class(5, ., directed = FALSE))
+numbers5 <- substr(as.character(100:133), 2, 3)
+titles5 <- paste0("isomorphism ", numbers5)
+
+m5 <- which(!is.na(motifs(power_grid, 5)))
+
+motifs5_list <- graph5_list[m5]
+titles_motifs5 <- titles5[m5]
+
+layout5 <- matrix(c(cos(2*pi*0:4/5 + pi/2), 
+                    sin(2*pi*0:4/5 + pi/2)), nrow = 5)
+
+par(mfrow = c(7, 3), oma = c(0.5, 1, 0.5, 1), mar = c(1, 1, 1, 1))
+walk2(motifs5_list, titles_motifs5, ~ {plot(.x, 
+                                    vertex.size = 40, vertex.color = "white", 
+                                    layout = layout5)
+  title(.y, cex.main = 0.8)})
+```
+
+For undirected graphs, igraph goes as far as subgraphs of size six:
+
+```{r}
+motifs(power_grid, 6)
+```
+
+We have up to `r motifs(power_grid, 6) |> length()` subgraphs of size six, of which `which(!is.na(motifs(power_grid, 6))) |> length()` are considered motifs.
+
+## Table with Isomorphic Classes
+
+To count all isomorphic classes of subgraphs available in igraph, I have defined the `motif_count()` function. It takes a graph g as argument and returns a data table with all subgraphs of size `n` belonging to isomorphic class `m`. 
+
+```{r}
+motif_count <- function(g){
+  
+  motif_count <- map_dfr(3:6, ~ {
+    mc <- motifs(g, .)
+    df <- data.table(n = ., m = 0:(length(mc) - 1), mc = mc)
+    df <- df[!is.na(mc)]
+  })
+  
+  return(motif_count)
+}
+```
+
+This is the result of applying the function to the power grid:
+
+```{r}
+motif_count(power_grid)
+```
+
+
+## Detecting Motifs in a Graph
+
+To detect the motifs of the power grid, we need to compare the frequence of each subgraph with the one of random graphs with the same number of nodes, edges and degree sequence. The later is obtained with `degree()`.
+
+```{r}
+degree_pg <- degree(power_grid)
+```
+
+We can generate random graphs with a fixed degree sequence with the `sample_degseq()` function. I wil be using the Viger and Latapy method passing `method = "vl"`.
+
+```{r}
+set.seed(55)
+sample_degseq(degree_pg, method = "vl")
+```
+
+To detect network motifs, I am using the method described in Milo et al. (2002) and Milo et al. (2004). From a sample of random graphs with the same degree sequence we obtain the average and standard deviation of the number of appearances of each motif $N^{rand}_{i}$. Then, I compute the z-score for motif $i$:
+
+\begin{equation}
+z_i = \frac{N^{real}_{i} - \langle N^{rand}_{i} \rangle}{sd\left( N^{rand}_{i} \right)}
+\end{equation}
+
+Where $\langle N^{rand}_{i} \rangle$ and $sd\left( N^{rand}_{i} \right)$ are the mean and the standard deviation of number of motifs $i$, respectively. As $N^{rand}_{i}$ is normally distributed, network **motifs** will have values of $z_i$ *above* the upper significance threshold. We can also speak of **antimotifs**, with values of $z_i$ *below* than the lower significance threshold. Antimotifs are subgraphs that appear with a lesser frequence than in an equivalent random network.
+
+To perform this test I have written the `motif_detector()`. In addition to the graph, takes as arguments:
+
+- `sample_size`: the number of random graphs to be evaluated.
+- `sig_level`: the level of significance to detect motifs and antimotifs.
+
+```{r}
+motif_detector <- function(g, sample_size, sig_level = 0.01){
+  
+  degseq <- degree(g)
+  
+  # sampling motifs
+  random_sg <- map_dfr(1:sample_size, ~{
+    # random sample graph
+    rs <- sample_degseq(degseq, method = "vl")
+    mc <- motif_count(rs)
+  })
+  rt <- random_sg[, .(mean = mean(mc), sd = sd(mc)), .(n, m)]
+  
+  # motifs of g
+  rn <- motif_count(g)
+  setnames(rn, "mc", "mc_real")
+  
+  # merging and computing z score
+  md <- merge(rt, rn, by = c("n", "m"))
+  md[, z := (mc_real - mean)/sd]
+  
+  # significance thresholds
+  lt <- qnorm(sig_level)
+  ut <- qnorm(1 - sig_level)
+  md[, motif := "no motif"]
+  md[z < lt, motif := "antimotif"]
+  md[z > ut, motif := "motif"]
+  
+  return(md)
+  
+}
+```
+
+## Motifs of the Power Grid Network
+
+Let's apply this function to the power grid network:
+
+```{r, echo=FALSE, eval=FALSE}
+mpg <- motif_detector(power_grid, sample_size = 1000)
+saveRDS(mpg, "motif.RDS")
+```
+
+```{r, echo=FALSE, eval=TRUE}
+mpg <- readRDS("motif.RDS")
+```
+
+```{r, eval=FALSE}
+mpg <- motif_detector(power_grid, sample_size = 1000)
+```
+
+
+Let's examine motifs of size three:
+
+```{r}
+mpg[n == 3]
+```
+
+The closed triangle (n = 3, m = 3) is a motif of this network.
+
+```{r}
+mpg[n == 4]
+```
+
+Higher-order isomorphic classes are motifs of this network. This suggests that this network has more clustered regions than a random network of similar degree distribution.
+
+## References
+
+- Graph motifs (igraph R manual): <https://igraph.org/r/doc/motifs.html>
+- Graph isomorphism: <https://www2.math.upenn.edu/~mlazar/math170/notes05-2.pdf>
+- Milo, R., Itzkovitz, S., Kashtan, N., Levitt, R., Shen-Orr, S., Ayzenshtat, I., ... & Alon, U. (2004). Superfamilies of evolved and designed networks. *Science*, 303(5663), 1538-1542.
+- Milo, R., Shen-Orr, S., Itzkovitz, S., Kashtan, N., Chklovskii, D., & Alon, U. (2002). Network motifs: simple building blocks of complex networks. *Science*, 298(5594), 824-827.
