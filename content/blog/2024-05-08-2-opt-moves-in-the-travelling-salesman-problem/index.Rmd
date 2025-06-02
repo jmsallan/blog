@@ -208,20 +208,20 @@ set.seed(1111)
 D <- dist(points(n), method = "manhattan", upper = TRUE) |> as.matrix()
 ```
 
-The TSP() function calculates the value of a solution in a fast way, because we are not iterating to obtain edge values.
+The `TSP()` function calculates the value of a solution in a fast way.
 
 ```{r}
-TSP <- function(v, sol, n) sum(v[sol[c(1:(n-1), 1)] + (sol[c(2:n, n)] - 1)*n])
+TSP <- function(D, sol) sum(D[cbind(sol, c(sol[-1], sol[1]))])
 ```
 
 If we look again at the first picture, we observe that when we perform a 2-opt move, we remove two edges and add two new ones. So substracting and adding edge distances can be used to calculate objective function faster.
 
 ```{r}
-TSP_2opt <- function(D, fit, i, j, n){
+tsp_dist_2opt <- function(D, fit, sol, i, j, n){
   if(j == n)
-    new_sol <- fit + D[i-1, j] + D[i, 1] - D[i-1, i] - D[j, 1]
+    new_sol <- fit + D[sol[i-1], sol[j]] + D[sol[i], sol[1]] - D[sol[i-1], sol[i]] - D[sol[j], sol[1]]
   else
-    new_sol <- fit +  D[i-1, j] + D[i, j+1] - D[i-1, i] - D[j, j+1]
+    new_sol <- fit +  D[sol[i-1], sol[j]] + D[sol[i], sol[j+1]] - D[sol[i-1], sol[i]] - D[sol[j], sol[j+1]]
   
   return(new_sol)
 }
@@ -230,17 +230,20 @@ TSP_2opt <- function(D, fit, i, j, n){
 Let's check if the function works. We start calculating the total distance of a solution `sol`.
 
 ```{r}
-sol <- 1:n
-fit <- TSP(as.numeric(D), sol, 8)
+set.seed(55)
+sol <- c(1, sample(2:n, n-1))
+sol
+fit <- TSP(D, sol)
 fit
 ```
 
 Now we generate a new solution with the $(3,6)$ move, and compare the result obtained in the two ways.
 
 ```{r}
-new_sol <- move_2opt(1:n, 3, 6, 8)
-TSP(as.numeric(D), new_sol, 8) 
-TSP_2opt(D, fit, 3, 6, 8)
+new_sol <- move_2opt(sol, 3, 6, 8)
+new_sol
+TSP(D, new_sol) 
+tsp_dist_2opt(D, fit, sol, 3, 6, 8)
 ```
 
 We observe that both functions lead to the same result.
@@ -251,14 +254,16 @@ We can use `purrr:pmap()` on the table of 2-opt moves to evaluate the value of c
 
 ```{r}
 moves |>
-  mutate(sol = pmap_dbl(moves, ~ TSP_2opt(D, fit, .x, .y, n))) |>
-  arrange(sol, i)
+  mutate(new_sol = pmap_dbl(moves, ~ tsp_dist_2opt(D, fit, sol, .x, .y, n))) |>
+  arrange(new_sol, i)
 ```
 
-In this case, we observe that the best move for this solution is $(4,6)$, which reduces total cycle value from 92 to 68.
+In this case, we observe that the best move for this solution is $(3,5)$, which reduces total cycle value from 98 to 82.
 
 ## Session Info
 
 ```{r, echo=FALSE}
 sessionInfo()
 ```
+
+Post updated on `r Sys.Date()`.
