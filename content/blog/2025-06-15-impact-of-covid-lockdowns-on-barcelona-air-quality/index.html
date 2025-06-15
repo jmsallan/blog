@@ -1,0 +1,193 @@
+---
+title: Impact of COVID Lockdowns on Barcelona Air Quality
+author: Jose M Sallan
+date: '2025-06-15'
+slug: []
+categories:
+  - data analysis
+  - R
+tags:
+  - Barcelona
+  - air quality
+  - COVID-19
+  - ggplot
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>The lockdowns because of COVID in Spain were more severe than in other parts of the world. During some weeks of April, mobility was severely constrained and there were almost no cars on the streets. In this post, I will use data from the Barcelona Open Data Portal to assess the impact of COVID lockdowns in Barcelona. In a press report published on March 2021, the Generalitat de Catalunya established the dates of mobility restrictions:</p>
+<ul>
+<li>Mobility restrictions went from 14 March to 29 May 2020.</li>
+<li>The most severe mobility restrictions went from 30 March to 12 April 2020.</li>
+</ul>
+<p>I will be using the tidyverse to generate different visualizations to better understand the effects of COVID lockdowns on Barcelona air quality.</p>
+<pre class="r"><code>library(tidyverse)</code></pre>
+<p>Considering this, I obained a dataset to compare air quality during lockdowns with similar time windows of 2021 to 2024:</p>
+<ul>
+<li>I retrieved air quality data from measurement stations posted on the Barcelona Open Data website.</li>
+<li>I tidyed data so that each row contains the <code>value</code> measurement of a specific <code>pollutant</code>, from a specific <code>station</code> and from a specific hour.</li>
+<li>I filtered data going from 14 March to 29 May from 2020 to 2021.
+. As hourly data is extremely noisy, I have averaged the level of contaminant on a daily basis. The day of measurement is in <code>date</code>.</li>
+<li>To make the plots, I have created a <code>plot_date</code> variable equal to the same date as 2025, and the <code>year</code> as factor.</li>
+</ul>
+<p>The result is in the <code>aq_tw_daily</code> dataset.</p>
+<pre class="r"><code>aq_tw_daily</code></pre>
+<pre><code>## # A tibble: 19,821 × 6
+##    date       plot_date  year  station  pollutant value
+##    &lt;date&gt;     &lt;date&gt;     &lt;fct&gt; &lt;chr&gt;        &lt;dbl&gt; &lt;dbl&gt;
+##  1 2020-03-14 2025-03-14 2020  Poblenou         7  3.91
+##  2 2020-03-15 2025-03-15 2020  Poblenou         7  3.26
+##  3 2020-03-16 2025-03-16 2020  Poblenou         7  1.38
+##  4 2020-03-17 2025-03-17 2020  Poblenou         7  1.61
+##  5 2020-03-18 2025-03-18 2020  Poblenou         7  9.76
+##  6 2020-03-19 2025-03-19 2020  Poblenou         7  9   
+##  7 2020-03-20 2025-03-20 2020  Poblenou         7  4.74
+##  8 2020-03-21 2025-03-21 2020  Poblenou         7  1.52
+##  9 2020-03-22 2025-03-22 2020  Poblenou         7  1.54
+## 10 2020-03-23 2025-03-23 2020  Poblenou         7  1.83
+## # ℹ 19,811 more rows</code></pre>
+<p>The two most relevant pollutants are:</p>
+<ul>
+<li>Particulate matter of 10 microns or less PM10, with `pollutant+ code 10.</li>
+<li>Nitrogen dioxide NO2, with `pollutant+ code 8.</li>
+</ul>
+<p>Let’s see several ways to compare the evolution of PM10 and NO2 in each station.</p>
+<div id="line-plots" class="section level2">
+<h2>Line Plots</h2>
+<p>Let’s start with a line plot representing the evolution of the pollutant along the time window across different years with the <code>plot_date</code> variable. For a specific contaminant, I am using <code>facet_grid()</code> to plot values of each station. The orange area represents the period of lowest mobility.</p>
+<pre class="r"><code>aq_tw_daily |&gt;
+  filter(pollutant == 10) |&gt;
+  ggplot(aes(plot_date, value, color = year)) +
+  geom_rect(xmin = as_date(&quot;2025-03-30&quot;), xmax = as_date(&quot;2025-04_12&quot;), ymin = 0, ymax = 60,
+            fill = &quot;orange&quot;, color = &quot;white&quot;, alpha = 0.1) +
+  geom_line() +
+  theme_minimal() +
+  scale_color_manual(values = c(&quot;#CC0000&quot;, &quot;#99CCFF&quot;, &quot;#3399FF&quot;, &quot;#0066CC&quot;, &quot;#003366&quot;)) +
+  theme(legend.position = &quot;bottom&quot;) +
+  labs(x = NULL, y = NULL, title = &quot;Evolution of Values of PM10&quot;) + 
+  facet_grid(station ~ .)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="100%" /></p>
+<p>In the plot above, we can see lower values of pollutant for 2020 in most stations, but not the clear divide that one would expect from a significant constraint in mobility. For most stations, the lowest values in 2020 are reached in the third and fourth weeks of April.</p>
+<pre class="r"><code>aq_tw_daily |&gt;
+  filter(pollutant == 8) |&gt;
+  ggplot(aes(plot_date, value, color = year)) +
+  geom_rect(xmin = as_date(&quot;2025-03-30&quot;), xmax = as_date(&quot;2025-04_12&quot;), ymin = 0, ymax = 80,
+            fill = &quot;orange&quot;, color = &quot;white&quot;, alpha = 0.1) +
+  geom_line() +
+  theme_minimal() +
+  scale_color_manual(values = c(&quot;#CC0000&quot;, &quot;#99CCFF&quot;, &quot;#3399FF&quot;, &quot;#0066CC&quot;, &quot;#003366&quot;)) +
+  theme(legend.position = &quot;bottom&quot;) +
+  labs(x = NULL, y = NULL, title = &quot;Evolution of Values of NO2&quot;) + 
+  facet_grid(station ~ .)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="100%" /></p>
+<p>The plot for NO2 shows also that values of 2020 are among the lowest for the analyzed period, but within the interval of usual values for the other years. The highest values of NO2 are reached in station close to more densely populated Barcelona districts: Ciutadella, Eixample and Gracia. The lowest values are found at Observatori Fabra, located in Collserola park and with very low population density compared with Gràcia, Ciutat Vella or Eixample.</p>
+</div>
+<div id="box-plots" class="section level2">
+<h2>Box Plots</h2>
+<p>The examination of the overall distribution of each pollutant for each station across years with boxplots can be of interest, as extreme values of pollutant are reached in different moments in time.</p>
+<pre class="r"><code>aq_tw_daily |&gt;
+  filter(pollutant == 10) |&gt;
+  ggplot(aes(year, value)) +
+  facet_grid(station ~ .) +
+  geom_boxplot(color = rep(c(&quot;#CC0000&quot;, &quot;#99CCFF&quot;, &quot;#3399FF&quot;, &quot;#0066CC&quot;, &quot;#003366&quot;), 6)) +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, title = &quot;Distribution of Values of PM10&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="100%" /></p>
+<p>The plot for PM10 shows again that values of pollutant for 2020 are among the lowest of the series, but within the range of values of the other years. An interesting observation here is that 2020 showed no pollution episodes (values higher than 50), while they were salient in 2022 and 2023. The boxplot for Gracia in 2024 shows that only a single value (equal to 22) was gathered during that year in the observed time window.</p>
+<pre class="r"><code>aq_tw_daily |&gt;
+  filter(pollutant == 8) |&gt;
+  ggplot(aes(year, value)) +
+  facet_grid(station ~ .) +
+  geom_boxplot(color = rep(c(&quot;#CC0000&quot;, &quot;#99CCFF&quot;, &quot;#3399FF&quot;, &quot;#0066CC&quot;, &quot;#003366&quot;), 8)) +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, title = &quot;Distribution of Values of NO2&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="100%" /></p>
+<p>The plot for NO2 shows that 2020 was a year with low values, but not significantly lower than observations from 2021-2024. For the five years examined, the values of NO2 are below 80 during this period. The differences between stations stress the effect of population density on NO2 levels.</p>
+</div>
+<div id="error-bars" class="section level2">
+<h2>Error Bars</h2>
+<p>Finally, we can compare the mean of daily means and the standard deviation across years for each station and for each pollutant. I will be using errorbars, with bar heights equal to the mean and error whiskers equal to the standard deviation. This plot helps to focus in absolute values of pollution, as all <em>y</em> axis start from zero.</p>
+<pre class="r"><code>aq_tw_daily |&gt;
+  filter(pollutant == 10) |&gt;
+  group_by(station, year) |&gt;
+  summarise(mean = mean(value, na.rm = TRUE), sd = sd(value, na.rm = TRUE), .groups = &quot;drop&quot;) |&gt;
+  mutate(across(mean:sd, ~ ifelse(is.na(.), 0, .))) |&gt;
+  ggplot(aes(year, mean)) +
+  geom_col(fill = rep(c(&quot;#CC0000&quot;, &quot;#99CCFF&quot;, &quot;#3399FF&quot;, &quot;#0066CC&quot;, &quot;#003366&quot;), 6), alpha = 0.5) +
+  geom_errorbar(aes(ymin = mean - sd, ymax = mean + sd), width = 0.3) +
+  facet_grid(station ~ .) +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, title = &quot;Mean and Standard Deviation (PM10)&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="100%" /></p>
+<p>This plot reinforces the conclusions reached in previous plots. Values of PM10 for 2020 are in the low range of the expected values for 2020-2024. The mobility constraints in 2020 lead to lower values of pollution, both they are not a significant depart from values of other years.</p>
+<pre class="r"><code>aq_tw_daily |&gt;
+  filter(pollutant == 8) |&gt;
+  group_by(station, year) |&gt;
+  summarise(mean = mean(value, na.rm = TRUE), sd = sd(value, na.rm = TRUE), .groups = &quot;drop&quot;) |&gt;
+  mutate(across(mean:sd, ~ ifelse(is.na(.), 0, .))) |&gt;
+  ggplot(aes(year, mean)) +
+  geom_col(fill = rep(c(&quot;#CC0000&quot;, &quot;#99CCFF&quot;, &quot;#3399FF&quot;, &quot;#0066CC&quot;, &quot;#003366&quot;), 8), alpha = 0.5) +
+  geom_errorbar(aes(ymin = mean - sd, ymax = mean + sd), width = 0.3) +
+  facet_grid(station ~ .) +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, title = &quot;Mean and Standard Deviation (NO2)&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="100%" /></p>
+<p>Regarding NO2, we reach similar conclusions. The year 2020 has lower values of NO2, but they do not represent a significant depart from values of 2021-2024. This plot makes more salient the impact of population density. The values of NO2 in Observatori Fabra in any year are lowers than NO2 in Eixample in 2020.</p>
+</div>
+<div id="conclusions" class="section level2">
+<h2>Conclusions</h2>
+<p>I have used values of pollutants from the Barcelona Open Data repository to compare values of PM10 and NO2 during the COVID-19 lockdown with values of analogous dates for the period 2021-2024. This analysis can be seen as a natural experiment to evaluate the impact of mobility in PM10 and NO2, the two pollutants for which there is a protocol of control of abnormal values in Catalonia.</p>
+<p>Results shows that values of 2020 tended to be lower than in 2021-2024, but in the lower range of expected values for these years, rather than being lower with statistical significance. On the other hand, results showed that these pollutants are anthropogenic (that is, created by human activity). This is specially salient for NO2, which seems to depend on human density.</p>
+<p>In recent years, policymakers have been focused on mobility-related measures to reduce pollutants in the urban environment. Low emission zones have been created in cities like Barcelona and Madrid, where cars with high pollutant engines are not allowed to enter, although they have not been fully implemented. These results suggest that even turning the mobility to zero does not lead to a significant reduction of PM10 and NO2, therefore it is likely that complementary measures must be implemented to improve air quality.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Generalitat de Catalunya (2021). Un any de pandèmia: evolució de la mobilitat. <a href="https://govern.cat/salapremsa/notes-premsa/400091/any-pandemia-evolucio-mobilitat" class="uri">https://govern.cat/salapremsa/notes-premsa/400091/any-pandemia-evolucio-mobilitat</a></li>
+<li>Barcelona Open Data. Air quality data from the measure stations of the city of Barcelona. <a href="https://opendata-ajuntament.barcelona.cat/data/en/dataset/qualitat-aire-detall-bcn" class="uri">https://opendata-ajuntament.barcelona.cat/data/en/dataset/qualitat-aire-detall-bcn</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.5.0 (2025-04-11)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0  LAPACK version 3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] lubridate_1.9.4 forcats_1.0.0   stringr_1.5.1   dplyr_1.1.4    
+##  [5] purrr_1.0.4     readr_2.1.5     tidyr_1.3.1     tibble_3.2.1   
+##  [9] ggplot2_3.5.2   tidyverse_2.0.0
+## 
+## loaded via a namespace (and not attached):
+##  [1] gtable_0.3.6      jsonlite_2.0.0    compiler_4.5.0    tidyselect_1.2.1 
+##  [5] jquerylib_0.1.4   scales_1.3.0      yaml_2.3.10       fastmap_1.2.0    
+##  [9] R6_2.6.1          labeling_0.4.3    generics_0.1.3    knitr_1.50       
+## [13] bookdown_0.43     munsell_0.5.1     bslib_0.9.0       pillar_1.10.2    
+## [17] tzdb_0.5.0        rlang_1.1.6       utf8_1.2.4        stringi_1.8.7    
+## [21] cachem_1.1.0      xfun_0.52         sass_0.4.10       timechange_0.3.0 
+## [25] cli_3.6.4         withr_3.0.2       magrittr_2.0.3    digest_0.6.37    
+## [29] grid_4.5.0        rstudioapi_0.17.1 hms_1.1.3         lifecycle_1.0.4  
+## [33] vctrs_0.6.5       evaluate_1.0.3    glue_1.8.0        farver_2.1.2     
+## [37] blogdown_1.21     colorspace_2.1-1  rmarkdown_2.29    tools_4.5.0      
+## [41] pkgconfig_2.0.3   htmltools_0.5.8.1</code></pre>
+</div>

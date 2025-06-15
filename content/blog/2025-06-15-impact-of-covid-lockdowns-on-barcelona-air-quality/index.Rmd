@@ -1,0 +1,181 @@
+---
+title: Impact of COVID Lockdowns on Barcelona Air Quality
+author: Jose M Sallan
+date: '2025-06-15'
+slug: []
+categories:
+  - data analysis
+  - R
+tags:
+  - Barcelona
+  - air quality
+  - COVID-19
+  - ggplot
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The lockdowns because of COVID in Spain were more severe than in other parts of the world. During some weeks of April, mobility was severely constrained and there were almost no cars on the streets. In this post, I will use data from the Barcelona Open Data Portal to assess the impact of COVID lockdowns in Barcelona. In a press report published on March 2021, the Generalitat de Catalunya established the dates of mobility restrictions:
+
+- Mobility restrictions went from 14 March to 29 May 2020.
+- The most severe mobility restrictions went from 30 March to 12 April 2020.
+
+I will be using the tidyverse to generate different visualizations to better understand the effects of COVID lockdowns on Barcelona air quality.
+
+```{r, message=FALSE}
+library(tidyverse)
+```
+
+Considering this, I obained a dataset to compare air quality during lockdowns with similar time windows of 2021 to 2024:
+
+- I retrieved air quality data from measurement stations posted on the Barcelona Open Data website.
+- I tidyed data so that each row contains the `value` measurement of a specific `pollutant`, from a specific `station` and from a specific hour.
+- I filtered data going from 14 March to 29 May from 2020 to 2021.
+. As hourly data is extremely noisy, I have averaged the level of contaminant on a daily basis. The day of measurement is in `date`.
+- To make the plots, I have created a `plot_date` variable equal to the same date as 2025, and the `year` as factor.
+
+The result is in the `aq_tw_daily` dataset.
+
+```{r, echo=FALSE}
+aq_tw_daily <- readRDS("aq_tw_daily.RDS")
+aq_tw_daily <- aq_tw_daily |>
+  rename(year = any, pollutant = codi_contaminant, station = nom_cabina) |>
+  select(date, plot_date, year, station, pollutant, value)
+```
+
+```{r}
+aq_tw_daily
+```
+
+The two most relevant pollutants are:
+
+- Particulate matter of 10 microns or less PM10, with `pollutant+  code 10.
+- Nitrogen dioxide NO2, with  `pollutant+  code 8.
+
+Let's see several ways to compare the evolution of PM10 and NO2 in each station.
+
+## Line Plots
+
+Let's start with a line plot representing the evolution of the pollutant along the time window across different years with the `plot_date` variable. For a specific contaminant, I am using `facet_grid()` to plot values of each station. The orange area represents the period of lowest mobility.
+
+
+```{r, warning=FALSE, out.width='100%', fig.height=8}
+aq_tw_daily |>
+  filter(pollutant == 10) |>
+  ggplot(aes(plot_date, value, color = year)) +
+  geom_rect(xmin = as_date("2025-03-30"), xmax = as_date("2025-04_12"), ymin = 0, ymax = 60,
+            fill = "orange", color = "white", alpha = 0.1) +
+  geom_line() +
+  theme_minimal() +
+  scale_color_manual(values = c("#CC0000", "#99CCFF", "#3399FF", "#0066CC", "#003366")) +
+  theme(legend.position = "bottom") +
+  labs(x = NULL, y = NULL, title = "Evolution of Values of PM10") + 
+  facet_grid(station ~ .)
+```
+
+In the plot above, we can see lower values of pollutant for 2020 in most stations, but not the clear divide that one would expect from a significant constraint in mobility. For most stations, the lowest values in 2020 are reached in the third and fourth weeks of April.
+
+```{r, warning=FALSE, out.width='100%', fig.height=10}
+aq_tw_daily |>
+  filter(pollutant == 8) |>
+  ggplot(aes(plot_date, value, color = year)) +
+  geom_rect(xmin = as_date("2025-03-30"), xmax = as_date("2025-04_12"), ymin = 0, ymax = 80,
+            fill = "orange", color = "white", alpha = 0.1) +
+  geom_line() +
+  theme_minimal() +
+  scale_color_manual(values = c("#CC0000", "#99CCFF", "#3399FF", "#0066CC", "#003366")) +
+  theme(legend.position = "bottom") +
+  labs(x = NULL, y = NULL, title = "Evolution of Values of NO2") + 
+  facet_grid(station ~ .)
+```
+
+The plot for NO2 shows also that values of 2020 are among the lowest for the analyzed period, but within the interval of usual values for the other years. The highest values of NO2 are reached in station close to more densely populated Barcelona districts: Ciutadella, Eixample and Gracia. The lowest values are found at Observatori Fabra, located in Collserola park and with very low population density compared with Gràcia, Ciutat Vella or Eixample.
+
+## Box Plots
+
+The examination of the overall distribution of each pollutant for each station across years with boxplots can be of interest, as extreme values of pollutant are reached in different moments in time.
+
+```{r, warning=FALSE, out.width='100%', fig.height=7}
+aq_tw_daily |>
+  filter(pollutant == 10) |>
+  ggplot(aes(year, value)) +
+  facet_grid(station ~ .) +
+  geom_boxplot(color = rep(c("#CC0000", "#99CCFF", "#3399FF", "#0066CC", "#003366"), 6)) +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, title = "Distribution of Values of PM10")
+```
+
+The plot for PM10 shows again that values of pollutant for 2020 are among the lowest of the series, but within the range of values of the other years. An interesting observation here is that 2020 showed no pollution episodes (values higher than 50), while they were salient in 2022 and 2023. The boxplot for Gracia in 2024 shows that only a single value (equal to 22) was gathered during that year in the observed time window.
+
+```{r, warning=FALSE, out.width='100%', fig.height=7}
+aq_tw_daily |>
+  filter(pollutant == 8) |>
+  ggplot(aes(year, value)) +
+  facet_grid(station ~ .) +
+  geom_boxplot(color = rep(c("#CC0000", "#99CCFF", "#3399FF", "#0066CC", "#003366"), 8)) +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, title = "Distribution of Values of NO2")
+```
+
+The plot for NO2 shows that 2020 was a year with low values, but not significantly lower than observations from 2021-2024. For the five years examined, the values of NO2 are below 80 during this period. The differences between stations stress the effect of population density on NO2 levels.
+
+## Error Bars
+
+Finally, we can compare the mean of daily means and the standard deviation across years for each station and for each pollutant. I will be using errorbars, with bar heights equal to the mean and error whiskers equal to the standard deviation. This plot helps to focus in absolute values of pollution, as all *y* axis start from zero.
+
+```{r, out.width='100%', fig.height=7}
+aq_tw_daily |>
+  filter(pollutant == 10) |>
+  group_by(station, year) |>
+  summarise(mean = mean(value, na.rm = TRUE), sd = sd(value, na.rm = TRUE), .groups = "drop") |>
+  mutate(across(mean:sd, ~ ifelse(is.na(.), 0, .))) |>
+  ggplot(aes(year, mean)) +
+  geom_col(fill = rep(c("#CC0000", "#99CCFF", "#3399FF", "#0066CC", "#003366"), 6), alpha = 0.5) +
+  geom_errorbar(aes(ymin = mean - sd, ymax = mean + sd), width = 0.3) +
+  facet_grid(station ~ .) +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, title = "Mean and Standard Deviation (PM10)")
+```
+
+This plot reinforces the conclusions reached in previous plots. Values of PM10 for 2020 are in the low range of the expected values for 2020-2024. The mobility constraints in 2020 lead to lower values of pollution, both they are not a significant depart from values of other years.
+
+```{r, out.width='100%', fig.height=7}
+aq_tw_daily |>
+  filter(pollutant == 8) |>
+  group_by(station, year) |>
+  summarise(mean = mean(value, na.rm = TRUE), sd = sd(value, na.rm = TRUE), .groups = "drop") |>
+  mutate(across(mean:sd, ~ ifelse(is.na(.), 0, .))) |>
+  ggplot(aes(year, mean)) +
+  geom_col(fill = rep(c("#CC0000", "#99CCFF", "#3399FF", "#0066CC", "#003366"), 8), alpha = 0.5) +
+  geom_errorbar(aes(ymin = mean - sd, ymax = mean + sd), width = 0.3) +
+  facet_grid(station ~ .) +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, title = "Mean and Standard Deviation (NO2)")
+```
+
+Regarding NO2, we reach similar conclusions. The year 2020 has lower values of NO2, but they do not represent a significant depart from values of 2021-2024. This plot makes more salient the impact of population density. The values of NO2 in Observatori Fabra in any year are lowers than NO2 in Eixample in 2020.
+
+## Conclusions
+
+I have used values of pollutants from the Barcelona Open Data repository to compare values of PM10 and NO2 during the COVID-19 lockdown with values of analogous dates for the period 2021-2024. This analysis can be seen as a natural experiment to evaluate the impact of mobility in PM10 and NO2, the two pollutants for which there is a protocol of control of abnormal values in Catalonia.
+
+Results shows that values of 2020 tended to be lower than in 2021-2024, but in the lower range of expected values for these years, rather than being lower with statistical significance. On the other hand, results showed that these pollutants are anthropogenic (that is, created by human activity). This is specially salient for NO2, which seems to depend on human density.
+
+In recent years, policymakers have been focused on mobility-related measures to reduce pollutants in the urban environment. Low emission zones have been created in cities like Barcelona and Madrid, where cars with high pollutant engines are not allowed to enter, although they have not been fully implemented. These results suggest that even turning the mobility to zero does not lead to a significant reduction of PM10 and NO2, therefore it is likely that complementary measures must be implemented to improve air quality.
+
+## References
+
+- Generalitat de Catalunya (2021). Un any de pandèmia: evolució de la mobilitat. <https://govern.cat/salapremsa/notes-premsa/400091/any-pandemia-evolucio-mobilitat>
+- Barcelona Open Data. Air quality data from the measure stations of the city of Barcelona. <https://opendata-ajuntament.barcelona.cat/data/en/dataset/qualitat-aire-detall-bcn>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
