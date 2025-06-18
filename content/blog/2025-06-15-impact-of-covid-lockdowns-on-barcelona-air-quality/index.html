@@ -24,7 +24,7 @@ description: Description for the page
 </ul>
 <p>I will be using the tidyverse to generate different visualizations to better understand the effects of COVID lockdowns on Barcelona air quality.</p>
 <pre class="r"><code>library(tidyverse)</code></pre>
-<p>Considering this, I obained a dataset to compare air quality during lockdowns with similar time windows of 2021 to 2024:</p>
+<p>Considering this, I obtained a dataset to compare air quality during lockdowns with similar time windows of 2021 to 2024:</p>
 <ul>
 <li>I retrieved air quality data from measurement stations posted on the Barcelona Open Data website.</li>
 <li>I tidyed data so that each row contains the <code>value</code> measurement of a specific <code>pollutant</code>, from a specific <code>station</code> and from a specific hour.</li>
@@ -61,7 +61,7 @@ description: Description for the page
   filter(pollutant == 10) |&gt;
   ggplot(aes(plot_date, value, color = year)) +
   geom_rect(xmin = as_date(&quot;2025-03-30&quot;), xmax = as_date(&quot;2025-04_12&quot;), ymin = 0, ymax = 60,
-            fill = &quot;orange&quot;, color = &quot;white&quot;, alpha = 0.1) +
+            fill = &quot;yellow&quot;, color = &quot;white&quot;, alpha = 0.005) +
   geom_line() +
   theme_minimal() +
   scale_color_manual(values = c(&quot;#CC0000&quot;, &quot;#99CCFF&quot;, &quot;#3399FF&quot;, &quot;#0066CC&quot;, &quot;#003366&quot;)) +
@@ -74,7 +74,7 @@ description: Description for the page
   filter(pollutant == 8) |&gt;
   ggplot(aes(plot_date, value, color = year)) +
   geom_rect(xmin = as_date(&quot;2025-03-30&quot;), xmax = as_date(&quot;2025-04_12&quot;), ymin = 0, ymax = 80,
-            fill = &quot;orange&quot;, color = &quot;white&quot;, alpha = 0.1) +
+            fill = &quot;yellow&quot;, color = &quot;white&quot;, alpha = 0.005) +
   geom_line() +
   theme_minimal() +
   scale_color_manual(values = c(&quot;#CC0000&quot;, &quot;#99CCFF&quot;, &quot;#3399FF&quot;, &quot;#0066CC&quot;, &quot;#003366&quot;)) +
