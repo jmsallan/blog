@@ -1,0 +1,253 @@
+---
+title: 2-opt Local Search for the TSP
+author: Jose M Sallan
+date: '2025-06-23'
+slug: 2-opt-local-search-for-the-tsp
+categories:
+  - optimization
+  - R
+tags:
+  - optimization
+  - R
+  - tabu search
+  - simulated annealing
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = FALSE)
+```
+
+Neighbourhood definition is a key step to turn metaheuristics like tabu search or simulated annealing into algorithms to solve a combinatorial problem. For routing problems like the travelling salesman problem, the **2-opt move** seems a natural move to establish a neighbourhood definition. The 2-opt move consists of picking a pair of non contiguous edges, and rearrange the connections between the four nodes of the two edges.
+
+Im this post, I will use two small instances of the TSP from TSPLIB and evaluate a tabu search and a simulated annealing heuristic based on 2-opt moves. The algorithms use the tidyverse for data handling, and I also will use it for plotting algorithm evolution.
+
+```{r, message=FALSE}
+library(tidyverse)
+```
+
+The code for the instances is in a gist file on GitHub:
+
+```{r}
+devtools::source_gist("https://gist.github.com/jmsallan/913494f5495ea2ab7ece4ed131a3d314")
+```
+
+```{r, echo=FALSE}
+load("gr_instances.RData")
+```
+
+The selected instances are `gr24` and `gr48`. The optimum value of the solution for these instances is:
+
+```{r}
+tsp_dist(gr24$D, gr24$opt.tour)
+tsp_dist(gr48$D, gr48$opt.tour)
+```
+
+A first step to apply local search algorithms effectively is through a constructive heuristic. Here I will be using the nearest neighbour heuristic, starting from node `1`.
+
+```{r}
+nn_gr24 <- nn_tsp(gr24$D)
+nn_gr48 <- nn_tsp(gr48$D)
+
+nn_gr24$fit
+nn_gr48$fit
+```
+
+For these two instances, the solutions obtained with the constructive heuristic are far from optimality.
+
+## Tabu Search
+
+Let's apply a tabu search algorithm to solve the gr24 instance. The tabu list size may seem long, but a neighbourhood of a solution for an instance of 24 nodes hss 24*21/2 = 252 solution.
+
+```{r}
+t1 <- Sys.time()
+ts_gr24 <- tabu_2opt_tsp(instance = gr24$D, start_sol = nn_gr24$sol, 
+                         max_iter = 125, tabu_size = 100)
+t2 <- Sys.time()
+time_ts_gr24 <- difftime(t2, t1, units = "secs")
+```
+
+This run of the algorithm finds the optimal solution:
+
+```{r}
+ts_gr24$fit
+ts_gr24$sol
+tsp_dist(gr24$D, gr24$opt.tour)
+gr24$opt.tour
+```
+
+As this version of the tabu search is deterministic, all runs of the algorithm will always lead to the same solution.
+
+```{r}
+custom_theme <- theme_minimal() +
+  theme(legend.position = "bottom") 
+
+ts_gr24$track |>
+  pivot_longer(-iter) |>
+  ggplot(aes(iter, value, color = name)) +
+  geom_line(linewidth = 0.8) +
+  custom_theme +
+  labs(x = NULL, y = NULL, title = "Tabu Search gr24") +
+  scale_color_manual(name = "fitness", labels = c("best", "current"),
+                     values = c("red", "#3399FF"))
+```
+
+
+Let's solve now the instance of 48 nodes. This will require more than twice of the time spent in the previous instance. The tabu list size is 200, and the size of the neighbourhood for this problem is 45*48/2 = 1080 solutions.
+
+```{r}
+t1 <- Sys.time()
+ts_gr48 <- tabu_2opt_tsp(instance = gr48$D, start_sol = nn_gr48$sol, 
+                         max_iter = 300, tabu_size = 200)
+t2 <- Sys.time()
+time_ts_gr48 <- difftime(t2, t1, units = "secs")
+```
+
+For this problem, the tabu search also finds the optimal solution.
+
+```{r}
+ts_gr48$fit
+ts_gr48$sol
+tsp_dist(gr48$D, gr48$opt.tour)
+gr48$opt.tour
+```
+
+```{r}
+ts_gr48$track |>
+  pivot_longer(-iter) |>
+  ggplot(aes(iter, value, color = name)) +
+  geom_line(linewidth = 0.5) +
+  custom_theme +
+  labs(x = NULL, y = NULL, title = "Tabu Search gr48") +
+  scale_color_manual(name = "fitness", labels = c("best", "current"),
+                     values = c("red", "#3399FF"))
+```
+
+## Simulated Annealing
+
+As an alternative, we can try a simulated annealing heuristic. When comparing simulated annealing with tabu search, we must take into account that:
+
+- Each iteration of the simulated annealing examines a single solution, so we must set the number of iterations so that both algoritjms examine roughly the same number of solutions.
+- The simulated annealing is a stochastic algorithm, as it contains randomness, so two runs of the same algorithm may lead to different solutions.
+
+For the gr24 instance, the tabu search had 125 runs, so to compare both algoirthms fairly the number of iterations of the simulated annealing should be of around 24x21x125/2 = 31500.
+
+```{r}
+set.seed(1313)
+t1 <- Sys.time()
+sa_gr24 <- sa_2opt_tsp(instance = gr24$D, start_sol = nn_gr24$sol,
+                       max_iter = 31500, alpha = 1 - 1e-03, p0 = 0.5)
+t2 <- Sys.time()
+time_sa_gr24 <- difftime(t2, t1, units = "secs")
+```
+
+The obtained solution is also optimal:
+
+```{r}
+ts_gr24$fit
+ts_gr24$sol
+tsp_dist(gr24$D, gr24$opt.tour)
+gr24$opt.tour
+```
+
+In the algorithm evolution plot, we can distinguish the exploration phase in the first iterations from the exploitation (refinement) phase of the last iterations.
+
+```{r}
+sa_gr24$track |>
+  pivot_longer(-iter) |>
+  ggplot(aes(iter, value, color = name)) +
+  geom_line(linewdith = 0.8) +
+  custom_theme +
+  labs(x = NULL, y = NULL, title = "Simulated Annealing gr24") +
+  scale_color_manual(name = "fitness", labels = c("best", "current"),
+                     values = c("red", "#3399FF"))
+```
+
+In stochastic algorithms, it can be convenient to run the algorithm several times, to account for solution variability. I am using `map()` to run the function ten times and store the result in a list.
+
+```{r}
+set.seed(313)
+runs_sa_gr24 <- map(1:10, ~  sa_2opt_tsp(instance = gr24$D, start_sol = nn_gr24$sol, max_iter = 31500, alpha = 1 - 1e-03, p0 = 0.5))
+```
+
+Once extracted the results, I use `map_dbl()` to extract the value of the fitness function
+
+```{r}
+map_dbl(runs_sa_gr24, ~ .$fit)
+```
+
+
+This sampling illustrates that, unlike the tabu search, we are never sure of obtaining always the same solution each time we run the algorithm. For this instance, we can see that variability is relatively low, and that it is frequent to reach the optimal solution.
+
+Finally, let's examine the simulated annealing algorithm for the instance of 48 nodes. This instance would be requiring 48x45x300/2 = 324800 runs.
+
+```{r}
+set.seed(1313)
+t1 <- Sys.time()
+sa_gr48 <- sa_2opt_tsp(instance = gr48$D, start_sol = nn_gr48$sol,
+                       max_iter = 324800, alpha = 1 - 1e-03, p0 = 0.5)
+t2 <- Sys.time()
+time_sa_gr48 <- difftime(t2, t1, units = "secs")
+```
+
+The obtained solution is near to optimal, but does not reach optimum like tabu search.
+
+```{r}
+sa_gr48$fit
+sa_gr48$sol
+tsp_dist(gr48$D, gr48$opt.tour)
+gr24$opt.tour
+```
+
+Regarding the evolution of the algorithm, the exploration phase is relatively shorter than in the 24 nodes instance. Changes in the `alpha` parameter (not shown here) do not show significant improvement of performance.
+
+```{r}
+sa_gr48$track |>
+  pivot_longer(-iter) |>
+  ggplot(aes(iter, value, color = name)) +
+  geom_line(linewidth = 0.8) +
+  custom_theme +
+  labs(x = NULL, y = NULL, title = "Simulated Annealing gr24") +
+  scale_color_manual(name = "fitness", labels = c("best", "current"),
+                     values = c("red", "#3399FF"))
+```
+
+## Comparing Algorithm Performance
+
+Tabu search and simulated annealing are two local search metaheuristics for optimization of combinatorial problems. To obtain an heuristic for a specific problem, we need to define an adequate neighbourhood for a solution. For routing problems like the travelling salesman problem, the 2-opt neighbourhood is specially adequate.
+
+I have used two instances of the TSP of 24 and 48 nodes from TSPLIB to test these heuristics. These instances can be considered small for the current state of the art of the TSP, but are still hard to handle for linear programming formulations.
+
+The results are somewhat different for each instance. In **gr24**, both heuristics fins the optimal solution. It must be noted, though, that the results of the simulated annealing are different for each run. For this instance, an advantage of simulated annealing is time of execution:
+
+```{r}
+time_ts_gr24
+time_sa_gr24
+```
+
+Indeed, we observe that simulated annealing is faster than tabu search, with a similar number of evaluations of the objective function.
+
+Regarding **gr48**, the time of execution of tabu search is *smaller* than simulated annealing.
+
+```{r}
+time_ts_gr48
+time_sa_gr48
+```
+
+As the tabu search finds the optimal solution while simulated annealing does not, we can conclude that tabu search is better than simulated annealing for instances of around 48 nodes. This conclusion, though, is pending of a more formal evaluation of hyperparameters of the simulated annealing.
+
+We can also observe than the time required to reach a (nearly) optimal solution for the 48 nodes instance is more than double than for the 24 nodes instance. This suggests that larger instances should be tackled with more elaborated, time consuming heuristics, like GRAPS or iterated local search. 
+
+## References
+
+- 2-opt moves in the travelling salesman problem. <https://jmsallan.netlify.app/blog/2-opt-moves-in-the-travelling-salesman-problem/>
+- gist with code of functions: <https://gist.github.com/jmsallan/913494f5495ea2ab7ece4ed131a3d314>
+- TSPLIB <http://comopt.ifi.uni-heidelberg.de/software/TSPLIB95/>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
