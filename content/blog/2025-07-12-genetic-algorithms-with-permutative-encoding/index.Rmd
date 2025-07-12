@@ -1,0 +1,264 @@
+---
+title: Genetic Algorithms with Permutative Encoding
+author: Jose M Sallan
+date: '2025-07-12'
+slug: genetic-algorithms-with-permutative-encoding
+categories:
+  - optimization
+  - R
+tags:
+  - optimization
+  - R
+  - genetic algorithms
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The **genetic algorithm (GA)** is a population-based metaheuristic based on the process of natural selection. As living organisms improve its fitness with the environment through evolution, genetic algorithms improve the fitness of each generation of a population of solutions.
+
+To define a genetic algorithm for a specific problem, we need to encode solutions in a suitable way. This encoding is the genotype of the solution. In this post, I will introduce genetic algorithms using **permutative encoding**, using the travelling salesman problem (TSP) as an example.
+
+In a genetic algorithm, a set of candidate solutions (population) goes through the following processes in each iteration or generation:
+
+- **Selection.** The solutions of a population need to have a good value of fitness, and also preserve a reasonable degree of diversity. The most popular selection strategy is tournament selection. It consists of selecting a set of solutions at random, and keep the solution with better fitness value.
+- **Crossover.** With crossover, we obtain new solutions combining elements of two or more solutions. The most popular crossover operators for permutative encoding are order crossover (OX) or partial matching crossover (PMX). We can decide to pass to the next generation the solutions obtain through selection or combine them with the crossover operator according to a **probability of crossover**.
+- **Mutation.** Before going to the next generation, each solution can be altered with a mutation operator, according to a **probability of mutation**. For the TSP, a mutation operator can be inverting a part of the solution. This is equivalent to applying a 2-opt operator.
+
+In addition to these three processes, there are other elements of the genetic algorithm that can improve its effectiveness.
+
+- **Seeding.** With seeding, we include in the starting population solutions not obtained at random. A possible seeding strategy can be including a solution obtained with a constructive heuristic such as the nearest neighbour.
+- **Elitism.** With elitism, we pass one or more of the bests solutions of the present generation straight to the next.
+
+Genetic algorithms admit a great diversity of operators. In this post, I will present a specific implementation of a genetic algorithm for the travelling salesman problem.
+
+The code of the algorithm can be retrieved from a Github gist:
+
+```{r}
+devtools::source_gist("https://gist.github.com/jmsallan/1d284ccc9734cc501c2400517d798cfd")
+```
+
+I will be using the `gr12` and `gr24` instances from TSPLIB:
+
+```{r}
+load("gr_instances.RData")
+```
+
+And finally I will use the tidyverse mainly for plotting:
+
+```{r, message=FALSE}
+library(tidyverse)
+```
+
+
+## Selection
+
+I will use **tournament selection** as selection operator. In this operator, to select a solution we obtain `s` elements of the population randomly, and the solution with the best fitness is retained. The higher the value of `s`, the higher the selection pressure, that is, the higher the probability of selecting elements of good fitness. Here I will use `s = 6`, corresponding to a high selection pressure.
+
+## Crossover
+
+I will use the **order crossover (OX)** operator. This is implemented with the `ox_crossover()` function. It takes as input two solutions, and as output two new solutions (offspring) obtained as follows.
+
+- The function selects two points `start` and `end` at random between 2 and `n-1`, being `n` the number of nodes.
+- The first offspring inherits the sequence `start:end` from the first input. The rest of the solution is obtained inserting in order the elements of the second input not included in the sequence.
+- The second offspring has the `start:end` sequence of the second output, and the ordered elements not included in the sequence of the first output.
+
+Let's see an example of application of the crossover operator. Let's obtain two possible solutions of a problem of size `n = 15`.
+
+```{r}
+set.seed(1313)
+p1 <- c(1, sample(2:15, 14))
+p2 <- c(1, sample(2:15, 14))
+p1
+p2
+```
+
+Let's apply the crossover operator to these two solutions:
+
+```{r}
+set.seed(55)
+ox_crossover(p1, p2, 15)
+```
+
+Let's see how `sibling1` is obtained. It takes the sequence from 5 to 11 from `p1`:
+
+<center>
+<font size = "6">
+1  4 13  7 <span style="color:#FF0000;">15  2  5 11  8  3 14</span>  6 10 12  9
+</font>
+</center>
+
+And then selects the elements of p2 not included in the sequence:
+
+<center>
+<font size = "6">
+<span style="color:#0000FF;">1  7</span> 11  5  8 <span style="color:#0000FF;">10</span> 15  <span style="color:#0000FF;">9  4</span>  2 14 <span style="color:#0000FF;">12 13  3  6</span>
+</font>
+</center>
+
+The resulting offspring is:
+
+<center>
+<font size = "6">
+<span style="color:#0000FF;">1  7 10 9</span>  <span style="color:#FF0000;">15  2  5 11  8  3 14</span>  <span style="color:#0000FF;">4 12 13  6</span>
+</font>
+</center>
+
+## Mutation
+
+The selected mutation operator is the **inversion**. It consists of inverting a sequence between `3` and `n`. This is implemented with the `inv_mutation()` function. Let's see how it works mutating `p1`.
+
+```{r}
+set.seed(44)
+p1
+inv_mutation(p1, 15)
+```
+
+In this case, the function has inverted the sequence between 3 and 13:
+
+<center>
+<font size = "6">
+1  4 <span style="color:#FF0000;">13  7 15  2  5 11  8  3 14  6 10</span> 12  9
+</font>
+</center>
+
+<center>
+<font size = "6">
+1  4 <span style="color:#FF0000;">10  6 14  3  8 11  5  2 15  7 13</span> 12  9
+</font>
+</center>
+
+## Applying the algorithm to gr24
+
+Let's apply the algorithm to `gr24`, an instance from TSPLIB of 24 nodes. The optimal value of this instance is:
+
+```{r}
+tsp_dist(gr24$D, gr24$opt.tour)
+```
+
+Let's pick a population size of 120. We know that we can obtain the optimum with tabu search with 3,1500 evaluations of the objective function, so we will set 31500/120 ~ 263 generations for the genetic algorithm. Let's set the probability of crossover to 0.8 and the probability of mutation to 0.4.
+
+```{r}
+set.seed(11)
+ga_gr24 <- ga_tsp(instance = gr24$D, selection = "tournament", 
+                  crossover = "ox", mutation = "inv", npop = 120, max_iter = 263,
+                  pcross = 0.8, pmut = 0.4, elitist = TRUE, seed = TRUE)
+```
+
+The algorithm achieves a solution close to the optimum:
+
+```{r}
+ga_gr24$fit
+```
+
+To track the evolution of the algorithm, I am plotting:
+
+- The `best` solution obtained.
+- The best solution of the iteration `iter`.
+- The `median` value of the fitness function for the generation.
+
+```{r}
+ga_gr24$track |>
+  pivot_longer(-step) |>
+  ggplot(aes(step, value, color = name)) +
+  geom_line() +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(x = NULL, y = NULL, title = "gr24 with pmut = 0.4") +
+  scale_color_manual(name = "fit", values = c("#0066CC", "#3399FF", "#99CCFF" ))
+```
+
+We observe that in the first iterations of the algorithm the median and the best value are similar. This means that most of the population has the same fitness function: we say that the genetic algorithm has converged. This is not desirable, as the algorithm has been stuck in a local optimum. We can add diversity to the population rising the probability of mutation to 0.8.
+
+```{r}
+set.seed(11)
+ga_gr24_2 <- ga_tsp(instance = gr24$D, selection = "tournament", 
+                  crossover = "ox", mutation = "inv", npop = 120, max_iter = 263,
+                  pcross = 0.8, pmut = 0.8, elitist = TRUE, seed = TRUE)
+```
+
+In this case, the algorithm finds the optimal solution:
+
+```{r}
+ga_gr24_2$fit
+```
+
+Let's track the evolution of the algorithm like in the previous run:
+
+```{r}
+ga_gr24_2$track |>
+  pivot_longer(-step) |>
+  ggplot(aes(step, value, color = name)) +
+  geom_line() +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(x = NULL, y = NULL, title = "gr24 with pmut = 0.8") +
+  scale_color_manual(name = "fit", values = c("#0066CC", "#3399FF", "#99CCFF" ))
+```
+
+The higher probability of mutation has made the median to be way above the best solution of the iteration. This means that the population has high diversity, as it includes a wide range of values of the fitness function. In this run, the algorithm reaches the optimum in the iteration 83. Therefore, it has been more effective than tabu search for this specific instance.
+
+## Applying the algorithm to gr48
+
+Let's apply the algorithm to gr48, an istance from TSPLIB of `n = 48` nodes. The optimal value of this instance is:
+
+```{r}
+tsp_dist(gr48$D, gr48$opt.tour)
+```
+
+For this instance, I will increase the population size to 240, and establish 1350 generations to have a number of runs of the objective function similar to tabu search.
+
+```{r}
+set.seed(11)
+ga_gr48 <- ga_tsp(instance = gr48$D, selection = "tournament", 
+                  crossover = "ox", mutation = "inv", npop = 240, max_iter = 1350,
+                  pcross = 0.8, pmut = 0.8, elitist = TRUE, seed = TRUE)
+```
+
+Here the solution is far from the optimum:
+
+```{r}
+ga_gr48$fit
+```
+
+Here is the plot tracking the evolution of the algorithm.
+
+```{r}
+ga_gr48$track |>
+  pivot_longer(-step) |>
+  ggplot(aes(step, value, color = name)) +
+  geom_line() +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(x = NULL, y = NULL, title = "gr48") +
+  scale_color_manual(name = "fit", values = c("#0066CC", "#3399FF", "#99CCFF" ))
+```
+
+For this run of the algorithm, the high probability of mutation maintains population diversity. Again, the best value of the algorithm for this instance is obtained in the iteration 339.
+
+## Genetic Algorithms with Permutative Encoding
+
+In this post, I have presented a genetic algorithm implementing crossover and mutation operators for permutative encoding, and I have applied it to solve two instances of the travelling salesman problem of 24 and 48 nodes. When testing the algorithms, I have set a number of evaluations of the objective function similar to the applied in testing of local search algorithms made on a previous post.
+
+Results show that genetic algorithms can obtain results close to the optimal solution faster than simulated annealing, although in the instance of 48 nodes genetic algorithms are less effective than tabu search. Therefore, genetic algorithms can be seen as a faster, although less effective alternative to local search algorithms.
+
+Unlike local search algorithms like simulated annealing and tabu search, genetic algorithms have a large set of parameters. This requires extensive computational experiments to tune these algorithms.
+
+## References
+
+- 2-opt local search for the TSP. <https://jmsallan.netlify.app/blog/2-opt-local-search-for-the-tsp/>
+- gist with code of functions: <https://gist.github.com/jmsallan/1d284ccc9734cc501c2400517d798cfd>
+- TSPLIB <http://comopt.ifi.uni-heidelberg.de/software/TSPLIB95/>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
+
+
