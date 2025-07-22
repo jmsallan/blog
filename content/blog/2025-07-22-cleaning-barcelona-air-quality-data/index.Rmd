@@ -1,0 +1,190 @@
+---
+title: Cleaning Barcelona Air Quality Data
+author: Jose M Sallan
+date: '2025-07-22'
+slug: cleaning-barcelona-air-quality-data
+categories:
+  - R
+  - data analysis
+tags:
+  - air quality
+  - Barcelona
+  - data cleaning
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The Open Data BCN portal is the official open data catalog operated by the Barcelona City Council (Ajuntament de Barcelona). It offers public data in reusable, machine‑readable formats (like CSV or JSON) across a wide range of topics, such as population, health, education, transport, economy and environment.
+
+In this post, I will focus on the air quality data from the measure stations of the city of Barcelona, to demonstrate how the Tidyverse packages can help us to acquire and clean data from open data portals. I will also be using the `clean_names()` function from `janitor`.
+
+```{r, message=FALSE}
+library(tidyverse)
+library(janitor)
+```
+
+Let's pick the most recent data available about air quality. To do so, I right-click he Download button of Qualitat_Aire_Detall.csv and read it straight with `read_csv()`.
+
+```{r}
+aq_web <- read_csv("https://opendata-ajuntament.barcelona.cat/data/dataset/0582a266-ea06-4cc5-a219-913b22484e40/resource/c2032e7c-10ee-4c69-84d3-9e8caf9ca97a/download")
+```
+
+Here is the resulting table.
+
+```{r}
+aq_web
+```
+
+This table is not ready to be used for a variety of reasons:
+
+- Redundant information of columns from `CODI_PROVINCIA` to `MUNICIPI`.
+- The `VXX` columns are not necessary, as they indicate that the data is missing in the corresponding `HXX` column.
+- Each row carries information of 24 hourly observations from a pollutant in a specific station. We need to reshape the data as tidy data, so each row presents information about one pollutant measured at a station at a specific hour.
+- We need a date time variable with the date and time when the information was obtained.
+
+Let's start cleaning the column names. In this case, this means that all names will be turned into small caps.
+
+```{r}
+aq_web |>
+  clean_names()
+```
+
+Then, we are ready to select the columns. Additionnally, I will put the station codes as integer numbers.
+
+```{r}
+aq_web |>
+  clean_names() |>
+  select(c(estacio:dia, starts_with("h"))) |>
+  mutate(estacio = as.numeric(estacio))
+```
+
+And now we are ready to set the data in long format, using `tidyr::pivot_longer()`, Here I have used some specific settings:
+
+- The variable with column names is labelled `hora` (hour)-
+- I set `names_prefix = "h"` so the h is removed from column `hora`.
+- The actual value of pollutant is stored in the `value` column.
+
+```{r}
+aq_web |>
+  clean_names() |>
+  select(c(estacio:dia, starts_with("h"))) |>
+  mutate(estacio = as.numeric(estacio)) |>
+  pivot_longer(h01:h24, names_prefix = "h", 
+               names_to = "hora", values_to = "value")
+```
+
+Finally, I generate the datetime variable with `lubridate::make_datetime()` and use `dplyr::relocate()` to place it after the codi_contaminant column.
+
+```{r}
+aq_web |>
+  clean_names() |>
+  select(c(estacio:dia, starts_with("h"))) |>
+  mutate(estacio = as.numeric(estacio)) |>
+  pivot_longer(-c(estacio:dia), names_prefix = "h", 
+               names_to = "hora", values_to = "value") |>
+  mutate(hora = as.numeric(hora)) |>
+  mutate(datetime = make_datetime(year = any, month = mes, day = dia, hour = hora)) |>
+  relocate(datetime, .after = codi_contaminant)
+```
+
+## Reading several months
+
+Now that we know how to transform a table, let's wrap together some tables with the same structure. Right-clicking in the adequate buttons, I have obtained the links of the air quality files form January to April 2025. I have wrapped them into the `links` list.
+
+```{r}
+ene_2025 <- "https://opendata-ajuntament.barcelona.cat/data/dataset/0582a266-ea06-4cc5-a219-913b22484e40/resource/701c14fa-e248-45c6-ac47-77384bab1670/download"
+feb_2025 <- "https://opendata-ajuntament.barcelona.cat/data/dataset/0582a266-ea06-4cc5-a219-913b22484e40/resource/f0acc2d3-0657-4e57-93bd-a335ab356c9c/download"
+mar_2025 <- "https://opendata-ajuntament.barcelona.cat/data/dataset/0582a266-ea06-4cc5-a219-913b22484e40/resource/04096ce5-cabd-4f66-b091-c090680c39a8/download"
+abr_2025 <- "https://opendata-ajuntament.barcelona.cat/data/dataset/0582a266-ea06-4cc5-a219-913b22484e40/resource/99830447-f31f-4cbc-8c51-9c861596f644/download"
+
+links <- list(ene_2025, feb_2025, mar_2025, abr_2025)
+```
+
+We can use purrr:map() to read all datasets and store them in a list.
+
+```{r}
+aq_web_2025 <- map(links, read_csv)
+```
+
+Now I am wrapping into a `clean_aq_table()` all the steps to clean each of the tables.
+
+```{r}
+clean_aq_table <- function(table){
+  t <- table |>
+  clean_names() |>
+  select(c(estacio:dia, starts_with("h"))) |>
+  mutate(estacio = as.numeric(estacio)) |>
+  pivot_longer(-c(estacio:dia), names_prefix = "h", 
+               names_to = "hora", values_to = "value") |>
+  mutate(hora = as.numeric(hora)) |>
+  mutate(datetime = make_datetime(year = any, month = mes, day = dia, hour = hora)) |>
+  relocate(datetime, .after = codi_contaminant)
+  
+  return(t)
+}
+```
+
+I am using `purrr:map_dfr()` to clean each element of the `aq_web_2025` list and to bind the rows of all the tables.
+
+```{r}
+aq_tidy_2025 <- map_dfr(aq_web_2025, clean_aq_table)
+```
+
+Here is the result: a tidy table of air quality data of the first four months of 2025.
+
+```{r}
+aq_tidy_2025
+```
+
+## Examining the Dataset
+
+Now that it is in tidy format, it is easy to examine the data in several ways. For instance, we can check at what dates and stations the daily average value of PM10 `codi_contaminant == 10` where higher than 50 µg/m³.
+
+```{r}
+aq_tidy_2025 |>
+  filter(codi_contaminant == 10) |>
+  mutate(date = as_date(datetime)) |>
+  group_by(estacio, date) |>
+  summarise(mean_pm10 = mean(value, na.rm = TRUE), .groups = "drop") |>
+  arrange(-mean_pm10)
+```
+
+As the highest value of daily average of PM10 is smaller than 50, no episodes of pollution caused by PM10 were caused by this pollutant.
+
+As station 43 (Eixample) seems to have the highest values of PM10, let's plot the average daily value of PM10 with a line plot.
+
+```{r, warning=FALSE}
+aq_tidy_2025 |>
+  filter(codi_contaminant == 10, estacio == 43) |>
+  mutate(date = as_date(datetime)) |>
+  group_by(date) |>
+  summarise(mean_pm10 = mean(value, na.rm = TRUE)) |>
+  ggplot(aes(date, mean_pm10)) +
+  geom_line() +
+    theme_minimal() +
+  labs(title = "Daily values of PM10 at the Eixample station", x= NULL, y = NULL)
+```
+
+## Open Data with R
+
+Open data portals are a valuable source of data of the city life, from commercial activity to air quality. The R environment, specially the Tidyverse, offers a good platform to clean and structure the data for analysis effectively. A second step in this process is to retrieve the data more effectively than right-clicking in the web. This is quite platform specific and requires examining the information for developers of the portal.
+
+## References
+
+- Air quality data from the measure stations of the city of Barcelona
+  <https://opendata-ajuntament.barcelona.cat/data/en/dataset/qualitat-aire-detall-bcn>
+- Air quality measure stations of the city of Barcelona <https://opendata-ajuntament.barcelona.cat/data/en/dataset/qualitat-aire-estacions-bcn>
+- Measured air pollutants by the air quality measurement stations of the city of Barcelona <https://opendata-ajuntament.barcelona.cat/data/en/dataset/contaminants-estacions-mesura-qualitat-aire>
+
+All websites checked on 22 July 2025.
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
