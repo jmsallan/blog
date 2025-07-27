@@ -1,0 +1,367 @@
+---
+title: Reading and Tidying Barcelona Air Quality Data
+author: Jose M Sallan
+date: '2025-07-27'
+slug: reading-and-tidying-barcelona-air-quality-data
+categories:
+  - R
+tags:
+  - air quality
+  - Barcelona
+  - data cleaning
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Through open data portals, governments and city councils provide data to citizens in a transparent and accesible format, so it can be reused for research, app development, and civic tech.
+
+In this post, I will show how to retrieve data into R from an open data portal using the CKAN API technology, and structure it in tidy format with the tools of the tidyverse. Specifically, my aim is to retrieve Barcelona air quality data from the Open Data BCN portal.
+
+I will be using the tidyverse for data reading, handling and plotting, `janitor` to clean column names and the `ckanr` package to interact with the CKAN API of the portal.
+
+```{r, message=FALSE}
+library(tidyverse)
+library(janitor)
+library(ckanr)
+```
+
+I need all the URLs of air quality data files. To get them, I set up the Open Data BCN portal with `ckanr::ckanr_setup()`.
+
+```{r}
+ckanr_setup(url = "https://opendata-ajuntament.barcelona.cat/data/")
+```
+
+The datasets available at a portal using CKAN are called **packages**. Let's see the package list of the portal.
+
+```{r}
+package_list(as = "table", limit = 1000)
+```
+
+For later use, I will need information about air quality stations:
+
+```{r}
+st_package <- package_show("qualitat-aire-estacions-bcn")
+```
+
+The `resources` element of the package shows relevant information about each resource of the package:
+
+```{r}
+st_package$resources[[1]]
+```
+
+The `url` element contains an URL to read a `.csv` file. I am reading the file and transform it on the fly to obtain the `stations` table.
+
+```{r}
+stations <- read_csv(st_package$resources[[1]]$url)
+stations <- stations |>
+  clean_names() |>
+  mutate(nom_cabina = str_replace(nom_cabina, "Observatori", "Observ")) |>
+  select(estacio, nom_cabina) |>
+  distinct()
+
+stations
+```
+
+Air quality data are found at the `qualitat-aire-detall-bcn` package:
+
+```{r}
+aq_package <- package_show("qualitat-aire-detall-bcn")
+```
+
+Let's take a look at the `resources` content for this package:
+
+```{r}
+aq_package$resources[[1]]
+```
+
+Some tables are in `.csv` format and others in `.7z` format. We need only the `.csv` formats. To do so:
+
+- The `is_csv` logical vector identifies which resources are `.csv` files.
+- The `urls_csv` list includes the URLs of the resouces that are `.csv` files.
+
+```{r}
+is_csv <- map_lgl(aq_package$resources, ~ .$format == "CSV")
+urls_csv <- map(aq_package$resources[which(is_csv)], ~ .$url) # urls de los 85 .csv
+```
+
+## First Reading of Data
+
+Let's start reading all the `.csv` files of air quality data included in the package. Then, I will name each resource with the name of its file.
+
+```{r}
+airqual_all <- map(urls_csv, read_csv)
+names(airqual_all) <- map_chr(aq_package$resources[which(is_csv)], ~ .$name)
+```
+
+The output of `readr::read:csv()` shows that tables are presented in different structures. To detect the differeet tipologies, I have examined how many columns has the table of each resource.
+
+```{r}
+columns <- map_int(airqual_all, ncol)
+columns
+```
+
+We can detect three different tipologies:
+
+- The most common has 57 columns, and has been maintained since 2020.
+- The tables of June and July 2019 have only one column. This suggests that the separators of the `.csv` are the semicolon rather than comma.
+- Early versions of the dataset have a configuration of 18 columns.
+
+Furthermore, the table of May 2025 is not present in the resource for some reason at the present date. This table is also not available in the website.
+
+I start storing the datasets of 57 columns in the `airqual_csv` list
+
+```{r}
+airqual_csv <- airqual_all[which(columns == 57)]
+```
+
+Let's examine one of the datasets with one column:
+
+```{r}
+airqual_all$`2019_07_Juliol_qualitat_aire_BCN.csv`
+```
+
+We confirm that this dataset is quite similar to the 57 columns, but it really uses semicolon as separator. It is enough with reading them with `readr::read_csv2()`. The result is stored in the `airqual_csv2` list.
+
+```{r}
+urls_csv2 <- urls_csv[which(columns == 1)]
+airqual_csv2 <- map(urls_csv2, read_csv2)
+names(airqual_csv2) <- names(airqual_csv[which(columns == 1)])
+```
+
+The tables with 18 columns have a completely different structure.
+
+```{r}
+airqual_all$`2019_02_Febrer_qualitat_aire_BCN.csv`
+```
+
+They will require being treated separatedly so they are stored in the `airqual_long` dataset.
+
+```{r}
+airqual_long <- airqual_all[which(columns == 18)]
+```
+
+To summarise, we have now three different sets of tables:
+
+- `airqual_csv`, including the most common structure of 57 columns and obtained from a comma-separated file.
+- `airqual_csv2`, including tables with a similar structure of 57 columns, obtained form a semicolon-separated file.
+- `airqual_long`, including the tables with the old standard of 18 columns.
+
+## Table Cleaning
+
+Now we need to tidy the three diferents sets of tables, so they have the same columns and can be integrated in a single dataset. 
+
+I presented how to deal with `airqual_csv` tables [in a previous post](https://jmsallan.netlify.app/blog/cleaning-barcelona-air-quality-data/). There I defined a `clean_aq_table` function to transform the table in tidy format.
+
+```{r}
+clean_aq_table <- function(table){
+  t <- table |>
+  clean_names() |>
+  select(c(estacio:dia, starts_with("h"))) |>
+  mutate(estacio = as.numeric(estacio)) |>
+  pivot_longer(-c(estacio:dia), names_prefix = "h", 
+               names_to = "hora", values_to = "value") |>
+  mutate(hora = as.numeric(hora)) |>
+  mutate(datetime = make_datetime(year = any, month = mes, day = dia, hour = hora)) |>
+  relocate(datetime, .after = codi_contaminant)
+  
+  return(t)
+}
+```
+
+I am applying the function to all the tables of `airqual_csv` and wrapping all together in a single table using `purrr::map_dfr()`.
+
+```{r}
+airqual_csv_table <- map_dfr(airqual_csv, clean_aq_table)
+```
+
+Here is the resulting table:
+
+```{r}
+airqual_csv_table
+```
+
+The `airqual_csv2` tables have a slightly different structure regarding the data types of the estacio and value columns, so here is a `clean_aq_table2` specific for them: 
+
+```{r}
+clean_aq_table2 <- function(table){
+  table |> 
+  clean_names() |>
+  select(c(estacio:dia, starts_with("h"))) |>
+  pivot_longer(-c(estacio:dia), names_prefix = "h", 
+               names_to = "hora", values_to = "value")  |>
+  mutate(hora = as.numeric(hora)) |>
+  mutate(datetime = make_datetime(year = any, month = mes, day = dia, hour = hora)) |>
+  mutate(value = as.numeric(value)) |>
+  relocate(datetime, .after = codi_contaminant)
+}
+```
+
+Here is the result of the data cleaning. The column names and types are the same as the `airqual_csv_table`. 
+
+```{r}
+airqual_csv2_table <- map_dfr(airqual_csv2, clean_aq_table2)
+airqual_csv2_table
+```
+
+The elements of `airqual_long` are harder to tidy:
+
+```{r}
+airqual_long[[1]]
+```
+
+The function tidying these datasets is `clean_aq_table()`, presented below. The measurement stations and pollutants are presented with their names, and not with their code. That's why I have defined the `stations` table at the beginning. These tables include only three pollutants. Their codes are presented in the `conts` table inside the function.
+
+```{r}
+clean_aq_long <- function(table){
+table0 <- table |>
+  select(nom_cabina, starts_with("hora"), starts_with("valor"), generat) |>
+  mutate(across(starts_with("valor"), ~ str_replace(., " µg/m³", ""))) |>
+  mutate(across(starts_with("valor"), ~ str_replace(., "--", ""))) |>
+  mutate(across(starts_with("valor"), ~ ifelse(. == "", NA, .))) |>
+  mutate(datetime = dmy_hm(generat)) |>
+  select(nom_cabina, datetime, starts_with("valor"))
+  
+  new_table <- map_dfr(c("o3", "no2", "pm10"), ~ table0 |>
+      select(nom_cabina, datetime, ends_with(.)) |>
+      mutate(contaminant = .) |>
+      mutate(across(starts_with("valor"), ~ as.numeric(.))) |>
+      rename(c("value" = paste0("valor_", .))))
+    
+  conts <- tibble(contaminant = c("o3", "no2", "pm10"),
+                codi_contaminant = c(14, 8, 10))
+
+  new_table <- new_table |>
+  left_join(conts, by = "contaminant")
+
+  new_table <- new_table |>
+    left_join(stations |> select(estacio, nom_cabina), by = "nom_cabina")
+  
+  new_table <- new_table |>
+    mutate(any = year(datetime), mes = month(datetime),
+           dia = day(datetime), hora = hour(datetime)) |>
+    select(estacio, codi_contaminant, datetime, any, mes, dia, hora, value)
+  
+  return(new_table)
+  }
+```
+
+The table of February 2019 was totally empty of data, so it has been excluded from treatment. When applying clean_aq_long() some warnings appeared resulting from applying `as.numeric()` to the column of values, indicating that non-numeric strings have been turned into NA by coertion.
+
+```{r, warning=FALSE}
+airqual_long_table <- map_dfr(airqual_long[c(1, 4:10)], clean_aq_long)
+airqual_long_table
+```
+
+## Wrapping It All Together
+
+Now that we have the three sets of tables turned into a single dataset, it is time to wrap them up with the `dplyr::bind_rows()` function. It has worked properly because similar data has the same column name and data type in the three tables.
+
+```{r}
+airqual <- bind_rows(airqual_csv_table, airqual_csv2_table, airqual_long_table)
+```
+
+Finally, I am renaming columns so that they are presented in the same language.
+
+```{r}
+airqual <- airqual |>
+  rename(station = estacio, pollutant = codi_contaminant, year = any, month = mes, day = dia, hour = hora)
+```
+
+This is the resulting dataset, including air quality data from 2018 to mid 2025.
+
+```{r}
+airqual
+```
+
+## Evolution of PM10 at the Eixample Station
+
+Now that we have all data into a single table, we can examine some of the results. For instance, here is the evolution of the PM10 pollutant in the Eixample air quality measurement station (code 43).
+
+```{r, out.width='100%'}
+airqual |>
+  filter(station == 43, pollutant == 10) |>
+  mutate(date = as_date(datetime)) |>
+  group_by(date) |>
+  summarise(pm10 = mean(value, na.rm = TRUE), .groups = "drop") |>
+  ggplot(aes(date, pm10)) +
+  geom_line(linewidth = 0.5) +
+  theme_minimal() +
+  labs(title = "Evolution of PM10 at Eixample Station (2018-2025)", x = NULL, y = NULL)
+```
+
+As the year 2022 had high values of PM10, we can observe it closely:
+
+```{r, out.width='100%'}
+airqual |>
+  filter(station == 43, pollutant == 10, year == 2022) |>
+  mutate(date = as_date(datetime)) |>
+  group_by(date) |>
+  summarise(pm10 = mean(value, na.rm = TRUE), .groups = "drop") |>
+  ggplot(aes(date, pm10)) +
+  geom_line(linewidth = 0.5) +
+  geom_hline(yintercept = 50, color = "red", linetype = "dashed") +
+  theme_minimal() +
+  labs(title = "Evolution of PM10 at Eixample Station (2022)", x = NULL, y = NULL)
+```
+
+## Episodes of PM10 Pollution
+
+One of the ways of defining an episode of PM10 pollution is to observe daily average values of PM10 above 50 in two or more station. Let's see the days when one of these episodes occurred.
+
+```{r}
+pm10_episodes <- airqual |>
+  filter(pollutant == 10) |>
+  mutate(date = as_date(datetime)) |>
+  group_by(date, station) |>
+  summarise(pm10 = mean(value, na.rm = TRUE), .groups = "drop") |>
+  filter(pm10 >= 50) |>
+  group_by(date) |>
+  summarise(n = n()) |>
+  filter(n > 1) |>
+  arrange(-n)
+
+pm10_episodes
+```
+
+There have been `r nrow(pm10_episodes)` episodes of PM10 pollution registered since 2018. If we count episodes by month we have:
+
+```{r, out.width='100%'}
+pm10_episodes |>
+  mutate(month = month(date)) |>
+  mutate(month = factor(month)) |>
+  ggplot(aes(month)) +
+  geom_bar() +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, title = "Episodes of PM10 Pollution in Barcelona (2018-2025)")
+```
+
+We observe that the highest value of pollution episodes is during June, and the lowest in March and April.
+
+## Reading and Tidying Data from Open Data Portals
+
+Although open data portals are supposed to provide data in a structured and reusable way, using this kind of data may require extensive tidying and cleaning, pretty much like any other dataset. Turning a dataset into R tidy data can require some effort, but the resulting dataset can be very useful for exploratory data analysis jobs.
+
+## References
+
+- Air quality data from the measure stations of the city of Barcelona
+  <https://opendata-ajuntament.barcelona.cat/data/en/dataset/qualitat-aire-detall-bcn>
+- Air quality measure stations of the city of Barcelona <https://opendata-ajuntament.barcelona.cat/data/en/dataset/qualitat-aire-estacions-bcn>
+- Measured air pollutants by the air quality measurement stations of the city of Barcelona <https://opendata-ajuntament.barcelona.cat/data/en/dataset/contaminants-estacions-mesura-qualitat-aire>
+- `ckanr` package <https://docs.ropensci.org/ckanr/>
+- *Cleaning Barcelona Air Quality Data* <https://jmsallan.netlify.app/blog/cleaning-barcelona-air-quality-data/>
+
+All websites checked on 21 July 2025.
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
+

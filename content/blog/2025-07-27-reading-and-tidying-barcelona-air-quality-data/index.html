@@ -1,0 +1,1986 @@
+---
+title: Reading and Tidying Barcelona Air Quality Data
+author: Jose M Sallan
+date: '2025-07-27'
+slug: reading-and-tidying-barcelona-air-quality-data
+categories:
+  - R
+tags:
+  - air quality
+  - Barcelona
+  - data cleaning
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>Through open data portals, governments and city councils provide data to citizens in a transparent and accesible format, so it can be reused for research, app development, and civic tech.</p>
+<p>In this post, I will show how to retrieve data into R from an open data portal using the CKAN API technology, and structure it in tidy format with the tools of the tidyverse. Specifically, my aim is to retrieve Barcelona air quality data from the Open Data BCN portal.</p>
+<p>I will be using the tidyverse for data reading, handling and plotting, <code>janitor</code> to clean column names and the <code>ckanr</code> package to interact with the CKAN API of the portal.</p>
+<pre class="r"><code>library(tidyverse)
+library(janitor)
+library(ckanr)</code></pre>
+<p>I need all the URLs of air quality data files. To get them, I set up the Open Data BCN portal with <code>ckanr::ckanr_setup()</code>.</p>
+<pre class="r"><code>ckanr_setup(url = &quot;https://opendata-ajuntament.barcelona.cat/data/&quot;)</code></pre>
+<p>The datasets available at a portal using CKAN are called <strong>packages</strong>. Let’s see the package list of the portal.</p>
+<pre class="r"><code>package_list(as = &quot;table&quot;, limit = 1000)</code></pre>
+<pre><code>##   [1] &quot;20170706-districtes-barris&quot;                                
+##   [2] &quot;accessibilitat-via-publica&quot;                                
+##   [3] &quot;accidents_causa_conductor_gu_bcn&quot;                          
+##   [4] &quot;accidents-causes-gu-bcn&quot;                                   
+##   [5] &quot;accidents-gu-bcn&quot;                                          
+##   [6] &quot;accidents-persones-gu-bcn&quot;                                 
+##   [7] &quot;accidents-tipus-gu-bcn&quot;                                    
+##   [8] &quot;accidents-vehicles-gu-bcn&quot;                                 
+##   [9] &quot;accions-formatives-adrecades-al-personal&quot;                  
+##  [10] &quot;acollida-animals&quot;                                          
+##  [11] &quot;administracio-autonomica&quot;                                  
+##  [12] &quot;administracio-estatal&quot;                                     
+##  [13] &quot;administracio-municipal&quot;                                   
+##  [14] &quot;afectacions-turistiques&quot;                                   
+##  [15] &quot;afectacions-turistiques-a-espais-verds&quot;                    
+##  [16] &quot;aforaments-descriptiu&quot;                                     
+##  [17] &quot;aforaments-detall&quot;                                         
+##  [18] &quot;aforament-tipus-equipament&quot;                                
+##  [19] &quot;agenda-activitats-esportives&quot;                              
+##  [20] &quot;agenda-cultural&quot;                                           
+##  [21] &quot;agenda-diaria&quot;                                             
+##  [22] &quot;agenda-publica-alcaldesa&quot;                                  
+##  [23] &quot;agendes-publiques-comissionats&quot;                            
+##  [24] &quot;agendes-publiques-regidors&quot;                                
+##  [25] &quot;alcaldes-alcaldesses-bcn&quot;                                  
+##  [26] &quot;allotjaments-altres&quot;                                       
+##  [27] &quot;allotjaments-hotels&quot;                                       
+##  [28] &quot;allotjaments-pensions&quot;                                     
+##  [29] &quot;ampliacio-voreres-bici-bcn&quot;                                
+##  [30] &quot;aparcaments-bcn&quot;                                           
+##  [31] &quot;aparcaments-servei-bicis&quot;                                  
+##  [32] &quot;aparcaments-sota-superficie&quot;                               
+##  [33] &quot;arbrat-parcs&quot;                                              
+##  [34] &quot;arbrat-viari&quot;                                              
+##  [35] &quot;arbrat-zona&quot;                                               
+##  [36] &quot;arbres-interes-local&quot;                                      
+##  [37] &quot;arees-esbarjo-gossos-bcn&quot;                                  
+##  [38] &quot;atles-biodiversitat-arbrat-especies&quot;                       
+##  [39] &quot;atles-biodiversitat-arbrat-geometries&quot;                     
+##  [40] &quot;atles-biodiversitat-arbrat-rel-geometria-especie&quot;          
+##  [41] &quot;atles-biodiversitat-flora-especies&quot;                        
+##  [42] &quot;atles-biodiversitat-flora-geometries&quot;                      
+##  [43] &quot;atles-biodiversitat-flora-rel-geometria-especie&quot;           
+##  [44] &quot;atles-renda-bruta-per-llar&quot;                                
+##  [45] &quot;atles-renda-bruta-per-persona&quot;                             
+##  [46] &quot;atles-renda-index-gini&quot;                                    
+##  [47] &quot;atles-renda-mediana&quot;                                       
+##  [48] &quot;atles-renda-mitjana&quot;                                       
+##  [49] &quot;atles-renda-p80-p20-distribucio&quot;                           
+##  [50] &quot;autenticacions-punts-recarrega-electric&quot;                   
+##  [51] &quot;aut-terrasses-excep-decret-21-5&quot;                           
+##  [52] &quot;bancs-del-temps-bcn&quot;                                       
+##  [53] &quot;barcelona-activa-projectes&quot;                                
+##  [54] &quot;benzineres&quot;                                                
+##  [55] &quot;biblioteca_arus_bcnroc&quot;                                    
+##  [56] &quot;bicicletes&quot;                                                
+##  [57] &quot;bicing&quot;                                                    
+##  [58] &quot;calendari-festes-laborals&quot;                                 
+##  [59] &quot;campanyes-publicitat-institucional&quot;                        
+##  [60] &quot;capacitat-mapa-estrategic-soroll&quot;                          
+##  [61] &quot;carrecs-electes-comissionats-i-gerents&quot;                    
+##  [62] &quot;carrerer&quot;                                                  
+##  [63] &quot;carrers-30-bcn&quot;                                            
+##  [64] &quot;carrers-pacificats-bici-bcn&quot;                               
+##  [65] &quot;carrers-plataforma-unica-bcn&quot;                              
+##  [66] &quot;carrers-vianants-bcn&quot;                                      
+##  [67] &quot;carril-bici&quot;                                               
+##  [68] &quot;carrils-bici-en-construccio&quot;                               
+##  [69] &quot;carrils-bici-municipis&quot;                                    
+##  [70] &quot;carta-arqueologica-barcelona&quot;                              
+##  [71] &quot;cataleg-bases-ajuts-subvencions-bcnroc&quot;                    
+##  [72] &quot;cataleg-bases-us-espai-public-bcnroc&quot;                      
+##  [73] &quot;cataleg-bcnroc&quot;                                            
+##  [74] &quot;cataleg-cartes-de-serveis-i-politiques-de-qualitat-bcnroc&quot; 
+##  [75] &quot;cataleg-cartobcn&quot;                                          
+##  [76] &quot;cataleg-circulars-bcnroc&quot;                                  
+##  [77] &quot;cataleg-comptes-bcnroc&quot;                                    
+##  [78] &quot;cataleg-costos-bcnroc&quot;                                     
+##  [79] &quot;cataleg-declaracions-institucionals-bcnroc&quot;                
+##  [80] &quot;cataleg-decrets-alcaldia-bcnroc&quot;                           
+##  [81] &quot;cataleg-dictamens-bcnroc&quot;                                  
+##  [82] &quot;cataleg-directrius-bcnroc&quot;                                 
+##  [83] &quot;cataleg-documents-alcaldes-bcnroc&quot;                         
+##  [84] &quot;cataleg-documents-tecnics-bcnroc&quot;                          
+##  [85] &quot;cataleg-dossiers-notes-premsa-bcnroc&quot;                      
+##  [86] &quot;cataleg-enquestes-bcnroc&quot;                                  
+##  [87] &quot;cataleg-estatuts-bcnroc&quot;                                   
+##  [88] &quot;cataleg-fotografies-art-public-bcnroc&quot;                     
+##  [89] &quot;cataleg-fotografies-barcelona-general-bcnroc&quot;              
+##  [90] &quot;cataleg-fotografies-cementiris-bcnroc&quot;                     
+##  [91] &quot;cataleg-fotografies-edificis-bcnroc&quot;                       
+##  [92] &quot;cataleg-fotografies-elements-urbans-bcnroc&quot;                
+##  [93] &quot;cataleg-fotografies-projectes-urbans-bcnroc&quot;               
+##  [94] &quot;cataleg_fotografies_temes_bcnroc&quot;                          
+##  [95] &quot;cataleg-havana-bcnroc&quot;                                     
+##  [96] &quot;cataleg-informes-avaluacio-bcnroc&quot;                         
+##  [97] &quot;cataleg-informes-diversos-bcnroc&quot;                          
+##  [98] &quot;cataleg-informes-organs-govern-bcnroc&quot;                     
+##  [99] &quot;cataleg-instruccions-bcnroc&quot;                               
+## [100] &quot;cataleg-laudes-bcnroc&quot;                                     
+## [101] &quot;cataleg-memories-bcnroc&quot;                                   
+## [102] &quot;cataleg-mesures-govern-bcnroc&quot;                             
+## [103] &quot;cataleg-opendata&quot;                                          
+## [104] &quot;cataleg-ordenances-fiscals-preus-bcnroc&quot;                   
+## [105] &quot;cataleg-ordenances-municipals-bcnroc&quot;                      
+## [106] &quot;cataleg-plans-especials-bcnroc&quot;                            
+## [107] &quot;cataleg-plans-estrategics-bcnroc&quot;                          
+## [108] &quot;cataleg-premis-bcnroc&quot;                                     
+## [109] &quot;cataleg-pressupostos-bcnroc&quot;                               
+## [110] &quot;cataleg-protocols-bcnroc&quot;                                  
+## [111] &quot;cataleg-publicacions-bcnroc&quot;                               
+## [112] &quot;cataleg-reglaments-bcnroc&quot;                                 
+## [113] &quot;cataleg-rei-bcnroc&quot;                                        
+## [114] &quot;cataleg-revistes-bcnroc&quot;                                   
+## [115] &quot;cementiris&quot;                                                
+## [116] &quot;cens-activitats-economiques-class-bcn&quot;                     
+## [117] &quot;cens-animals-companyia&quot;                                    
+## [118] &quot;cens-locals-planta-baixa-act-economica&quot;                    
+## [119] &quot;centres-civics-activitatsdifusio&quot;                          
+## [120] &quot;centres-civics-entitats&quot;                                   
+## [121] &quot;centres-civics-formacio&quot;                                   
+## [122] &quot;centres-civics-metres-quadrats&quot;                            
+## [123] &quot;cinemes-dades-globals&quot;                                     
+## [124] &quot;cobertura-vegetal-ndvi&quot;                                    
+## [125] &quot;cohesio-social&quot;                                            
+## [126] &quot;colors-aparcaments-superficie&quot;                             
+## [127] &quot;comissaries-policia&quot;                                       
+## [128] &quot;compatibilitats&quot;                                           
+## [129] &quot;compliment-objectius-estabilitat&quot;                          
+## [130] &quot;comportament-energetic-edificis&quot;                           
+## [131] &quot;confort-termic&quot;                                            
+## [132] &quot;consolats-bcn&quot;                                             
+## [133] &quot;consum-aigua&quot;                                              
+## [134] &quot;consum-electricitat-bcn&quot;                                   
+## [135] &quot;contaminacio-atmosferica&quot;                                  
+## [136] &quot;contaminants-estacions-mesura-qualitat-aire&quot;               
+## [137] &quot;contractes-menors&quot;                                         
+## [138] &quot;contractes-menors-a-generica&quot;                              
+## [139] &quot;corredors-bici-bcn&quot;                                        
+## [140] &quot;culturailleure-bibliotequesimuseus&quot;                        
+## [141] &quot;culturailleure-cinemesteatresauditoris&quot;                    
+## [142] &quot;culturailleure-espaisinfantils&quot;                            
+## [143] &quot;culturailleure-espaismusicacopes&quot;                          
+## [144] &quot;culturailleure-espaisparticipaciociutadana&quot;                
+## [145] &quot;culturailleure-parcsjardins&quot;                               
+## [146] &quot;dades-arts-esceniques&quot;                                     
+## [147] &quot;dades-arxius&quot;                                              
+## [148] &quot;dades-ateneus&quot;                                             
+## [149] &quot;dades-festes-ciutat&quot;                                       
+## [150] &quot;dades-festival-grec&quot;                                       
+## [151] &quot;dades-festivals&quot;                                           
+## [152] &quot;dades-globals-cultura&quot;                                     
+## [153] &quot;dades-grans-auditoris&quot;                                     
+## [154] &quot;dades-merce&quot;                                               
+## [155] &quot;dades-museus-exposicions&quot;                                  
+## [156] &quot;dades-projectes-fabriques-creacio&quot;                         
+## [157] &quot;dades-sales-musica-viu-agrup-dimensions&quot;                   
+## [158] &quot;dades-sindicals&quot;                                           
+## [159] &quot;dades-xarxa-biblioteques-catalunya&quot;                        
+## [160] &quot;deficit-proximitat-espai-verd&quot;                             
+## [161] &quot;densitat-activitats&quot;                                       
+## [162] &quot;densitat-huts&quot;                                             
+## [163] &quot;denuncies_sancions_transit_bcn_codis&quot;                      
+## [164] &quot;denuncies_sancions_transit_bcn_conceptes_annex&quot;            
+## [165] &quot;denuncies_sancions_transit_bcn_detall&quot;                     
+## [166] &quot;denuncies_sancions_transit_bcn_tip_vehicle&quot;                
+## [167] &quot;dutxes-platges&quot;                                            
+## [168] &quot;ebsib-bcn-enquesta-benestar-subjectiu-infancia&quot;            
+## [169] &quot;edificis-amics-de-la-bici-barcelona&quot;                       
+## [170] &quot;educacio-ensenyament-infantil&quot;                             
+## [171] &quot;educacio-ensenyament-no-reglat&quot;                            
+## [172] &quot;educacio-ensenyament-reglat&quot;                               
+## [173] &quot;enquesta-escletxa-digital&quot;                                 
+## [174] &quot;entitas-pacte-mobilitat&quot;                                   
+## [175] &quot;entitats&quot;                                                  
+## [176] &quot;entitats-municipals&quot;                                       
+## [177] &quot;equipament-administracio&quot;                                  
+## [178] &quot;equipament-animals-i-plantes&quot;                              
+## [179] &quot;equipament-associacions&quot;                                   
+## [180] &quot;equipament-cementiris-i-serveis-relacionats&quot;               
+## [181] &quot;equipament-centres-d-informacio&quot;                           
+## [182] &quot;equipament-companyies-de-serveis&quot;                          
+## [183] &quot;equipament-cultura-i-lleure&quot;                               
+## [184] &quot;equipament-educacio&quot;                                       
+## [185] &quot;equipament-esports&quot;                                        
+## [186] &quot;equipament-medi-ambient-i-serveis-relacionats&quot;             
+## [187] &quot;equipament-mercats-i-centres-comercials&quot;                   
+## [188] &quot;equipament-mitjans-de-comunicacio-i-serveis-relacionats&quot;   
+## [189] &quot;equipament-restaurants&quot;                                    
+## [190] &quot;equipament-sanitat&quot;                                        
+## [191] &quot;equipaments-culturals-icub&quot;                                
+## [192] &quot;equipament-serveis-religiosos&quot;                             
+## [193] &quot;equipament-serveis-socials&quot;                                
+## [194] &quot;equipaments-i-parcs-refugi&quot;                                
+## [195] &quot;equipaments-relacionats-amb-transports&quot;                    
+## [196] &quot;equipament-transports-i-serveis-relacionats&quot;               
+## [197] &quot;escales-mecaniques&quot;                                        
+## [198] &quot;esm-bcn-evo&quot;                                               
+## [199] &quot;espais-creacio-activitats-difusio&quot;                         
+## [200] &quot;espais-creacio-formacio-professionals&quot;                     
+## [201] &quot;espais-creacio-metres-quadrats&quot;                            
+## [202] &quot;espais-prioritaris-neteja-barcelona&quot;                       
+## [203] &quot;espais-verds-publics&quot;                                      
+## [204] &quot;esports-equip&quot;                                             
+## [205] &quot;esports-individuals&quot;                                       
+## [206] &quot;esports-instal-lacions-esportives&quot;                         
+## [207] &quot;estacionaments-dum&quot;                                        
+## [208] &quot;estacions-bus&quot;                                             
+## [209] &quot;estacions-maritimes&quot;                                       
+## [210] &quot;estat-estacions-bicing&quot;                                    
+## [211] &quot;estat-ports-recarrega-electric&quot;                            
+## [212] &quot;est-cadastre-carrecs-quota-cadastral&quot;                      
+## [213] &quot;est-cadastre-carrecs-tipus-propietari&quot;                     
+## [214] &quot;est-cadastre-carrecs-us&quot;                                   
+## [215] &quot;est-cadastre-carrecs-valors-cadastrals&quot;                    
+## [216] &quot;est-cadastre-edificacions-any-const&quot;                       
+## [217] &quot;est-cadastre-edificacions-edat-mitjana&quot;                    
+## [218] &quot;est-cadastre-edificacions-nombre-locals&quot;                   
+## [219] &quot;est-cadastre-edificacions-superficie&quot;                      
+## [220] &quot;est-cadastre-finques-regim-propietat&quot;                      
+## [221] &quot;est-cadastre-finques-superficie&quot;                           
+## [222] &quot;est-cadastre-habitatges-any-const&quot;                         
+## [223] &quot;est-cadastre-habitatges-edat-mitjana&quot;                      
+## [224] &quot;est-cadastre-habitatges-propietari&quot;                        
+## [225] &quot;est-cadastre-habitatges-superficie&quot;                        
+## [226] &quot;est-cadastre-habitatges-superficie-mitjana&quot;                
+## [227] &quot;est-cadastre-habitatges-valor-cadastral&quot;                   
+## [228] &quot;est-cadastre-locals-prop&quot;                                  
+## [229] &quot;est-cadastre-locals-sup&quot;                                   
+## [230] &quot;est-cadastre-locals-us-desti&quot;                              
+## [231] &quot;est-cadastre-locals-valors-total-unitaris&quot;                 
+## [232] &quot;est-demo-taxa-migracio-interna&quot;                            
+## [233] &quot;est-densitat&quot;                                              
+## [234] &quot;est-eleccions-autonomiques-seccio-censal&quot;                  
+## [235] &quot;est-eleccions-europees-seccio-censal&quot;                      
+## [236] &quot;est-eleccions-generals-seccio-censal&quot;                      
+## [237] &quot;est-eleccions-locals-seccio-censal&quot;                        
+## [238] &quot;est-social-discapacitats-grau&quot;                             
+## [239] &quot;est-social-discapacitats-grups-edat&quot;                       
+## [240] &quot;est-social-discapacitats-sexe&quot;                             
+## [241] &quot;est-social-discapacitats-tipus&quot;                            
+## [242] &quot;est-superficie&quot;                                            
+## [243] &quot;est-vehicles-amb-distintiu&quot;                                
+## [244] &quot;est-vehicles-antiguitat-menys-un-any&quot;                      
+## [245] &quot;est-vehicles-antiguitat-motos&quot;                             
+## [246] &quot;est-vehicles-antiguitat-tipus&quot;                             
+## [247] &quot;est-vehicles-antiguitat-turismes&quot;                          
+## [248] &quot;est-vehicles-cilindrada-motos&quot;                             
+## [249] &quot;est_vehicles_evolucio_total&quot;                               
+## [250] &quot;est_vehicles_index_motor&quot;                                  
+## [251] &quot;est-vehicles-nacionalitat-propietari&quot;                      
+## [252] &quot;est-vehicles-nacionalitat-propietari-motos&quot;                
+## [253] &quot;est-vehicles-potencia-fiscal-turismes&quot;                     
+## [254] &quot;est_vehicles_propulsio&quot;                                    
+## [255] &quot;est_vehicles_servei&quot;                                       
+## [256] &quot;est-vehicles-tipologia-parc-vehicles&quot;                      
+## [257] &quot;est-vehicles-tipus-propietari&quot;                             
+## [258] &quot;est-vehicles-tipus-propietari-motos&quot;                       
+## [259] &quot;evolucio-despeses-corrents-per-politiques&quot;                 
+## [260] &quot;evolucio-despeses-per-capitols&quot;                            
+## [261] &quot;evolucio-despeses-per-capitols-i-articles&quot;                 
+## [262] &quot;evolucio-despeses-per-unitats-organiques&quot;                  
+## [263] &quot;evolucio-deute&quot;                                            
+## [264] &quot;evolucio-ingressos-per-capitols&quot;                           
+## [265] &quot;evolucio-ingressos-per-capitols-i-articles&quot;                
+## [266] &quot;evolucio-resultat-ingressos-i-despeses&quot;                    
+## [267] &quot;exclusio-residencial&quot;                                      
+## [268] &quot;facanes-mapa-estrategic-soroll&quot;                            
+## [269] &quot;factor-de-vulnerabilitat&quot;                                  
+## [270] &quot;fitxer_entitats&quot;                                           
+## [271] &quot;fitxes-ocupacionals&quot;                                       
+## [272] &quot;fonts&quot;                                                     
+## [273] &quot;fonts-ornamentals&quot;                                         
+## [274] &quot;formacio-poblacio-insuficient&quot;                             
+## [275] &quot;frase&quot;                                                     
+## [276] &quot;funiculars&quot;                                                
+## [277] &quot;galeries-comercials&quot;                                       
+## [278] &quot;grans-centres-comercials&quot;                                  
+## [279] &quot;grans-establiments&quot;                                        
+## [280] &quot;gruamunicipalbcn-retirada-codis&quot;                           
+## [281] &quot;gruamunicipalbcn-retirada-diposits&quot;                        
+## [282] &quot;gruamunicipalbcn-retiradavehicles&quot;                         
+## [283] &quot;h2mave-anualt1b&quot;                                           
+## [284] &quot;h2mave-anualt2b&quot;                                           
+## [285] &quot;h2mave-anualt3b&quot;                                           
+## [286] &quot;h2mave-semestralt1b&quot;                                       
+## [287] &quot;h2mave-semestralt2b&quot;                                       
+## [288] &quot;h2mave-semestralt3b&quot;                                       
+## [289] &quot;h2mave-totalt1b&quot;                                           
+## [290] &quot;h2mave-totalt2b&quot;                                           
+## [291] &quot;h2mave-totalt3b&quot;                                           
+## [292] &quot;h2mave-totalt4b&quot;                                           
+## [293] &quot;h2mave-totalt5b&quot;                                           
+## [294] &quot;habitatges-2na-ma&quot;                                         
+## [295] &quot;habitatges-us-turistic&quot;                                    
+## [296] &quot;habit-fam-dest-habit-segons-any-const&quot;                     
+## [297] &quot;habit-fam-sit-edif-dest-habit-segons-tip&quot;                  
+## [298] &quot;habit-ppal-segons-any-const&quot;                               
+## [299] &quot;habit-ppal-segons-estat-conserv-edif&quot;                      
+## [300] &quot;habit-ppal-segons-instal1-calef&quot;                           
+## [301] &quot;habit-ppal-segons-instal2-aigua&quot;                           
+## [302] &quot;habit-ppal-segons-instal3-telf-i-int&quot;                      
+## [303] &quot;habit-ppal-segons-nombre-pers-viuen&quot;                       
+## [304] &quot;habit-ppal-segons-nom-habit&quot;                               
+## [305] &quot;habit-ppal-segons-regim-tin&quot;                               
+## [306] &quot;habit-ppal-segons-sup-util&quot;                                
+## [307] &quot;horaris-aparcaments-superficie&quot;                            
+## [308] &quot;horts-urbans&quot;                                              
+## [309] &quot;immobles-quotes-padro-ibi&quot;                                 
+## [310] &quot;immo-edif-hab-segons-any-construccio&quot;                      
+## [311] &quot;immo-edif-hab-segons-estat-conservacio&quot;                    
+## [312] &quot;immo-edif-hab-segons-instalacions&quot;                         
+## [313] &quot;immo-edif-hab-segons-num-plantes-sobre-rasant&quot;             
+## [314] &quot;immo-edif-hab-segons-num-plantes-sota-rasant&quot;              
+## [315] &quot;impacte-de-la-calor&quot;                                       
+## [316] &quot;incidents-gestionats-gub&quot;                                  
+## [317] &quot;indicadors-transparencia-pressupostaria&quot;                   
+## [318] &quot;informacio-estacions-bicing&quot;                               
+## [319] &quot;informacio-punts-recarrega-electric&quot;                       
+## [320] &quot;informacio-rutes-autobus-estacio-del-nord&quot;                 
+## [321] &quot;infraestructures-inventari-bancs&quot;                          
+## [322] &quot;infraestructures-inventari-cameres&quot;                        
+## [323] &quot;infraestructures-inventari-inscripcions&quot;                   
+## [324] &quot;infraestructures-inventari-pas-vianants&quot;                   
+## [325] &quot;infraestructures-inventari-pilones&quot;                        
+## [326] &quot;infraestructures-inventari-reductors-velocitat&quot;            
+## [327] &quot;infraestructures-inventari-reserves&quot;                       
+## [328] &quot;infraestructures-inventari-semafors&quot;                       
+## [329] &quot;infraestructures-inventari-senyalitzacio&quot;                  
+## [330] &quot;infraestructures-inventari-senyals&quot;                        
+## [331] &quot;infraestructures-inventari-separa-carrils-bici&quot;            
+## [332] &quot;infraestructures-inventari-suports&quot;                        
+## [333] &quot;infraestructures-tipologia-inscripcions&quot;                   
+## [334] &quot;infraestructures-tipologia-pas-vianants&quot;                   
+## [335] &quot;infraestructures-tipologia-semafors&quot;                       
+## [336] &quot;infraestructures-tipologia-senyals&quot;                        
+## [337] &quot;infraestructures-tipologia-suports-cameres&quot;                
+## [338] &quot;intensitat-activitat-turistica&quot;                            
+## [339] &quot;iris&quot;                                                      
+## [340] &quot;isofones-mapa-estrategic-soroll&quot;                           
+## [341] &quot;itineraris&quot;                                                
+## [342] &quot;laterals-tallats-transit-bici-bcn&quot;                         
+## [343] &quot;lavabos-publics&quot;                                           
+## [344] &quot;limits-municipals-districtes&quot;                              
+## [345] &quot;llista-exposicions-temporals&quot;                              
+## [346] &quot;llocs-culte&quot;                                               
+## [347] &quot;lloguer-de-vehicles&quot;                                       
+## [348] &quot;locve-evolucio&quot;                                            
+## [349] &quot;manteniment-lloguer&quot;                                       
+## [350] &quot;mapa-acustic-wms&quot;                                          
+## [351] &quot;mapa-ambits-urbanistics-wms&quot;                               
+## [352] &quot;mapa-base-de-vialitat&quot;                                     
+## [353] &quot;mapa-base-guia&quot;                                            
+## [354] &quot;mapa-base-topografic&quot;                                      
+## [355] &quot;mapa-construccions-poblament-wms&quot;                          
+## [356] &quot;mapa-de-la-malla-de-fulls-utm&quot;                             
+## [357] &quot;mapa-de-retolacio-de-carrers&quot;                              
+## [358] &quot;mapa-energia-teleco-wms&quot;                                   
+## [359] &quot;mapa-graf-viari-carrers-wms&quot;                               
+## [360] &quot;mapa-hidrografia-obres-wms&quot;                                
+## [361] &quot;mapa-orografia-relleu-wms&quot;                                 
+## [362] &quot;mapa-parcelari&quot;                                            
+## [363] &quot;mapa-peuat&quot;                                                
+## [364] &quot;mapa-planol-ciutat-bcn-wms&quot;                                
+## [365] &quot;mapa-serveis-publics-wms&quot;                                  
+## [366] &quot;mapa-urbanistic&quot;                                           
+## [367] &quot;mapa-usos-sol-wms&quot;                                         
+## [368] &quot;mapa-vegetacio-wms&quot;                                        
+## [369] &quot;mapa-xarxa-topografica-municipal-wms&quot;                      
+## [370] &quot;mapes-immissio-qualitat-aire&quot;                              
+## [371] &quot;mediambient-contenidorssal&quot;                                
+## [372] &quot;mediambient-puntsrecollidaarbresnadal&quot;                     
+## [373] &quot;mediambient-puntsrobaamiga&quot;                                
+## [374] &quot;mediambient-puntsverdsbarri&quot;                               
+## [375] &quot;mediambient-puntsverdsmobils&quot;                              
+## [376] &quot;mediambient-puntverdcolaborador&quot;                           
+## [377] &quot;mercats-fires-carrer&quot;                                      
+## [378] &quot;mercats-municipals&quot;                                        
+## [379] &quot;mesures-estacions-meteorologiques&quot;                         
+## [380] &quot;metadades-estacions-meteorologiques&quot;                       
+## [381] &quot;metadades-variables-est-meteo&quot;                             
+## [382] &quot;mobilitat-quotidiana&quot;                                      
+## [383] &quot;modificacions-credit-pressupost&quot;                           
+## [384] &quot;modificacions-de-contractes&quot;                               
+## [385] &quot;n-edif-hab-n-immo-edif&quot;                                    
+## [386] &quot;n-edif-hab-segons-any-construc&quot;                            
+## [387] &quot;n-edif-hab-segons-estat-cons-edifici&quot;                      
+## [388] &quot;n-edif-hab-segons-instal&quot;                                  
+## [389] &quot;n-edif-hab-segons-n-immo&quot;                                  
+## [390] &quot;n-edif-hab-segons-nombre-immo&quot;                             
+## [391] &quot;n-edif-hab-segons-nombre-plantes&quot;                          
+## [392] &quot;n-edif-hab-segons-nombre-plantes-sobre-rasant&quot;             
+## [393] &quot;n-edif-hab-segons-nombre-plantes-sota-rasant&quot;              
+## [394] &quot;n-edif-hab-segons-n-places-gar&quot;                            
+## [395] &quot;n-edif-hab-segons-n-plantes-sobre-rasant&quot;                  
+## [396] &quot;n-edif-hab-segons-n-plantes-sota-rasant&quot;                   
+## [397] &quot;n-edif-hab-tipus-edif&quot;                                     
+## [398] &quot;nomenclator-bcn&quot;                                           
+## [399] &quot;np-asia-dipositsvehicles-bcn&quot;                              
+## [400] &quot;np-circuits-caminar-correr&quot;                                
+## [401] &quot;np-esculleres&quot;                                             
+## [402] &quot;np-espais-gimnastica&quot;                                      
+## [403] &quot;np-jardins-botanics&quot;                                       
+## [404] &quot;np-jardins-interiors-illa&quot;                                 
+## [405] &quot;np-molls&quot;                                                  
+## [406] &quot;np-nasia-diposits-aigues-pluvials&quot;                         
+## [407] &quot;np-nasia-fossars&quot;                                          
+## [408] &quot;np-nasia-miradors&quot;                                         
+## [409] &quot;np-piscines&quot;                                               
+## [410] &quot;np-plantes-depuradores&quot;                                    
+## [411] &quot;np-platges&quot;                                                
+## [412] &quot;np-quioscs-tramits&quot;                                        
+## [413] &quot;np-umbracles&quot;                                              
+## [414] &quot;obres&quot;                                                     
+## [415] &quot;oferta-publica&quot;                                            
+## [416] &quot;ordenances-municipals&quot;                                     
+## [417] &quot;pad_alt_mdbas&quot;                                             
+## [418] &quot;pad_bai_mdbas&quot;                                             
+## [419] &quot;pad_cdo_b_barri-des&quot;                                       
+## [420] &quot;pad_def_mdbas&quot;                                             
+## [421] &quot;pad-dimensions&quot;                                            
+## [422] &quot;pad_dom_mdbas_dones&quot;                                       
+## [423] &quot;pad_dom_mdbas_edat-0018&quot;                                   
+## [424] &quot;pad_dom_mdbas_edat-1864&quot;                                   
+## [425] &quot;pad_dom_mdbas_edat-6599&quot;                                   
+## [426] &quot;pad_dom_mdbas_homes&quot;                                       
+## [427] &quot;pad_dom_mdbas_nacionalitat&quot;                                
+## [428] &quot;pad_dom_mdbas_nacionalitat_edat&quot;                           
+## [429] &quot;pad_dom_mdbas_n-persones&quot;                                  
+## [430] &quot;pad_dom_mdbas_tipus-domicili&quot;                              
+## [431] &quot;pad_dom_mdbas_tipus-domicili_edat&quot;                         
+## [432] &quot;pad_emi_mdbas&quot;                                             
+## [433] &quot;pad_emi_mdbas_nacionalitat-g&quot;                              
+## [434] &quot;pad_imm_mdbas&quot;                                             
+## [435] &quot;pad_imm_mdbas_nacionalitat-g&quot;                              
+## [436] &quot;pad_m_cognom&quot;                                              
+## [437] &quot;pad_mdbas&quot;                                                 
+## [438] &quot;pad_mdbas_edat-1&quot;                                          
+## [439] &quot;pad_mdbas_edat-q&quot;                                          
+## [440] &quot;pad_mdba_sexe_edat-1&quot;                                      
+## [441] &quot;pad_mdba_sexe_edat-q&quot;                                      
+## [442] &quot;pad_mdbas_lloc-naix_sexe&quot;                                  
+## [443] &quot;pad_mdbas_nacionalitat-continent_sexe&quot;                     
+## [444] &quot;pad_mdbas_nacionalitat-g_sexe&quot;                             
+## [445] &quot;pad_mdbas_niv-educa-esta_sexe&quot;                             
+## [446] &quot;pad_mdbas_sexe&quot;                                            
+## [447] &quot;pad_mdb_lloc-naix-continent_edat-q_sexe&quot;                   
+## [448] &quot;pad_mdb_lloc-naix_edat-q_sexe&quot;                             
+## [449] &quot;pad_mdb_lloc-naix-regio_sexe&quot;                              
+## [450] &quot;pad_mdb_nacionalitat-contintent_edat-q_sexe&quot;               
+## [451] &quot;pad_mdb_nacionalitat-g_edat-q_sexe&quot;                        
+## [452] &quot;pad_mdb_nacionalitat-regio_sexe&quot;                           
+## [453] &quot;pad_mdb_niv-educa-esta_edat-lloc-naix&quot;                     
+## [454] &quot;pad_mdb_niv-educa-esta_edat-q_sexe&quot;                        
+## [455] &quot;pad_m_nom_decada_sexe&quot;                                     
+## [456] &quot;pad_m_nom_sexe&quot;                                            
+## [457] &quot;pad_nai_mdbas&quot;                                             
+## [458] &quot;pad_sol_mdb_sexe_edat-q&quot;                                   
+## [459] &quot;parades-de-taxi&quot;                                           
+## [460] &quot;patis-escolars&quot;                                            
+## [461] &quot;patrimoni-arquitectonic-protegit&quot;                          
+## [462] &quot;pbd-cataleg-continguts&quot;                                    
+## [463] &quot;p-cons-inicials-segons-lgep-loepsf&quot;                        
+## [464] &quot;perfil-contractant&quot;                                        
+## [465] &quot;piezometres_detall&quot;                                        
+## [466] &quot;piezometres_equipaments&quot;                                   
+## [467] &quot;plantilla-municipal&quot;                                       
+## [468] &quot;plaques-fotovoltaiques&quot;                                    
+## [469] &quot;plaques-fotovoltaiques-tipologia&quot;                          
+## [470] &quot;poblacio-exposada-mapa-estrategic-soroll&quot;                  
+## [471] &quot;poblacio_projectada&quot;                                       
+## [472] &quot;poblacio-vulnerable&quot;                                       
+## [473] &quot;precipitacio-hist-bcn&quot;                                     
+## [474] &quot;prediccio-meteorologica-del-barcelones&quot;                    
+## [475] &quot;presencia-absencia-vegetacio&quot;                              
+## [476] &quot;pressupost-despeses&quot;                                       
+## [477] &quot;pressupost-ingressos&quot;                                      
+## [478] &quot;prorrogues-de-contractes&quot;                                  
+## [479] &quot;provisio-promocio&quot;                                         
+## [480] &quot;proximitat-espais-verds&quot;                                   
+## [481] &quot;punts-ancoratge-bicicletes&quot;                                
+## [482] &quot;punts-critics-neteja-barcelona&quot;                            
+## [483] &quot;punts-informacio-turistica&quot;                                
+## [484] &quot;punts-recarrega-vehicles-electrics&quot;                        
+## [485] &quot;punts-verds&quot;                                               
+## [486] &quot;punts-wifi&quot;                                                
+## [487] &quot;qualificacions-elements-urbanistics&quot;                       
+## [488] &quot;qualitat-aire-detall-bcn&quot;                                  
+## [489] &quot;qualitat-aire-estacions-bcn&quot;                               
+## [490] &quot;rasters-mapa-estrategic-soroll&quot;                            
+## [491] &quot;rebuts-quota-padro-iae&quot;                                    
+## [492] &quot;rebuts-quota-padro-vetlladors-terrasses&quot;                   
+## [493] &quot;recintes-gran-aforament&quot;                                   
+## [494] &quot;registre-de-convenis&quot;                                      
+## [495] &quot;registre-estudis-i-informes&quot;                               
+## [496] &quot;relacio-contractistes&quot;                                     
+## [497] &quot;renda-disponible-llars-bcn&quot;                                
+## [498] &quot;renda-tributaria-per-persona-atlas-distribucio&quot;            
+## [499] &quot;renda-tributaria-unitat-consum-atlas-distribucio&quot;          
+## [500] &quot;resums-trimestrals-contractacio&quot;                           
+## [501] &quot;risc-contaminacio-acustica&quot;                                
+## [502] &quot;ronda-verda&quot;                                               
+## [503] &quot;sanitat-farmacies&quot;                                         
+## [504] &quot;sanitat-hospitals-atencio-primaria&quot;                        
+## [505] &quot;sanitat-serveis-sanitaris&quot;                                 
+## [506] &quot;servei-cataleg-metadades-csw&quot;                              
+## [507] &quot;serveissocials-centresdiagentgran&quot;                         
+## [508] &quot;serveissocials-centresserveissocials&quot;                      
+## [509] &quot;serveissocials-equipsatencioinfanciaadolescencia&quot;          
+## [510] &quot;serveissocials-habitatgestutelats&quot;                         
+## [511] &quot;serveissocials-menjadorssocials&quot;                           
+## [512] &quot;serveissocials-oficinesbenestarsocial&quot;                     
+## [513] &quot;serveissocials-puntsassessoramentenergetic&quot;                
+## [514] &quot;serveissocials-puntsinformacioiatenciodones&quot;               
+## [515] &quot;serveissocials-residenciesgentgran&quot;                        
+## [516] &quot;subvencions-a-ens-publics-no-integrats-cercador-post-2019&quot; 
+## [517] &quot;subvencions-atorgades-ajuntament-i-instituts&quot;              
+## [518] &quot;subvencions_entitats_nfge&quot;                                 
+## [519] &quot;subvencions-i-transferencies-a-ens-publics&quot;                
+## [520] &quot;subvencions-transferencies-cultura&quot;                        
+## [521] &quot;tanatoris&quot;                                                 
+## [522] &quot;tarifes-aparcament-superficie&quot;                             
+## [523] &quot;taula-direle&quot;                                              
+## [524] &quot;taula-direle-sec-cens&quot;                                     
+## [525] &quot;taula-map-illa&quot;                                            
+## [526] &quot;taula-segimon&quot;                                             
+## [527] &quot;teleferics&quot;                                                
+## [528] &quot;temperatures-hist-bcn&quot;                                     
+## [529] &quot;terrasses-comercos-vigents&quot;                                
+## [530] &quot;tramer-mapa-estrategic-soroll&quot;                             
+## [531] &quot;trams&quot;                                                     
+## [532] &quot;trams-aparcament-superficie&quot;                               
+## [533] &quot;transferencies-encomanes-gestio&quot;                           
+## [534] &quot;transitaeri_flightradar_ppal_aeroport&quot;                     
+## [535] &quot;transitaeri_flightradar_ppal_comp_zona&quot;                    
+## [536] &quot;transitaeri_flightradar_ppal_pais&quot;                         
+## [537] &quot;transit-relacio-trams&quot;                                     
+## [538] &quot;transit-relacio-trams-per-itinerari&quot;                       
+## [539] &quot;transports&quot;                                                
+## [540] &quot;transports-metropolitants-companyies-autocars-de-barcelona&quot;
+## [541] &quot;us-del-servei-bicing&quot;                                      
+## [542] &quot;viatges-govern-bcn&quot;                                        
+## [543] &quot;vies-ciclables&quot;                                            
+## [544] &quot;xarxa-refugis-climatics&quot;                                   
+## [545] &quot;xarxasoroll-equipsmonitor-dades&quot;                           
+## [546] &quot;xarxasoroll-equipsmonitor-instal&quot;                          
+## [547] &quot;zbe-ambit&quot;                                                 
+## [548] &quot;zones30-carrers&quot;                                           
+## [549] &quot;zones-carrega-descarrega&quot;                                  
+## [550] &quot;zones-estacionament-zona-bus&quot;</code></pre>
+<p>For later use, I will need information about air quality stations:</p>
+<pre class="r"><code>st_package &lt;- package_show(&quot;qualitat-aire-estacions-bcn&quot;)</code></pre>
+<p>The <code>resources</code> element of the package shows relevant information about each resource of the package:</p>
+<pre class="r"><code>st_package$resources[[1]]</code></pre>
+<pre><code>## $cache_last_updated
+## NULL
+## 
+## $incorporated_in_cityos_res
+## [1] &quot;No&quot;
+## 
+## $token_type
+## [1] &quot;&quot;
+## 
+## $package_id
+## [1] &quot;4dff88b1-151b-48db-91c2-45007cd5d07a&quot;
+## 
+## $datastore_active
+## [1] TRUE
+## 
+## $id
+## [1] &quot;d1aa40d7-66f9-451b-85f8-955b765fdc2f&quot;
+## 
+## $api_access_number_absolute
+## [1] &quot;52&quot;
+## 
+## $token_name
+## [1] &quot;&quot;
+## 
+## $state
+## [1] &quot;active&quot;
+## 
+## $api_access_number
+## [1] &quot;22&quot;
+## 
+## $size
+## [1] &quot;8494&quot;
+## 
+## $token_required
+## [1] &quot;No&quot;
+## 
+## $hash
+## [1] &quot;&quot;
+## 
+## $description
+## [1] &quot;&quot;
+## 
+## $format
+## [1] &quot;CSV&quot;
+## 
+## $downloads
+## [1] &quot;166&quot;
+## 
+## $mimetype_inner
+## NULL
+## 
+## $url_type
+## [1] &quot;upload&quot;
+## 
+## $token_provider
+## [1] &quot;&quot;
+## 
+## $column_types
+## [1] &quot;&quot;
+## 
+## $hide_url
+## [1] &quot;No&quot;
+## 
+## $token_version
+## [1] &quot;&quot;
+## 
+## $mimetype
+## NULL
+## 
+## $cache_url
+## NULL
+## 
+## $name
+## [1] &quot;2025_qualitat_aire_estacions.csv&quot;
+## 
+## $created
+## [1] &quot;2025-02-12T09:21:21.936318&quot;
+## 
+## $url
+## [1] &quot;https://opendata-ajuntament.barcelona.cat/data/dataset/4dff88b1-151b-48db-91c2-45007cd5d07a/resource/d1aa40d7-66f9-451b-85f8-955b765fdc2f/download/2025_qualitat_aire_estacions.csv&quot;
+## 
+## $downloads_absolute
+## [1] &quot;670&quot;
+## 
+## $map_visualization_res
+## [1] &quot;data_explorer_map&quot;
+## 
+## $qa
+## $qa$updated
+## [1] &quot;2025-07-27T02:12:17.690430&quot;
+## 
+## $qa$openness_score
+## [1] 3
+## 
+## $qa$archival_timestamp
+## NULL
+## 
+## $qa$format
+## [1] &quot;CSV&quot;
+## 
+## $qa$created
+## [1] &quot;2025-02-13T02:11:06.806242&quot;
+## 
+## $qa$resource_timestamp
+## NULL
+## 
+## $qa$openness_score_reason
+## [1] &quot;This file had not been downloaded at the time of scoring it. URL extension \&quot;csv\&quot; relates to format \&quot;CSV\&quot; and receives score: 3.&quot;
+## 
+## 
+## $last_modified
+## [1] &quot;2025-02-12T09:21:21.669919&quot;
+## 
+## $position
+## [1] 0
+## 
+## $revision_id
+## [1] &quot;48b2f855-84a4-4dbb-8544-6ac1dcfc9236&quot;
+## 
+## $resource_type
+## NULL</code></pre>
+<p>The <code>url</code> element contains an URL to read a <code>.csv</code> file. I am reading the file and transform it on the fly to obtain the <code>stations</code> table.</p>
+<pre class="r"><code>stations &lt;- read_csv(st_package$resources[[1]]$url)</code></pre>
+<pre><code>## Rows: 55 Columns: 15
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (7): nom_cabina, codi_dtes, ubicacio, Nom_districte, Nom_barri, Clas_1, ...
+## dbl (8): Estacio, zqa, codi_eoi, Longitud, Latitud, Codi_districte, Codi_bar...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<pre class="r"><code>stations &lt;- stations |&gt;
+  clean_names() |&gt;
+  mutate(nom_cabina = str_replace(nom_cabina, &quot;Observatori&quot;, &quot;Observ&quot;)) |&gt;
+  select(estacio, nom_cabina) |&gt;
+  distinct()
+
+stations</code></pre>
+<pre><code>## # A tibble: 8 × 2
+##   estacio nom_cabina              
+##     &lt;dbl&gt; &lt;chr&gt;                   
+## 1       4 Barcelona - Poblenou    
+## 2      42 Barcelona - Sants       
+## 3      43 Barcelona - Eixample    
+## 4      44 Barcelona - Gràcia      
+## 5      50 Barcelona - Ciutadella  
+## 6      54 Barcelona - Vall Hebron 
+## 7      57 Barcelona - Palau Reial 
+## 8      58 Barcelona - Observ Fabra</code></pre>
+<p>Air quality data are found at the <code>qualitat-aire-detall-bcn</code> package:</p>
+<pre class="r"><code>aq_package &lt;- package_show(&quot;qualitat-aire-detall-bcn&quot;)</code></pre>
+<p>Let’s take a look at the <code>resources</code> content for this package:</p>
+<pre class="r"><code>aq_package$resources[[1]]</code></pre>
+<pre><code>## $cache_last_updated
+## NULL
+## 
+## $package_id
+## [1] &quot;0582a266-ea06-4cc5-a219-913b22484e40&quot;
+## 
+## $datastore_active
+## [1] FALSE
+## 
+## $id
+## [1] &quot;c2032e7c-10ee-4c69-84d3-9e8caf9ca97a&quot;
+## 
+## $api_access_number_absolute
+## [1] &quot;6518&quot;
+## 
+## $state
+## [1] &quot;active&quot;
+## 
+## $api_access_number
+## [1] &quot;657&quot;
+## 
+## $size
+## [1] &quot;49176&quot;
+## 
+## $token_required
+## [1] &quot;No&quot;
+## 
+## $hash
+## [1] &quot;&quot;
+## 
+## $description
+## [1] &quot;&quot;
+## 
+## $format
+## [1] &quot;CSV&quot;
+## 
+## $downloads
+## [1] &quot;16568&quot;
+## 
+## $mimetype_inner
+## NULL
+## 
+## $url_type
+## [1] &quot;&quot;
+## 
+## $column_types
+## [1] &quot;&quot;
+## 
+## $file_volum
+## [1] &quot;little&quot;
+## 
+## $mimetype
+## NULL
+## 
+## $cache_url
+## NULL
+## 
+## $name
+## [1] &quot;Qualitat_Aire_Detall.csv&quot;
+## 
+## $created
+## [1] &quot;2018-05-23T15:10:28.678748&quot;
+## 
+## $url
+## [1] &quot;https://opendata-ajuntament.barcelona.cat/data/dataset/0582a266-ea06-4cc5-a219-913b22484e40/resource/c2032e7c-10ee-4c69-84d3-9e8caf9ca97a/download&quot;
+## 
+## $downloads_absolute
+## [1] &quot;647315&quot;
+## 
+## $map_visualization_res
+## [1] &quot;none&quot;
+## 
+## $qa
+## $qa$updated
+## [1] &quot;2025-07-27T02:12:15.037481&quot;
+## 
+## $qa$openness_score
+## [1] 3
+## 
+## $qa$archival_timestamp
+## NULL
+## 
+## $qa$format
+## [1] &quot;CSV&quot;
+## 
+## $qa$created
+## [1] &quot;2018-05-24T02:07:27.871534&quot;
+## 
+## $qa$resource_timestamp
+## NULL
+## 
+## $qa$openness_score_reason
+## [1] &quot;This file had not been downloaded at the time of scoring it. URL extension \&quot;csv\&quot; relates to format \&quot;CSV\&quot; and receives score: 3.&quot;
+## 
+## 
+## $last_modified
+## [1] &quot;2021-06-11T05:43:54&quot;
+## 
+## $position
+## [1] 0
+## 
+## $revision_id
+## [1] &quot;85fa0dd9-b217-45df-b586-0397afeac607&quot;
+## 
+## $resource_type
+## NULL</code></pre>
+<p>Some tables are in <code>.csv</code> format and others in <code>.7z</code> format. We need only the <code>.csv</code> formats. To do so:</p>
+<ul>
+<li>The <code>is_csv</code> logical vector identifies which resources are <code>.csv</code> files.</li>
+<li>The <code>urls_csv</code> list includes the URLs of the resouces that are <code>.csv</code> files.</li>
+</ul>
+<pre class="r"><code>is_csv &lt;- map_lgl(aq_package$resources, ~ .$format == &quot;CSV&quot;)
+urls_csv &lt;- map(aq_package$resources[which(is_csv)], ~ .$url) # urls de los 85 .csv</code></pre>
+<div id="first-reading-of-data" class="section level2">
+<h2>First Reading of Data</h2>
+<p>Let’s start reading all the <code>.csv</code> files of air quality data included in the package. Then, I will name each resource with the name of its file.</p>
+<pre class="r"><code>airqual_all &lt;- map(urls_csv, read_csv)</code></pre>
+<pre><code>## Rows: 280 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (29): CODI_PROVINCIA, PROVINCIA, CODI_MUNICIPI, MUNICIPI, ESTACIO, V01, ...
+## dbl (28): CODI_CONTAMINANT, ANY, MES, DIA, H01, H02, H03, H04, H05, H06, H07...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2170 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1960 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2170 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2030 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1750 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1987 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1856 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1984 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1920 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1984 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1870 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2077 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2077 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2010 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2077 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2052 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2170 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2015 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1820 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2029 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1980 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2046 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1980 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2039 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2015 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1950 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2015 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1950 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2015 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1705 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1562 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1987 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1950 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2015 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1950 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2015 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2015 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1950 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2015 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1950 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 2015 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1519 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1372 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1519 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1480 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1674 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1620 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1674 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1674 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1620 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1674 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1587 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1705 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1279 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1305 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1395 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1378 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1519 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1470 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1519 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1372 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1470 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1519 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1274 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1519 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 5904 Columns: 18
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (15): nom_cabina, qualitat_aire, codi_dtes, zqa, codi_eoi, hora_o3, qual...
+## dbl  (3): longitud, latitud, dateTime
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 5376 Columns: 18
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (15): nom_cabina, qualitat_aire, codi_dtes, zqa, codi_eoi, hora_o3, qual...
+## dbl  (3): longitud, latitud, dateTime
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 5928 Columns: 18
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (9): nom_cabina, qualitat_aire, codi_dtes, zqa, codi_eoi, hora_pm10, qua...
+## dbl (3): longitud, latitud, dateTime
+## lgl (6): hora_o3, qualitat_o3, valor_o3, hora_no2, qualitat_no2, valor_no2
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1131 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (28): CODI_PROVINCIA, PROVINCIA, CODI_MUNICIPI, MUNICIPI, V01, V02, V03,...
+## dbl (29): ESTACIO, CODI_CONTAMINANT, ANY, MES, DIA, H01, H02, H03, H04, H05,...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1092 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (28): CODI_PROVINCIA, PROVINCIA, CODI_MUNICIPI, MUNICIPI, V01, V02, V03,...
+## dbl (29): ESTACIO, CODI_CONTAMINANT, ANY, MES, DIA, H01, H02, H03, H04, H05,...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1164 Columns: 1
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (1): CODI_PROVINCIA;PROVINCIA;CODI_MUNICIPI;MUNICIPI;ESTACIO;CODI_CONTAM...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1053 Columns: 1
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (1): CODI_PROVINCIA;PROVINCIA;CODI_MUNICIPI;MUNICIPI;ESTACIO;CODI_CONTAM...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1209 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1131 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1209 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1215 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 1276 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (26): PROVINCIA, MUNICIPI, V01, V02, V03, V04, V05, V06, V07, V08, V09, ...
+## dbl (31): CODI_PROVINCIA, CODI_MUNICIPI, ESTACIO, CODI_CONTAMINANT, ANY, MES...
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 3262 Columns: 18
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (15): nom_cabina, qualitat_aire, codi_dtes, zqa, codi_eoi, hora_o3, qual...
+## dbl  (3): longitud, latitud, dateTime
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 3649 Columns: 18
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (15): nom_cabina, qualitat_aire, codi_dtes, zqa, codi_eoi, hora_o3, qual...
+## dbl  (3): longitud, latitud, dateTime
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 5800 Columns: 18
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (15): nom_cabina, qualitat_aire, codi_dtes, zqa, codi_eoi, hora_o3, qual...
+## dbl  (3): longitud, latitud, dateTime
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 5736 Columns: 18
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (15): nom_cabina, qualitat_aire, codi_dtes, zqa, codi_eoi, hora_o3, qual...
+## dbl  (3): longitud, latitud, dateTime
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 5944 Columns: 18
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (15): nom_cabina, qualitat_aire, codi_dtes, zqa, codi_eoi, hora_o3, qual...
+## dbl  (3): longitud, latitud, dateTime
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 5744 Columns: 18
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (15): nom_cabina, qualitat_aire, codi_dtes, zqa, codi_eoi, hora_o3, qual...
+## dbl  (3): longitud, latitud, dateTime
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## Rows: 5848 Columns: 18
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;,&quot;
+## chr (15): nom_cabina, qualitat_aire, codi_dtes, zqa, codi_eoi, hora_o3, qual...
+## dbl  (3): longitud, latitud, dateTime
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<pre class="r"><code>names(airqual_all) &lt;- map_chr(aq_package$resources[which(is_csv)], ~ .$name)</code></pre>
+<p>The output of <code>readr::read:csv()</code> shows that tables are presented in different structures. To detect the differeet tipologies, I have examined how many columns has the table of each resource.</p>
+<pre class="r"><code>columns &lt;- map_int(airqual_all, ncol)
+columns</code></pre>
+<pre><code>##               Qualitat_Aire_Detall.csv    2025_01_Gener_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##   2025_02_Febrer_qualitat_aire_BCN.csv     2025_03_Marc_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##    2025_04_Abril_qualitat_aire_BCN.csv     2025_06_Juny_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##    2024_01_Gener_qualitat_aire_BCN.csv   2024_02_Febrer_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##     2024_03_Marc_qualitat_aire_BCN.csv    2024_04_Abril_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##     2024_05_Maig_qualitat_aire_BCN.csv     2024_06_Juny_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##   2024_07_Juliol_qualitat_aire_BCN.csv    2024_08_Agost_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+## 2024_09_Setembre_qualitat_aire_BCN.csv  2024_10_Octubre_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+## 2024_11_Novembre_qualitat_aire_BCN.csv 2024_12_Desembre_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##    2023_01_Gener_qualitat_aire_BCN.csv   2023_02_Febrer_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##     2023_03_Marc_qualitat_aire_BCN.csv    2023_04_Abril_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##     2023_05_Maig_qualitat_aire_BCN.csv     2023_06_Juny_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##   2023_07_Juliol_qualitat_aire_BCN.csv    2023_08_Agost_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+## 2023_09_Setembre_qualitat_aire_BCN.csv  2023_10_Octubre_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+## 2023_11_Novembre_qualitat_aire_BCN.csv 2023_12_Desembre_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##    2022_01_Gener_qualitat_aire_BCN.csv   2022_02_Febrer_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##     2022_03_Marc_qualitat_aire_BCN.csv    2022_04_Abril_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##     2022_05_Maig_qualitat_aire_BCN.csv     2022_06_Juny_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##   2022_07_Juliol_qualitat_aire_BCN.csv    2022_08_Agost_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+## 2022_09_Setembre_qualitat_aire_BCN.csv  2022_10_Octubre_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+## 2022_11_Novembre_qualitat_aire_BCN.csv 2022_12_Desembre_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##    2021_01_Gener_qualitat_aire_BCN.csv   2021_02_Febrer_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##     2021_03_Marc_qualitat_aire_BCN.csv    2021_04_Abril_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##     2021_05_Maig_qualitat_aire_BCN.csv     2021_06_Juny_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##   2021_07_Juliol_qualitat_aire_BCN.csv    2021_08_Agost_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+## 2021_09_Setembre_qualitat_aire_BCN.csv  2021_10_Octubre_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+## 2021_11_Novembre_qualitat_aire_BCN.csv 2021_12_Desembre_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##    2020_01_Gener_qualitat_aire_BCN.csv   2020_02_Febrer_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##     2020_03_Marc_qualitat_aire_BCN.csv    2020_04_Abril_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##     2020_05_Maig_qualitat_aire_BCN.csv     2020_06_Juny_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##   2020_07_Juliol_qualitat_aire_BCN.csv    2020_08_Agost_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+## 2020_09_Setembre_qualitat_aire_BCN.csv  2020_10_Octubre_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+## 2020_11_Novembre_qualitat_aire_BCN.csv 2020_12_Desembre_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##    2019_01_Gener_qualitat_aire_BCN.csv   2019_02_Febrer_qualitat_aire_BCN.csv 
+##                                     18                                     18 
+##     2019_03_Marc_qualitat_aire_BCN.csv    2019_04_Abril_qualitat_aire_BCN.csv 
+##                                     18                                     57 
+##     2019_05_Maig_qualitat_aire_BCN.csv     2019_06_Juny_qualitat_aire_BCN.csv 
+##                                     57                                      1 
+##   2019_07_Juliol_qualitat_aire_BCN.csv    2019_08_Agost_qualitat_aire_BCN.csv 
+##                                      1                                     57 
+## 2019_09_Setembre_qualitat_aire_BCN.csv  2019_10_Octubre_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+## 2019_11_Novembre_qualitat_aire_BCN.csv 2019_12_Desembre_qualitat_aire_BCN.csv 
+##                                     57                                     57 
+##     2018_06_Juny_qualitat_aire_BCN.csv   2018_07_Juliol_qualitat_aire_BCN.csv 
+##                                     18                                     18 
+##    2018_08_Agost_qualitat_aire_BCN.csv 2018_09_Setembre_qualitat_aire_BCN.csv 
+##                                     18                                     18 
+##  2018_10_Octubre_qualitat_aire_BCN.csv 2018_11_Novembre_qualitat_aire_BCN.csv 
+##                                     18                                     18 
+## 2018_12_Desembre_qualitat_aire_BCN.csv 
+##                                     18</code></pre>
+<p>We can detect three different tipologies:</p>
+<ul>
+<li>The most common has 57 columns, and has been maintained since 2020.</li>
+<li>The tables of June and July 2019 have only one column. This suggests that the separators of the <code>.csv</code> are the semicolon rather than comma.</li>
+<li>Early versions of the dataset have a configuration of 18 columns.</li>
+</ul>
+<p>Furthermore, the table of May 2025 is not present in the resource for some reason at the present date. This table is also not available in the website.</p>
+<p>I start storing the datasets of 57 columns in the <code>airqual_csv</code> list</p>
+<pre class="r"><code>airqual_csv &lt;- airqual_all[which(columns == 57)]</code></pre>
+<p>Let’s examine one of the datasets with one column:</p>
+<pre class="r"><code>airqual_all$`2019_07_Juliol_qualitat_aire_BCN.csv`</code></pre>
+<pre><code>## # A tibble: 1,053 × 1
+##    CODI_PROVINCIA;PROVINCIA;CODI_MUNICIPI;MUNICIPI;ESTACIO;CODI_CONTAMINANT;AN…¹
+##    &lt;chr&gt;                                                                        
+##  1 08;Barcelona;019;Barcelona;4;7;2019;7;1;1;V;1;V;1;V;1;V;1;V;2;V;5;V;23;V;23;…
+##  2 08;Barcelona;019;Barcelona;4;7;2019;7;2;2;V;3;V;3;V;2;V;4;V;6;V;6;V;29;V;24;…
+##  3 08;Barcelona;019;Barcelona;4;7;2019;7;3;2;V;2;V;4;V;6;V;5;V;6;V;15;V;40;V;40…
+##  4 08;Barcelona;019;Barcelona;4;7;2019;7;4;7;V;4;V;4;V;2;V;2;V;3;V;6;V;16;V;31;…
+##  5 08;Barcelona;019;Barcelona;4;7;2019;7;5;1;V;1;V;1;V;2;V;3;V;5;V;11;V;23;V;36…
+##  6 08;Barcelona;019;Barcelona;4;7;2019;7;6;3;V;2;V;3;V;3;V;2;V;3;V;4;V;5;V;9;V;…
+##  7 08;Barcelona;019;Barcelona;4;7;2019;7;7;12;V;4;V;2;V;1;V;2;V;10;V;11;V;12;V;…
+##  8 08;Barcelona;019;Barcelona;4;7;2019;7;8;2;V;2;V;4;V;2;V;1;V;3;V;3;V;21;V;48;…
+##  9 08;Barcelona;019;Barcelona;4;7;2019;7;9;9;V;7;V;3;V;2;V;1;V;1;V;2;V;3;V;4;V;…
+## 10 08;Barcelona;019;Barcelona;4;7;2019;7;10;2;V;2;V;1;V;1;V;2;V;3;V;2;V;5;V;9;V…
+## # ℹ 1,043 more rows
+## # ℹ abbreviated name:
+## #   ¹​`CODI_PROVINCIA;PROVINCIA;CODI_MUNICIPI;MUNICIPI;ESTACIO;CODI_CONTAMINANT;ANY;MES;DIA;H01;V01;H02;V02;H03;V03;H04;V04;H05;V05;H06;V06;H07;V07;H08;V08;H09;V09;H10;V10;H11;V11;H12;V12;H13;V13;H14;V14;H15;V15;H16;V16;H17;V17;H18;V18;H19;V19;H20;V20;H21;V21;H22;V22;H23;V23;H24;V24`</code></pre>
+<p>We confirm that this dataset is quite similar to the 57 columns, but it really uses semicolon as separator. It is enough with reading them with <code>readr::read_csv2()</code>. The result is stored in the <code>airqual_csv2</code> list.</p>
+<pre class="r"><code>urls_csv2 &lt;- urls_csv[which(columns == 1)]
+airqual_csv2 &lt;- map(urls_csv2, read_csv2)</code></pre>
+<pre><code>## ℹ Using &quot;&#39;,&#39;&quot; as decimal and &quot;&#39;.&#39;&quot; as grouping mark. Use `read_delim()` for more control.</code></pre>
+<pre><code>## Rows: 1164 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;;&quot;
+## chr (52): CODI_PROVINCIA, PROVINCIA, CODI_MUNICIPI, MUNICIPI, H01, V01, H02,...
+## dbl  (5): ESTACIO, CODI_CONTAMINANT, ANY, MES, DIA
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+## ℹ Using &quot;&#39;,&#39;&quot; as decimal and &quot;&#39;.&#39;&quot; as grouping mark. Use `read_delim()` for more control.
+## 
+## Rows: 1053 Columns: 57
+## ── Column specification ────────────────────────────────────────────────────────
+## Delimiter: &quot;;&quot;
+## chr (52): CODI_PROVINCIA, PROVINCIA, CODI_MUNICIPI, MUNICIPI, H01, V01, H02,...
+## dbl  (5): ESTACIO, CODI_CONTAMINANT, ANY, MES, DIA
+## 
+## ℹ Use `spec()` to retrieve the full column specification for this data.
+## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+<pre class="r"><code>names(airqual_csv2) &lt;- names(airqual_csv[which(columns == 1)])</code></pre>
+<p>The tables with 18 columns have a completely different structure.</p>
+<pre class="r"><code>airqual_all$`2019_02_Febrer_qualitat_aire_BCN.csv`</code></pre>
+<pre><code>## # A tibble: 5,376 × 18
+##    nom_cabina    qualitat_aire codi_dtes zqa   codi_eoi longitud latitud hora_o3
+##    &lt;chr&gt;         &lt;chr&gt;         &lt;chr&gt;     &lt;chr&gt; &lt;chr&gt;       &lt;dbl&gt;   &lt;dbl&gt; &lt;chr&gt;  
+##  1 Barcelona - … --            ID        01    08019042     2.13    41.4 &lt;NA&gt;   
+##  2 Barcelona - … --            IH        01    08019043     2.15    41.4 &lt;NA&gt;   
+##  3 Barcelona - … --            IJ        01    08019044     2.15    41.4 &lt;NA&gt;   
+##  4 Barcelona - … --            IL        01    08019050     2.19    41.4 &lt;NA&gt;   
+##  5 Barcelona - … --            IN        01    08019054     2.15    41.4 &lt;NA&gt;   
+##  6 Barcelona - … --            IZ        01    08019057     2.12    41.4 &lt;NA&gt;   
+##  7 Barcelona - … --            I2        01    08019004     2.20    41.4 &lt;NA&gt;   
+##  8 Barcelona - … --            OF        01    08019058     2.12    41.4 &lt;NA&gt;   
+##  9 Barcelona - … Bona          ID        01    08019042     2.13    41.4 &lt;NA&gt;   
+## 10 Barcelona - … Bona          IH        01    08019043     2.15    41.4 0h     
+## # ℹ 5,366 more rows
+## # ℹ 10 more variables: qualitat_o3 &lt;chr&gt;, valor_o3 &lt;chr&gt;, hora_no2 &lt;chr&gt;,
+## #   qualitat_no2 &lt;chr&gt;, valor_no2 &lt;chr&gt;, hora_pm10 &lt;chr&gt;, qualitat_pm10 &lt;chr&gt;,
+## #   valor_pm10 &lt;chr&gt;, generat &lt;chr&gt;, dateTime &lt;dbl&gt;</code></pre>
+<p>They will require being treated separatedly so they are stored in the <code>airqual_long</code> dataset.</p>
+<pre class="r"><code>airqual_long &lt;- airqual_all[which(columns == 18)]</code></pre>
+<p>To summarise, we have now three different sets of tables:</p>
+<ul>
+<li><code>airqual_csv</code>, including the most common structure of 57 columns and obtained from a comma-separated file.</li>
+<li><code>airqual_csv2</code>, including tables with a similar structure of 57 columns, obtained form a semicolon-separated file.</li>
+<li><code>airqual_long</code>, including the tables with the old standard of 18 columns.</li>
+</ul>
+</div>
+<div id="table-cleaning" class="section level2">
+<h2>Table Cleaning</h2>
+<p>Now we need to tidy the three diferents sets of tables, so they have the same columns and can be integrated in a single dataset.</p>
+<p>I presented how to deal with <code>airqual_csv</code> tables <a href="https://jmsallan.netlify.app/blog/cleaning-barcelona-air-quality-data/">in a previous post</a>. There I defined a <code>clean_aq_table</code> function to transform the table in tidy format.</p>
+<pre class="r"><code>clean_aq_table &lt;- function(table){
+  t &lt;- table |&gt;
+  clean_names() |&gt;
+  select(c(estacio:dia, starts_with(&quot;h&quot;))) |&gt;
+  mutate(estacio = as.numeric(estacio)) |&gt;
+  pivot_longer(-c(estacio:dia), names_prefix = &quot;h&quot;, 
+               names_to = &quot;hora&quot;, values_to = &quot;value&quot;) |&gt;
+  mutate(hora = as.numeric(hora)) |&gt;
+  mutate(datetime = make_datetime(year = any, month = mes, day = dia, hour = hora)) |&gt;
+  relocate(datetime, .after = codi_contaminant)
+  
+  return(t)
+}</code></pre>
+<p>I am applying the function to all the tables of <code>airqual_csv</code> and wrapping all together in a single table using <code>purrr::map_dfr()</code>.</p>
+<pre class="r"><code>airqual_csv_table &lt;- map_dfr(airqual_csv, clean_aq_table)</code></pre>
+<p>Here is the resulting table:</p>
+<pre class="r"><code>airqual_csv_table</code></pre>
+<pre><code>## # A tibble: 3,019,368 × 8
+##    estacio codi_contaminant datetime              any   mes   dia  hora value
+##      &lt;dbl&gt;            &lt;dbl&gt; &lt;dttm&gt;              &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+##  1      43              999 2025-07-24 01:00:00  2025     7    24     1  16.2
+##  2      43              999 2025-07-24 02:00:00  2025     7    24     2  17.1
+##  3      43              999 2025-07-24 03:00:00  2025     7    24     3  16.8
+##  4      43              999 2025-07-24 04:00:00  2025     7    24     4  16.4
+##  5      43              999 2025-07-24 05:00:00  2025     7    24     5  18.8
+##  6      43              999 2025-07-24 06:00:00  2025     7    24     6  15.8
+##  7      43              999 2025-07-24 07:00:00  2025     7    24     7  13.6
+##  8      43              999 2025-07-24 08:00:00  2025     7    24     8  12.8
+##  9      43              999 2025-07-24 09:00:00  2025     7    24     9  16.1
+## 10      43              999 2025-07-24 10:00:00  2025     7    24    10  15.5
+## # ℹ 3,019,358 more rows</code></pre>
+<p>The <code>airqual_csv2</code> tables have a slightly different structure regarding the data types of the estacio and value columns, so here is a <code>clean_aq_table2</code> specific for them:</p>
+<pre class="r"><code>clean_aq_table2 &lt;- function(table){
+  table |&gt; 
+  clean_names() |&gt;
+  select(c(estacio:dia, starts_with(&quot;h&quot;))) |&gt;
+  pivot_longer(-c(estacio:dia), names_prefix = &quot;h&quot;, 
+               names_to = &quot;hora&quot;, values_to = &quot;value&quot;)  |&gt;
+  mutate(hora = as.numeric(hora)) |&gt;
+  mutate(datetime = make_datetime(year = any, month = mes, day = dia, hour = hora)) |&gt;
+  mutate(value = as.numeric(value)) |&gt;
+  relocate(datetime, .after = codi_contaminant)
+}</code></pre>
+<p>Here is the result of the data cleaning. The column names and types are the same as the <code>airqual_csv_table</code>.</p>
+<pre class="r"><code>airqual_csv2_table &lt;- map_dfr(airqual_csv2, clean_aq_table2)
+airqual_csv2_table</code></pre>
+<pre><code>## # A tibble: 53,208 × 8
+##    estacio codi_contaminant datetime              any   mes   dia  hora value
+##      &lt;dbl&gt;            &lt;dbl&gt; &lt;dttm&gt;              &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+##  1       4                7 2019-06-01 01:00:00  2019     6     1     1     7
+##  2       4                7 2019-06-01 02:00:00  2019     6     1     2    15
+##  3       4                7 2019-06-01 03:00:00  2019     6     1     3     5
+##  4       4                7 2019-06-01 04:00:00  2019     6     1     4    28
+##  5       4                7 2019-06-01 05:00:00  2019     6     1     5    14
+##  6       4                7 2019-06-01 06:00:00  2019     6     1     6     7
+##  7       4                7 2019-06-01 07:00:00  2019     6     1     7     9
+##  8       4                7 2019-06-01 08:00:00  2019     6     1     8    12
+##  9       4                7 2019-06-01 09:00:00  2019     6     1     9    17
+## 10       4                7 2019-06-01 10:00:00  2019     6     1    10    32
+## # ℹ 53,198 more rows</code></pre>
+<p>The elements of <code>airqual_long</code> are harder to tidy:</p>
+<pre class="r"><code>airqual_long[[1]]</code></pre>
+<pre><code>## # A tibble: 5,904 × 18
+##    nom_cabina    qualitat_aire codi_dtes zqa   codi_eoi longitud latitud hora_o3
+##    &lt;chr&gt;         &lt;chr&gt;         &lt;chr&gt;     &lt;chr&gt; &lt;chr&gt;       &lt;dbl&gt;   &lt;dbl&gt; &lt;chr&gt;  
+##  1 Barcelona - … Bona          ID        01    08019042     2.13    41.4 &lt;NA&gt;   
+##  2 Barcelona - … Regular       IH        01    08019043     2.15    41.4 23h    
+##  3 Barcelona - … Regular       IJ        01    08019044     2.15    41.4 23h    
+##  4 Barcelona - … Bona          IL        01    08019050     2.19    41.4 23h    
+##  5 Barcelona - … Bona          IN        01    08019054     2.15    41.4 23h    
+##  6 Barcelona - … Bona          IZ        01    08019057     2.12    41.4 0h     
+##  7 Barcelona - … Bona          I2        01    08019004     2.20    41.4 &lt;NA&gt;   
+##  8 Barcelona - … Bona          OF        01    08019058     2.12    41.4 0h     
+##  9 Barcelona - … Regular       ID        01    08019042     2.13    41.4 &lt;NA&gt;   
+## 10 Barcelona - … Regular       IH        01    08019043     2.15    41.4 0h     
+## # ℹ 5,894 more rows
+## # ℹ 10 more variables: qualitat_o3 &lt;chr&gt;, valor_o3 &lt;chr&gt;, hora_no2 &lt;chr&gt;,
+## #   qualitat_no2 &lt;chr&gt;, valor_no2 &lt;chr&gt;, hora_pm10 &lt;chr&gt;, qualitat_pm10 &lt;chr&gt;,
+## #   valor_pm10 &lt;chr&gt;, generat &lt;chr&gt;, dateTime &lt;dbl&gt;</code></pre>
+<p>The function tidying these datasets is <code>clean_aq_table()</code>, presented below. The measurement stations and pollutants are presented with their names, and not with their code. That’s why I have defined the <code>stations</code> table at the beginning. These tables include only three pollutants. Their codes are presented in the <code>conts</code> table inside the function.</p>
+<pre class="r"><code>clean_aq_long &lt;- function(table){
+table0 &lt;- table |&gt;
+  select(nom_cabina, starts_with(&quot;hora&quot;), starts_with(&quot;valor&quot;), generat) |&gt;
+  mutate(across(starts_with(&quot;valor&quot;), ~ str_replace(., &quot; µg/m³&quot;, &quot;&quot;))) |&gt;
+  mutate(across(starts_with(&quot;valor&quot;), ~ str_replace(., &quot;--&quot;, &quot;&quot;))) |&gt;
+  mutate(across(starts_with(&quot;valor&quot;), ~ ifelse(. == &quot;&quot;, NA, .))) |&gt;
+  mutate(datetime = dmy_hm(generat)) |&gt;
+  select(nom_cabina, datetime, starts_with(&quot;valor&quot;))
+  
+  new_table &lt;- map_dfr(c(&quot;o3&quot;, &quot;no2&quot;, &quot;pm10&quot;), ~ table0 |&gt;
+      select(nom_cabina, datetime, ends_with(.)) |&gt;
+      mutate(contaminant = .) |&gt;
+      mutate(across(starts_with(&quot;valor&quot;), ~ as.numeric(.))) |&gt;
+      rename(c(&quot;value&quot; = paste0(&quot;valor_&quot;, .))))
+    
+  conts &lt;- tibble(contaminant = c(&quot;o3&quot;, &quot;no2&quot;, &quot;pm10&quot;),
+                codi_contaminant = c(14, 8, 10))
+
+  new_table &lt;- new_table |&gt;
+  left_join(conts, by = &quot;contaminant&quot;)
+
+  new_table &lt;- new_table |&gt;
+    left_join(stations |&gt; select(estacio, nom_cabina), by = &quot;nom_cabina&quot;)
+  
+  new_table &lt;- new_table |&gt;
+    mutate(any = year(datetime), mes = month(datetime),
+           dia = day(datetime), hora = hour(datetime)) |&gt;
+    select(estacio, codi_contaminant, datetime, any, mes, dia, hora, value)
+  
+  return(new_table)
+  }</code></pre>
+<p>The table of February 2019 was totally empty of data, so it has been excluded from treatment. When applying clean_aq_long() some warnings appeared resulting from applying <code>as.numeric()</code> to the column of values, indicating that non-numeric strings have been turned into NA by coertion.</p>
+<pre class="r"><code>airqual_long_table &lt;- map_dfr(airqual_long[c(1, 4:10)], clean_aq_long)
+airqual_long_table</code></pre>
+<pre><code>## # A tibble: 125,661 × 8
+##    estacio codi_contaminant datetime              any   mes   dia  hora value
+##      &lt;dbl&gt;            &lt;dbl&gt; &lt;dttm&gt;              &lt;dbl&gt; &lt;dbl&gt; &lt;int&gt; &lt;int&gt; &lt;dbl&gt;
+##  1      42               14 2019-01-01 00:00:00  2019     1     1     0    NA
+##  2      43               14 2019-01-01 00:00:00  2019     1     1     0     3
+##  3      44               14 2019-01-01 00:00:00  2019     1     1     0     3
+##  4      50               14 2019-01-01 00:00:00  2019     1     1     0     2
+##  5      54               14 2019-01-01 00:00:00  2019     1     1     0    10
+##  6      57               14 2019-01-01 00:00:00  2019     1     1     0     1
+##  7       4               14 2019-01-01 00:00:00  2019     1     1     0    NA
+##  8      58               14 2019-01-01 00:00:00  2019     1     1     0    86
+##  9      42               14 2019-01-01 01:00:00  2019     1     1     1    NA
+## 10      43               14 2019-01-01 01:00:00  2019     1     1     1     4
+## # ℹ 125,651 more rows</code></pre>
+</div>
+<div id="wrapping-it-all-together" class="section level2">
+<h2>Wrapping It All Together</h2>
+<p>Now that we have the three sets of tables turned into a single dataset, it is time to wrap them up with the <code>dplyr::bind_rows()</code> function. It has worked properly because similar data has the same column name and data type in the three tables.</p>
+<pre class="r"><code>airqual &lt;- bind_rows(airqual_csv_table, airqual_csv2_table, airqual_long_table)</code></pre>
+<p>Finally, I am renaming columns so that they are presented in the same language.</p>
+<pre class="r"><code>airqual &lt;- airqual |&gt;
+  rename(station = estacio, pollutant = codi_contaminant, year = any, month = mes, day = dia, hour = hora)</code></pre>
+<p>This is the resulting dataset, including air quality data from 2018 to mid 2025.</p>
+<pre class="r"><code>airqual</code></pre>
+<pre><code>## # A tibble: 3,198,237 × 8
+##    station pollutant datetime             year month   day  hour value
+##      &lt;dbl&gt;     &lt;dbl&gt; &lt;dttm&gt;              &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+##  1      43       999 2025-07-24 01:00:00  2025     7    24     1  16.2
+##  2      43       999 2025-07-24 02:00:00  2025     7    24     2  17.1
+##  3      43       999 2025-07-24 03:00:00  2025     7    24     3  16.8
+##  4      43       999 2025-07-24 04:00:00  2025     7    24     4  16.4
+##  5      43       999 2025-07-24 05:00:00  2025     7    24     5  18.8
+##  6      43       999 2025-07-24 06:00:00  2025     7    24     6  15.8
+##  7      43       999 2025-07-24 07:00:00  2025     7    24     7  13.6
+##  8      43       999 2025-07-24 08:00:00  2025     7    24     8  12.8
+##  9      43       999 2025-07-24 09:00:00  2025     7    24     9  16.1
+## 10      43       999 2025-07-24 10:00:00  2025     7    24    10  15.5
+## # ℹ 3,198,227 more rows</code></pre>
+</div>
+<div id="evolution-of-pm10-at-the-eixample-station" class="section level2">
+<h2>Evolution of PM10 at the Eixample Station</h2>
+<p>Now that we have all data into a single table, we can examine some of the results. For instance, here is the evolution of the PM10 pollutant in the Eixample air quality measurement station (code 43).</p>
+<pre class="r"><code>airqual |&gt;
+  filter(station == 43, pollutant == 10) |&gt;
+  mutate(date = as_date(datetime)) |&gt;
+  group_by(date) |&gt;
+  summarise(pm10 = mean(value, na.rm = TRUE), .groups = &quot;drop&quot;) |&gt;
+  ggplot(aes(date, pm10)) +
+  geom_line(linewidth = 0.5) +
+  theme_minimal() +
+  labs(title = &quot;Evolution of PM10 at Eixample Station (2018-2025)&quot;, x = NULL, y = NULL)</code></pre>
+<pre><code>## Warning: Removed 1 row containing missing values or values outside the scale range
+## (`geom_line()`).</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-28-1.png" width="100%" /></p>
+<p>As the year 2022 had high values of PM10, we can observe it closely:</p>
+<pre class="r"><code>airqual |&gt;
+  filter(station == 43, pollutant == 10, year == 2022) |&gt;
+  mutate(date = as_date(datetime)) |&gt;
+  group_by(date) |&gt;
+  summarise(pm10 = mean(value, na.rm = TRUE), .groups = &quot;drop&quot;) |&gt;
+  ggplot(aes(date, pm10)) +
+  geom_line(linewidth = 0.5) +
+  geom_hline(yintercept = 50, color = &quot;red&quot;, linetype = &quot;dashed&quot;) +
+  theme_minimal() +
+  labs(title = &quot;Evolution of PM10 at Eixample Station (2022)&quot;, x = NULL, y = NULL)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-29-1.png" width="100%" /></p>
+</div>
+<div id="episodes-of-pm10-pollution" class="section level2">
+<h2>Episodes of PM10 Pollution</h2>
+<p>One of the ways of defining an episode of PM10 pollution is to observe daily average values of PM10 above 50 in two or more station. Let’s see the days when one of these episodes occurred.</p>
+<pre class="r"><code>pm10_episodes &lt;- airqual |&gt;
+  filter(pollutant == 10) |&gt;
+  mutate(date = as_date(datetime)) |&gt;
+  group_by(date, station) |&gt;
+  summarise(pm10 = mean(value, na.rm = TRUE), .groups = &quot;drop&quot;) |&gt;
+  filter(pm10 &gt;= 50) |&gt;
+  group_by(date) |&gt;
+  summarise(n = n()) |&gt;
+  filter(n &gt; 1) |&gt;
+  arrange(-n)
+
+pm10_episodes</code></pre>
+<pre><code>## # A tibble: 46 × 2
+##    date           n
+##    &lt;date&gt;     &lt;int&gt;
+##  1 2019-12-17     6
+##  2 2019-12-18     6
+##  3 2020-02-29     6
+##  4 2020-10-22     6
+##  5 2021-02-06     6
+##  6 2021-08-14     6
+##  7 2023-07-11     6
+##  8 2019-06-28     5
+##  9 2020-01-24     5
+## 10 2020-10-21     5
+## # ℹ 36 more rows</code></pre>
+<p>There have been 46 episodes of PM10 pollution registered since 2018. If we count episodes by month we have:</p>
+<pre class="r"><code>pm10_episodes |&gt;
+  mutate(month = month(date)) |&gt;
+  mutate(month = factor(month)) |&gt;
+  ggplot(aes(month)) +
+  geom_bar() +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, title = &quot;Episodes of PM10 Pollution in Barcelona (2018-2025)&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-31-1.png" width="100%" /></p>
+<p>We observe that the highest value of pollution episodes is during June, and the lowest in March and April.</p>
+</div>
+<div id="reading-and-tidying-data-from-open-data-portals" class="section level2">
+<h2>Reading and Tidying Data from Open Data Portals</h2>
+<p>Although open data portals are supposed to provide data in a structured and reusable way, using this kind of data may require extensive tidying and cleaning, pretty much like any other dataset. Turning a dataset into R tidy data can require some effort, but the resulting dataset can be very useful for exploratory data analysis jobs.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Air quality data from the measure stations of the city of Barcelona
+<a href="https://opendata-ajuntament.barcelona.cat/data/en/dataset/qualitat-aire-detall-bcn" class="uri">https://opendata-ajuntament.barcelona.cat/data/en/dataset/qualitat-aire-detall-bcn</a></li>
+<li>Air quality measure stations of the city of Barcelona <a href="https://opendata-ajuntament.barcelona.cat/data/en/dataset/qualitat-aire-estacions-bcn" class="uri">https://opendata-ajuntament.barcelona.cat/data/en/dataset/qualitat-aire-estacions-bcn</a></li>
+<li>Measured air pollutants by the air quality measurement stations of the city of Barcelona <a href="https://opendata-ajuntament.barcelona.cat/data/en/dataset/contaminants-estacions-mesura-qualitat-aire" class="uri">https://opendata-ajuntament.barcelona.cat/data/en/dataset/contaminants-estacions-mesura-qualitat-aire</a></li>
+<li><code>ckanr</code> package <a href="https://docs.ropensci.org/ckanr/" class="uri">https://docs.ropensci.org/ckanr/</a></li>
+<li><em>Cleaning Barcelona Air Quality Data</em> <a href="https://jmsallan.netlify.app/blog/cleaning-barcelona-air-quality-data/" class="uri">https://jmsallan.netlify.app/blog/cleaning-barcelona-air-quality-data/</a></li>
+</ul>
+<p>All websites checked on 21 July 2025.</p>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.5.1 (2025-06-13)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0  LAPACK version 3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] ckanr_0.7.0     DBI_1.2.3       janitor_2.2.1   lubridate_1.9.4
+##  [5] forcats_1.0.0   stringr_1.5.1   dplyr_1.1.4     purrr_1.0.4    
+##  [9] readr_2.1.5     tidyr_1.3.1     tibble_3.2.1    ggplot2_3.5.2  
+## [13] tidyverse_2.0.0
+## 
+## loaded via a namespace (and not attached):
+##  [1] utf8_1.2.4        sass_0.4.10       generics_0.1.3    blogdown_1.21    
+##  [5] stringi_1.8.7     httpcode_0.3.0    hms_1.1.3         digest_0.6.37    
+##  [9] magrittr_2.0.3    evaluate_1.0.3    grid_4.5.1        timechange_0.3.0 
+## [13] bookdown_0.43     fastmap_1.2.0     jsonlite_2.0.0    crul_1.5.0       
+## [17] urltools_1.7.3.1  scales_1.3.0      jquerylib_0.1.4   cli_3.6.4        
+## [21] crayon_1.5.3      rlang_1.1.6       triebeard_0.4.1   dbplyr_2.5.0     
+## [25] bit64_4.6.0-1     munsell_0.5.1     withr_3.0.2       cachem_1.1.0     
+## [29] yaml_2.3.10       parallel_4.5.1    tools_4.5.1       tzdb_0.5.0       
+## [33] colorspace_2.1-1  curl_6.2.2        vctrs_0.6.5       R6_2.6.1         
+## [37] lifecycle_1.0.4   snakecase_0.11.1  bit_4.6.0         vroom_1.6.5      
+## [41] pkgconfig_2.0.3   pillar_1.10.2     bslib_0.9.0       gtable_0.3.6     
+## [45] Rcpp_1.0.14       glue_1.8.0        xfun_0.52         tidyselect_1.2.1 
+## [49] rstudioapi_0.17.1 knitr_1.50        farver_2.1.2      htmltools_0.5.8.1
+## [53] labeling_0.4.3    rmarkdown_2.29    compiler_4.5.1</code></pre>
+</div>
