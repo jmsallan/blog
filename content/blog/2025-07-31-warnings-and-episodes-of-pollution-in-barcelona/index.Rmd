@@ -15,4 +15,247 @@ meta_img: images/image.png
 description: Description for the page
 ---
 
-Under construction
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+One of the tools of exploratory data analysis is handling tidy data to discover patterns in data. In this post, I will illustrate this by examining the preventive warnings and environmental episodes concerning air quality in Barcelona. Throughout the post, I will use the tools of the tidyverse for data handling and visualization.
+
+```{r, message=FALSE}
+library(tidyverse)
+```
+
+Our starting point will be a dataset of air quality measurement stations and of hourly observations of level of pollutants from these stations. Both datasets have been obtained from the *Open Data BCN* portal.
+
+```{r, echo = FALSE}
+estacions <- readRDS("estacions2.RDS")
+estacions <- estacions |>
+  mutate(nom_estacio = str_replace(nom_cabina, "Barcelona - ", ""))
+aq <- readRDS("aq_pm10_no2.RDS")
+```
+
+Here is the listing of stations:
+
+```{r}
+estacions
+```
+
+And the air quality data. The dataset covers the period 2018-2025 and the NO2 and PM10 pollutants.
+
+```{r}
+aq
+```
+
+To facilitate data handling I will modify the `aq` dataset:
+
+- Adding the station name `nom_estacio`.
+- Obtaining the `date` from `datetime`.
+
+```{r}
+aq <- aq |>
+  left_join(estacions |> select(estacio, nom_estacio), by = c("station" = "estacio")) |>
+  mutate(date = as_date(datetime))
+```
+
+## Preventive Warnings
+
+A **preventive warning** for air pollution is issued when:
+
+- The hourly average of NO2 at one of the air quality monitoring stations exceeds 160 µg/m³ and the 24-hour forecast does not indicate an improvement in NO2 levels.
+- The daily average of PM10 from the previous day exceeds 50 µg/m³ at more than one air quality monitoring station, and the 24-hour forecast does not indicate an improvement in PM10 levels.
+
+Let's start examining the NO2 warnings. The values of NO2 are obtained filtering by `pollutant == 8`. As we will see later, values of NO2 higher than 200 correspond to an environmental episode, so I am filtering by values between 160 and 200
+
+```{r}
+aq |>
+  filter(pollutant == 8) |>
+  filter(value >= 160, value < 200) |>
+  arrange(datetime) |>
+  select(nom_estacio, date, hour, value) |>
+  print(n = Inf)
+```
+
+These are the measures between 160 and 200 of NO2 between 2018 and 2025. Let's arrange them in a wide table with `tidyr::pivot:wider()`.
+
+```{r}
+aq |>
+  filter(pollutant == 8) |>
+  filter(value >= 160, value < 200) |>
+  group_by(date, nom_estacio) |>
+  count() |>
+  pivot_wider(values_from = n, names_from = nom_estacio, values_fill = 0)
+```
+
+We have detected twelve preventive warnings from excess of NO2, spanning from 2018 to 2023. There were no NO2 warnings in 2024 and 2025. These excess of NO2 was registered in five oot of eight measurement stations.
+
+Let's examine now the preventive warnings form PM10. These correspond with average daily values of PM10 detected in more than one station on the same day. Let's start picking these values in a `pm10_50 table`. To build it I have:
+
+- computed the average daily value grouping by `date` and station name `nom_estacio`.
+- filtered the average daily values of PM10 between 50 and 80.
+
+```{r}
+pm10_50 <- aq |>
+  filter(pollutant == 10) |>
+  group_by(date, nom_estacio) |>
+  summarise(pm10 = mean(value, na.rm = TRUE), .groups = "drop") |>
+  filter(pm10 >= 50, pm10 < 80)
+```
+
+Now I want to obtain the dates when there were moderatelly abnormal values of PM10 in more than one station. As I want to know the stations where measures took place, I am using `dplyr::mutate()` together with `dplyr::group_b()`. The column `n` has the number of affected stations, repeated for each date. Finally, I filter by values of `n` greater than one.
+
+```{r}
+pm10_50_more1 <- pm10_50 |>
+  group_by(date) |>
+  mutate(n = n()) |>
+  ungroup() |>
+  filter(n > 1)
+```
+
+The resulting table has `r nrow(pm10_50_more1)` rows, so the warnings from PM10 are more frequent than from NO2. Let's examine two possible patters:
+
+- Month of appearance of the warning.
+- Stations involved in the warning.
+
+When building the plot of months, I see than some months have no warnings. To account for this, I am creating a `months` tibble.
+
+```{r}
+months <- tibble(num_month = 1:12, month = c("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"))
+```
+
+And here is the plot of occurrences of warnings by month. Observe the use of the `month` variable as a factor to create the plot.
+
+```{r, out.width='80%', fig.align='center'}
+pm10_50_more1 |>
+  mutate(num_month = month(date)) |>
+  group_by(num_month) |>
+  summarise(n = n(), .groups = "drop") |>
+  full_join(months, by = "num_month") |>
+  mutate(n = ifelse(is.na(n), 0, n)) |>
+  mutate(month = factor(month, levels = months$month)) |>
+  ggplot(aes(month, n)) +
+  geom_col() +
+  theme_minimal(base_size = 12) +
+  labs(x = NULL, y = NULL, title = "PM10 warnings by month (2018-2025)")
+```
+
+The pattern of occurrences of warnings from PM10 over time is strange: no warnings in March and April, peak values in June and October.
+
+Here is the plot of stations:
+
+```{r, out.width='80%', fig.align='center'}
+pm10_50_more1 |>
+  group_by(nom_estacio) |>
+  summarise(n = n(), .groups = "drop") |>
+  mutate(nom_estacio2 = fct_reorder(nom_estacio, n)) |>
+  ggplot(aes(n, nom_estacio2)) +
+  geom_col() +
+  theme_minimal(base_size = 12) +
+  labs(x = NULL, y = NULL, title = "PM10 warnings by station (2018-2025)")
+```
+
+These results make more sense. Poblenou and Vall Hebron are close to the road rings (Ronda Litoral and Ronda de Dalt, respectively), with heavy traffic. Eixample and Gràcia are the among the most populated, also with high values of traffic.
+
+## Environmental Episodes
+
+An **environmental episode** due to high pollution is declared when:
+
+- The hourly average of NO₂ exceeds 200 µg/m³ at more than one air quality monitoring station, or when another justified situation requires it.
+- The daily average of PM₁₀ from the previous day exceeds 80 µg/m³ at more than one air quality monitoring station, and the 24-hour forecast does not indicate an improvement in PM₁₀ levels.
+- The daily average of PM₁₀ exceeds 50 µg/m³ for three consecutive days at more than one air quality monitoring station, and the 24-hour forecast does not indicate an improvement in PM₁₀ levels.
+
+From the previous analysis, we can guess that environmental episodes from excess of NO2 will be scarce:
+
+```{r}
+aq |>
+  filter(pollutant == 8) |>
+  filter(value >= 200) |>
+  select(nom_estacio, date, datetime, value)
+```
+
+In the period 2018-2025, there were environmental episodes by excess of NO2 on 28 June and 20 October of 2019.
+
+There are two possible reasons of preventing warning from excess of PM10. Let's examine first events where PM10 was higher than 80 in more than one station, proceeding in a similar way as with the warnings. The `pm10_80` table contains average daily values higher than 80.
+
+```{r}
+pm10_80 <- aq |>
+  filter(pollutant == 10) |>
+  group_by(date, nom_estacio) |>
+  summarise(pm10 = mean(value, na.rm = TRUE), .groups = "drop") |>
+  filter(pm10 >= 80)
+```
+
+In `pm10_80_more1` we retain the days with values above 80 in more than one station.
+
+```{r}
+pm10_80_more1 <- pm10_80 |>
+  group_by(date) |>
+  mutate(n = n()) |>
+  ungroup() |>
+  filter(n > 1)
+```
+
+This table has `r nrow(pm10_80_more1)` rows so this is not a frequent event. Let's examine the days with environmental episodes:
+
+```{r}
+pm10_80_more1 |>
+  group_by(date) |>
+  summarise(n = n(), .groups = "drop")
+```
+
+There were eight days with average daily values of PM10 higher than 80 in more than one station. The most acute episodes were on 17 and 18 December 2019 and 2 of June 2021, when abnormally high values of PM10 were registered in six stations.
+
+We can have an environmental episode from PM10 when average daily values of PM10 are observed in more than one station three days in a row. To detect this, we use the `dplyr::lag()` function which gives is the value of the previous day `pm10_1` and of the day before `pm10_2`. The episodes are detected with the `three_days` variable.
+
+```{r}
+aq |>
+  filter(pollutant == 10) |>
+  group_by(date, nom_estacio) |>
+  summarise(pm10 = mean(value, na.rm = TRUE), .groups = "drop") |>
+  arrange(nom_estacio, date) |>
+  mutate(pm10_1 = lag(pm10),
+         pm10_2 = lag(pm10, 2)) |>
+  mutate(three_days = pm10 >= 50 & pm10_1 >= 50 & pm10_2 >= 50) |>
+  filter(three_days) |>
+  group_by(date) |>
+  mutate(n = n()) |>
+  ungroup() |>
+  filter(n > 1) |>
+  arrange(date, nom_estacio) |>
+  select(date, nom_estacio, pm10:pm10_2)
+```
+
+The days detected with this episode are:
+
+- 17 to 19 December 2019. 18 and 19 December 2019 had also environmental episodes as there were values of PM10 above 80 in more than one station.
+- 22 to 24 January 2020, affecting Eixample and Poblenou.
+- 18 to 20 October 2022. This is the last environmental episode so far, affecting Eixample and Gracia.
+
+## Warnings and Episodes of Pullution in Barcelona
+
+We have detected the preventive warnings and environmental episodes from air pollution in Barcelona. We have observed that the warnings and episodes from PM10 were much more frequent than from NO2. It is to notice that there have not been environmental episodes from PM10 and NO2 since 2022. This means that the measures to improve air quality in Barcelona have been effective. Regarding preventive warnings, the most recent have been in June 2025 and November 2024.
+
+```{r}
+pm10_50_more1 |>
+  filter(year(date) >= 2024) |>
+  group_by(date) |>
+  summarise(n = n(), .groups = "drop")
+```
+
+
+## References
+
+- Air quality data from the measure stations of the city of Barcelona
+  <https://opendata-ajuntament.barcelona.cat/data/en/dataset/qualitat-aire-detall-bcn>
+- Air quality measure stations of the city of Barcelona <https://opendata-ajuntament.barcelona.cat/data/en/dataset/qualitat-aire-estacions-bcn>
+- Generalitat de Catalunya. *¿Qué es un episodio ambiental? Definición.* <https://mediambient.gencat.cat/es/05_ambits_dactuacio/atmosfera/qualitat_de_laire/qualitat-de-laire-a-la-conurbacio-de-barcelona/pla_millora_qua_aire_2011_2015/mesures-del-pamqa/episodis_ambientals/definicio/index.html>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
+
+
+
