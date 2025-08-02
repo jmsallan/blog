@@ -34,7 +34,7 @@ Considering this, I obtained a dataset to compare air quality during lockdowns w
 
 - I retrieved air quality data from measurement stations posted on the Barcelona Open Data website.
 - I tidyed data so that each row contains the `value` measurement of a specific `pollutant`, from a specific `station` and from a specific hour.
-- I filtered data going from 14 March to 29 May from 2020 to 2021.
+- I filtered data going from 14 March to 29 May from 2020 to 2024.
 . As hourly data is extremely noisy, I have averaged the level of contaminant on a daily basis. The day of measurement is in `date`.
 - To make the plots, I have created a `plot_date` variable equal to the same date as 2025, and the `year` as factor.
 
@@ -53,8 +53,8 @@ aq_tw_daily
 
 The two most relevant pollutants are:
 
-- Particulate matter of 10 microns or less PM10, with `pollutant+  code 10.
-- Nitrogen dioxide NO2, with  `pollutant+  code 8.
+- Particulate matter of 10 microns or less PM10, with `pollutant`  code 10.
+- Nitrogen dioxide NO2, with  `pollutant`  code 8.
 
 Let's see several ways to compare the evolution of PM10 and NO2 in each station.
 
