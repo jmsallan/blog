@@ -121,8 +121,7 @@ A layer in ggplot consists of two elements: the statistical transformations or *
 -   Introduction to `ggplot2`: <https://ggplot2.tidyverse.org/articles/ggplot2.html>
 -   Control aesthetic evaluation: <https://ggplot2.tidyverse.org/reference/aes_eval.html>
 -   Layer statistical transformations: <https://ggplot2.tidyverse.org/reference/layer_stats.html>
--   Bar charts in ggplot2: <https://ggplot2.tidyverse.org/reference/geom_bar.html>
--   Histograms and frequency plots in ggplot: <https://ggplot2.tidyverse.org/reference/geom_histogram.html>
+
 
 ## Session Info
 
