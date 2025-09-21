@@ -54,7 +54,7 @@ description: Description for the page
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="672" style="display: block; margin: auto;" /></p>
 <p>Below is the result of using <code>density</code>. The heigth of bars is scaled so that the <em>total area of bins</em> is equal to 1. The line obtained with <code>geom_density()</code> is computed tending the number of bins to infinity. This scaling allows the two geoms being superimposed.</p>
 <pre class="r"><code>ggplot(mpg, aes(hwy, y = after_stat(density))) +
-  geom_histogram(bins = 30, fill = &quot;#A0A0A0&quot;) +
+  geom_histogram(bins = 20, fill = &quot;#A0A0A0&quot;) +
   geom_density(linewidth = 2)</code></pre>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" style="display: block; margin: auto;" /></p>
 <p>Each <code>geom_*()</code> has a <code>stat</code> variable, indicating which stat to use when calculating layer parameters. The most frequent default is <code>stat = "identity"</code>, but it can be useful to pass a different parameter. Let’s see how can we set the value of counts in a barplot.</p>

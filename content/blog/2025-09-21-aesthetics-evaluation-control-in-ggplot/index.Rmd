@@ -77,7 +77,7 @@ Below is the result of using `density`. The heigth of bars is scaled so that the
 
 ```{r, fig.align='center'}
 ggplot(mpg, aes(hwy, y = after_stat(density))) +
-  geom_histogram(bins = 30, fill = "#A0A0A0") +
+  geom_histogram(bins = 20, fill = "#A0A0A0") +
   geom_density(linewidth = 2)
 ```
 
