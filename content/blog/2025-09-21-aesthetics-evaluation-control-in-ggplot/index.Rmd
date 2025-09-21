@@ -1,0 +1,133 @@
+---
+title: Aesthetics Evaluation Control in ggplot
+author: Jose M Sallan
+date: '2025-09-21'
+slug: aesthetics-evaluation-control-in-ggplot
+categories:
+  - R
+tags:
+  - data visualization
+  - ggplot
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The `ggplot2` package is a system to create graphics in the context of the tidyverse, using the grammar of graphics. The elements of a ggplot are:
+
+- A **dataset**, usually passed as a data frame. We obtain the best from ggplot if the data frame is in tidy format.
+- A **mapping**, defined as a set of instructions on how parts of the data are mapped onto aesthetic attributes of geometric objects. The mapping is passed using the `aes()` function. Here we establish which variables will be used in the plot axis, and which variables will be used for coloring or shaping plot elements.
+- A set of **layers**, which define how the data will be displayed in the plot. They include the geometric element or **geom** (points, lines, bars, etc.) and the statistical transformation or **stats** required to make the plot.
+
+In this post, I will shortly introduce how to control aesthetic evaluation in ggplot, mostly using the `afer_stat()` function in the mapping of the plot. To do so, we need to load the tidyverse to access `ggplot2`:
+
+```{r, message=FALSE}
+library(tidyverse)
+```
+
+
+We can see an example of the default use of stats with this simple plot:
+
+```{r, fig.align='center'}
+ggplot(mpg, aes(class)) +
+  geom_bar()
+```
+
+Let's examine the elements of this plot:
+
+- The dataset `mpg`, which is loaded with ggplot2.
+- The mapping of the plot consists of setting the `class` factor variable in the x axis (the first two arguments of `aes()` are the variables of the data frame to be set in the `x` and `y` axis).
+- We define a bar plot with `geom_bar()`.
+
+To do this plot, `ggplot2` has counted how many rows of the dataset belong to each level, stored the result of the `count` variable and mapped this variable in the y axis. `count` is an example of a **stat**, a variable generated internally by ggplot. In fact, a layer in ggplot consists of two elements: the statistical transformations or **stats**, and the geometry **geoms**. The stat performs the computations required to build the graphic, and the geom part controls how the plot is displayed.
+
+We use `after_stat()` to transform the y axis establishing the relative frequency of each level. This proportion is calculated as `count/sum(count)`.
+
+```{r, fig.align='center'}
+ggplot(mpg, aes(x = class, y = after_stat(count / sum(count)))) +
+  geom_bar()
+```
+
+To appreciate the difference between the two plots, examine the values of the y axis. In the first plot they are the total count, in the second the proportion of each variable.
+
+To see which variables are computed in a `geom_*()`, check the *Computed variables* section of the reference page or help. For instance, for the histograms we have:
+
+-  the `count` of observations of each bin.
+-  the `density` of points in bin, scaled to integrate to 1.
+-  the variables `ncount` and `ndensity`, scaled to a maximum of 1.
+
+The default stat for histograms is `count` (see label of y axis):
+
+```{r, fig.align='center'}
+ggplot(mpg, aes(hwy)) +
+  geom_histogram(bins = 20)
+```
+
+Here is the relative frequency, scaled so that the sum of heights of bars is equal to one:
+
+```{r, fig.align='center'}
+ggplot(mpg, aes(hwy, y = after_stat(count / sum(count)))) +
+  geom_histogram(bins = 20)
+```
+
+Below is the result of using `density`. The heigth of bars is scaled so that the *total area of bins* is equal to 1. The line obtained with `geom_density()` is computed tending the number of bins to infinity. This scaling allows the two geoms being superimposed.
+
+```{r, fig.align='center'}
+ggplot(mpg, aes(hwy, y = after_stat(density))) +
+  geom_histogram(bins = 30, fill = "#A0A0A0") +
+  geom_density(linewidth = 2)
+```
+
+Each `geom_*()` has a `stat` variable, indicating which stat to use when calculating layer parameters. The most frequent default is `stat = "identity"`, but it can be useful to pass a different parameter. Let's see how can we set the value of counts in a barplot.
+
+```{r, fig.align='center'}
+ggplot(mpg, aes(class)) +
+  geom_bar() +
+  geom_text(aes(y = after_stat(count + 2), label = after_stat(count)), 
+            stat = "count")
+```
+
+The `aes()` function of `geom_text()` has three parameters:
+
+- The `x` axis, inherited from the aesthetics of `ggplot()`.
+- The `y` axis, equal to the count of each bar plus two.
+- The `label`, equal to the actual count.
+
+To be able to calculate the counts, we need to set `stat = "count"` for `geom_text()`.
+
+Let's see another example of use of stats with boxplots.
+
+```{r, fig.align='center'}
+ggplot(iris, aes(Species, Sepal.Length)) +
+  geom_boxplot() +
+  geom_text(aes(y = stage(Sepal.Length, after_stat = ymax), 
+                label = after_stat(paste(ymax, "-", ymin))), 
+                stat = "boxplot", vjust = - 0.5)
+```
+
+In the first two lines of the plot, I am making a boxplot for each value of `Species`. Then, I am placing a label with `geom_text()` as follows:
+
+- I want to position the label in the `ymax` value of the boxplot. That's why I am setting `stat = "boxplot"` for this geom.
+- The y axis is the `ymax` variable of `geom_boxplot()`. To obtain it, I need to use `stage()` to pass the `Sepal.Length` variable.
+- the `label` is an expression from `ymax` and `ymin`.
+
+A layer in ggplot consists of two elements: the statistical transformations or **stats**, and the geometry **geoms**. The stat performs the computations required to build the graphic, and the geom part controls how the plot is displayed. The variables calculated in the stat can be checked in the *Computed variables* section of the geom reference. We can use functions such as `after_stat()` or `stage()` to use these computed variables in our plots.
+
+## References
+
+-   Introduction to `ggplot2`: <https://ggplot2.tidyverse.org/articles/ggplot2.html>
+-   Control aesthetic evaluation: <https://ggplot2.tidyverse.org/reference/aes_eval.html>
+-   Layer statistical transformations: <https://ggplot2.tidyverse.org/reference/layer_stats.html>
+-   Bar charts in ggplot2: <https://ggplot2.tidyverse.org/reference/geom_bar.html>
+-   Histograms and frequency plots in ggplot: <https://ggplot2.tidyverse.org/reference/geom_histogram.html>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+

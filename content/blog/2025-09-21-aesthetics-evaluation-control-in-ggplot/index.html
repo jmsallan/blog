@@ -1,0 +1,138 @@
+---
+title: Aesthetics Evaluation Control in ggplot
+author: Jose M Sallan
+date: '2025-09-21'
+slug: aesthetics-evaluation-control-in-ggplot
+categories:
+  - R
+tags:
+  - data visualization
+  - ggplot
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>The <code>ggplot2</code> package is a system to create graphics in the context of the tidyverse, using the grammar of graphics. The elements of a ggplot are:</p>
+<ul>
+<li>A <strong>dataset</strong>, usually passed as a data frame. We obtain the best from ggplot if the data frame is in tidy format.</li>
+<li>A <strong>mapping</strong>, defined as a set of instructions on how parts of the data are mapped onto aesthetic attributes of geometric objects. The mapping is passed using the <code>aes()</code> function. Here we establish which variables will be used in the plot axis, and which variables will be used for coloring or shaping plot elements.</li>
+<li>A set of <strong>layers</strong>, which define how the data will be displayed in the plot. They include the geometric element or <strong>geom</strong> (points, lines, bars, etc.) and the statistical transformation or <strong>stats</strong> required to make the plot.</li>
+</ul>
+<p>In this post, I will shortly introduce how to control aesthetic evaluation in ggplot, mostly using the <code>afer_stat()</code> function in the mapping of the plot. To do so, we need to load the tidyverse to access <code>ggplot2</code>:</p>
+<pre class="r"><code>library(tidyverse)</code></pre>
+<p>We can see an example of the default use of stats with this simple plot:</p>
+<pre class="r"><code>ggplot(mpg, aes(class)) +
+  geom_bar()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Let’s examine the elements of this plot:</p>
+<ul>
+<li>The dataset <code>mpg</code>, which is loaded with ggplot2.</li>
+<li>The mapping of the plot consists of setting the <code>class</code> factor variable in the x axis (the first two arguments of <code>aes()</code> are the variables of the data frame to be set in the <code>x</code> and <code>y</code> axis).</li>
+<li>We define a bar plot with <code>geom_bar()</code>.</li>
+</ul>
+<p>To do this plot, <code>ggplot2</code> has counted how many rows of the dataset belong to each level, stored the result of the <code>count</code> variable and mapped this variable in the y axis. <code>count</code> is an example of a <strong>stat</strong>, a variable generated internally by ggplot. In fact, a layer in ggplot consists of two elements: the statistical transformations or <strong>stats</strong>, and the geometry <strong>geoms</strong>. The stat performs the computations required to build the graphic, and the geom part controls how the plot is displayed.</p>
+<p>We use <code>after_stat()</code> to transform the y axis establishing the relative frequency of each level. This proportion is calculated as <code>count/sum(count)</code>.</p>
+<pre class="r"><code>ggplot(mpg, aes(x = class, y = after_stat(count / sum(count)))) +
+  geom_bar()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>To appreciate the difference between the two plots, examine the values of the y axis. In the first plot they are the total count, in the second the proportion of each variable.</p>
+<p>To see which variables are computed in a <code>geom_*()</code>, check the <em>Computed variables</em> section of the reference page or help. For instance, for the histograms we have:</p>
+<ul>
+<li>the <code>count</code> of observations of each bin.</li>
+<li>the <code>density</code> of points in bin, scaled to integrate to 1.</li>
+<li>the variables <code>ncount</code> and <code>ndensity</code>, scaled to a maximum of 1.</li>
+</ul>
+<p>The default stat for histograms is <code>count</code> (see label of y axis):</p>
+<pre class="r"><code>ggplot(mpg, aes(hwy)) +
+  geom_histogram(bins = 20)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Here is the relative frequency, scaled so that the sum of heights of bars is equal to one:</p>
+<pre class="r"><code>ggplot(mpg, aes(hwy, y = after_stat(count / sum(count)))) +
+  geom_histogram(bins = 20)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Below is the result of using <code>density</code>. The heigth of bars is scaled so that the <em>total area of bins</em> is equal to 1. The line obtained with <code>geom_density()</code> is computed tending the number of bins to infinity. This scaling allows the two geoms being superimposed.</p>
+<pre class="r"><code>ggplot(mpg, aes(hwy, y = after_stat(density))) +
+  geom_histogram(bins = 30, fill = &quot;#A0A0A0&quot;) +
+  geom_density(linewidth = 2)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Each <code>geom_*()</code> has a <code>stat</code> variable, indicating which stat to use when calculating layer parameters. The most frequent default is <code>stat = "identity"</code>, but it can be useful to pass a different parameter. Let’s see how can we set the value of counts in a barplot.</p>
+<pre class="r"><code>ggplot(mpg, aes(class)) +
+  geom_bar() +
+  geom_text(aes(y = after_stat(count + 2), label = after_stat(count)), 
+            stat = &quot;count&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-7-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>The <code>aes()</code> function of <code>geom_text()</code> has three parameters:</p>
+<ul>
+<li>The <code>x</code> axis, inherited from the aesthetics of <code>ggplot()</code>.</li>
+<li>The <code>y</code> axis, equal to the count of each bar plus two.</li>
+<li>The <code>label</code>, equal to the actual count.</li>
+</ul>
+<p>To be able to calculate the counts, we need to set <code>stat = "count"</code> for <code>geom_text()</code>.</p>
+<p>Let’s see another example of use of stats with boxplots.</p>
+<pre class="r"><code>ggplot(iris, aes(Species, Sepal.Length)) +
+  geom_boxplot() +
+  geom_text(aes(y = stage(Sepal.Length, after_stat = ymax), 
+                label = after_stat(paste(ymax, &quot;-&quot;, ymin))), 
+                stat = &quot;boxplot&quot;, vjust = - 0.5)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>In the first two lines of the plot, I am making a boxplot for each value of <code>Species</code>. Then, I am placing a label with <code>geom_text()</code> as follows:</p>
+<ul>
+<li>I want to position the label in the <code>ymax</code> value of the boxplot. That’s why I am setting <code>stat = "boxplot"</code> for this geom.</li>
+<li>The y axis is the <code>ymax</code> variable of <code>geom_boxplot()</code>. To obtain it, I need to use <code>stage()</code> to pass the <code>Sepal.Length</code> variable.</li>
+<li>the <code>label</code> is an expression from <code>ymax</code> and <code>ymin</code>.</li>
+</ul>
+<p>A layer in ggplot consists of two elements: the statistical transformations or <strong>stats</strong>, and the geometry <strong>geoms</strong>. The stat performs the computations required to build the graphic, and the geom part controls how the plot is displayed. The variables calculated in the stat can be checked in the <em>Computed variables</em> section of the geom reference. We can use functions such as <code>after_stat()</code> or <code>stage()</code> to use these computed variables in our plots.</p>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Introduction to <code>ggplot2</code>: <a href="https://ggplot2.tidyverse.org/articles/ggplot2.html" class="uri">https://ggplot2.tidyverse.org/articles/ggplot2.html</a></li>
+<li>Control aesthetic evaluation: <a href="https://ggplot2.tidyverse.org/reference/aes_eval.html" class="uri">https://ggplot2.tidyverse.org/reference/aes_eval.html</a></li>
+<li>Layer statistical transformations: <a href="https://ggplot2.tidyverse.org/reference/layer_stats.html" class="uri">https://ggplot2.tidyverse.org/reference/layer_stats.html</a></li>
+<li>Bar charts in ggplot2: <a href="https://ggplot2.tidyverse.org/reference/geom_bar.html" class="uri">https://ggplot2.tidyverse.org/reference/geom_bar.html</a></li>
+<li>Histograms and frequency plots in ggplot: <a href="https://ggplot2.tidyverse.org/reference/geom_histogram.html" class="uri">https://ggplot2.tidyverse.org/reference/geom_histogram.html</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.5.1 (2025-06-13)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0  LAPACK version 3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] lubridate_1.9.4 forcats_1.0.0   stringr_1.5.2   dplyr_1.1.4    
+##  [5] purrr_1.1.0     readr_2.1.5     tidyr_1.3.1     tibble_3.3.0   
+##  [9] ggplot2_4.0.0   tidyverse_2.0.0
+## 
+## loaded via a namespace (and not attached):
+##  [1] gtable_0.3.6       jsonlite_2.0.0     compiler_4.5.1     tidyselect_1.2.1  
+##  [5] jquerylib_0.1.4    scales_1.4.0       yaml_2.3.10        fastmap_1.2.0     
+##  [9] R6_2.6.1           labeling_0.4.3     generics_0.1.3     knitr_1.50        
+## [13] bookdown_0.43      tzdb_0.5.0         bslib_0.9.0        pillar_1.11.1     
+## [17] RColorBrewer_1.1-3 rlang_1.1.6        stringi_1.8.7      cachem_1.1.0      
+## [21] xfun_0.52          sass_0.4.10        S7_0.2.0           timechange_0.3.0  
+## [25] cli_3.6.4          withr_3.0.2        magrittr_2.0.4     digest_0.6.37     
+## [29] grid_4.5.1         rstudioapi_0.17.1  hms_1.1.3          lifecycle_1.0.4   
+## [33] vctrs_0.6.5        evaluate_1.0.3     glue_1.8.0         farver_2.1.2      
+## [37] blogdown_1.21      rmarkdown_2.29     tools_4.5.1        pkgconfig_2.0.3   
+## [41] htmltools_0.5.8.1</code></pre>
+</div>
