@@ -121,7 +121,7 @@ summary(mod02)</code></pre>
 <p>The representation of the variables shows that the values of population are inconsistent, as the number of people in the Armed Forces and unemployed are much larger than total population.</p>
 </div>
 <div id="a-better-longley-dataset-longley2" class="section level2">
-<h2>A Better <code>longley</code> Dataset: <code>longley2</code></h2>
+<h2>A Better longley Dataset: longley2</h2>
 <p>In the <code>RXshrink</code> package, we can find a <code>longley2</code> dataset. It includes data from the <em>Employment and Training Report of the President, 1976</em> compiled by Art Hoerl, from the University of Delaware. This data frame contains some different (“corrected”) numerical values from those used by Longley (1967) and the added years of 1963-1975.</p>
 <pre class="r"><code>tibble(longley2)</code></pre>
 <pre><code>## # A tibble: 29 × 7
@@ -246,7 +246,7 @@ longley2_mod |&gt;
 <p>We can see how 1974 and 1975 have abormal high values of inflation <em>and</em> unemployment, as a result of the supply shock of the oil crisis. In the other years we can see how these variables have a negative relationship, associated to shifts of demand.</p>
 </div>
 <div id="a-regression-model-with-longley2" class="section level2">
-<h2>A Regression Model with <code>longley2</code></h2>
+<h2>A Regression Model with longley2</h2>
 <p>Let’s build a regression model <code>mod03</code>, relating unemployment with GNP growth and inflation.</p>
 <pre class="r"><code>mod03 &lt;- lm(unemployment_rate ~ deflacted_gnp_growth + inflation, longley2_mod)
 summary(mod03)</code></pre>
@@ -270,12 +270,12 @@ summary(mod03)</code></pre>
 ## Residual standard error: 1.136 on 25 degrees of freedom
 ## Multiple R-squared:  0.1957,	Adjusted R-squared:  0.1314 
 ## F-statistic: 3.041 on 2 and 25 DF,  p-value: 0.06572</code></pre>
-<p>We observe that unemployment is negatively related with GNP growth. This means that when GNP is contracting, unemployment arises. Unemployment has a weak relationship with inflation. Although the coefficient is negative, it is not significant.</p>
+<p>In this model, that unemployment is negatively related with GNP growth. This means that when GNP is contracting, unemployment arises. Unemployment has a weak relationship with inflation. Although the coefficient is negative, it is not significant.</p>
 <p>Let’s evaluate multicollinearity computing VIF.</p>
 <pre class="r"><code>vif(mod03)</code></pre>
 <pre><code>## deflacted_gnp_growth            inflation 
 ##             1.043836             1.043836</code></pre>
-<p>In this model, VIF values are close to one, so we can discard multicollinearity.</p>
+<p>All VIF values are close to one, so we can discard multicollinearity.</p>
 <p>Finally, let’s plot standardized residuals against fitted values. I have labelled the observations with absolute value of standardized residuals larger than two. I have used <code>broom::augment()</code> to get the residuals <code>.std.resid</code> and fitted values <code>.fitted</code>.</p>
 <pre class="r"><code>resid_data &lt;- augment(mod03) |&gt;
   bind_cols(longley2_mod |&gt; select(year))

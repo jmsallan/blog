@@ -93,7 +93,7 @@ longley |>
 
 The representation of the variables shows that the values of population are inconsistent, as the number of people in the Armed Forces and unemployed are much larger than total population.
 
-## A Better `longley` Dataset: `longley2`
+## A Better longley Dataset: longley2
 
 In the `RXshrink` package, we can find a `longley2` dataset. It includes data from the *Employment and Training Report of the President, 1976* compiled by Art Hoerl, from the University of Delaware. This data frame contains some different ("corrected") numerical values from those used by Longley (1967) and the added years of 1963-1975.
 
@@ -192,7 +192,7 @@ longley2_mod |>
 
 We can see how 1974 and 1975 have abormal high values of inflation *and* unemployment, as a result of the supply shock of the oil crisis. In the other years we can see how these variables have a negative relationship, associated to shifts of demand.
 
-## A Regression Model with `longley2`
+## A Regression Model with longley2
 
 Let's build a regression model `mod03`, relating unemployment with GNP growth and inflation.
 
@@ -201,7 +201,7 @@ mod03 <- lm(unemployment_rate ~ deflacted_gnp_growth + inflation, longley2_mod)
 summary(mod03)
 ```
 
-We observe that unemployment is negatively related with GNP growth. This means that when GNP is contracting, unemployment arises. Unemployment has a weak relationship with inflation. Although the coefficient is negative, it is not significant.
+In this model, that unemployment is negatively related with GNP growth. This means that when GNP is contracting, unemployment arises. Unemployment has a weak relationship with inflation. Although the coefficient is negative, it is not significant.
 
 Let's evaluate multicollinearity computing VIF.
 
@@ -209,7 +209,7 @@ Let's evaluate multicollinearity computing VIF.
 vif(mod03)
 ```
 
-In this model, VIF values are close to one, so we can discard multicollinearity.
+All VIF values are close to one, so we can discard multicollinearity.
 
 Finally, let's plot standardized residuals against fitted values. I have labelled the observations with absolute value of standardized residuals larger than two. I have used `broom::augment()` to get the residuals `.std.resid` and fitted values `.fitted`.
 
