@@ -1,0 +1,262 @@
+---
+title: Examining the longley Dataset
+author: Jose M Sallan
+date: '2025-11-10'
+slug: examining-the-longley-dataset
+categories:
+  - R
+  - statistics
+tags:
+  - correlation
+  - economics
+  - linear regression
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+The `longley` dataset was compiled by James W. Longley for his 1967 paper “An Appraisal of Least Squares Programs for the Electronic Computer.” It contains annual U.S. macroeconomic data from 1947–1962 (e.g., employment, GNP, GNP deflator, unemployment, armed forces, population, year) and was created to test the accuracy and numerical stability of regression software.
+
+In this post I will use the dataset to examine the impact of multicollinearity on linear regression. Then, I will use an improved version of this dataset to present a non-collinear model relating macroeconomic variables.
+
+In addition to the tidyverse, I will use `corrplot` to visualize correlation matrices, `car` to evaluate the variance inflation factor and `broom` for tidy extraction of data from linear models.
+
+```{r}
+library(tidyverse)
+library(corrplot)
+library(car)
+library(broom)
+```
+
+The original `longley` dataset is included in R base: 
+
+```{r}
+tibble(longley)
+```
+
+## Multicollinearity
+
+Let's examine the correlation matrix of the dataset using `corrplot()`.
+
+```{r, fig.align='center', out.width='60%'}
+longley |>
+  cor() |>
+  corrplot()
+```
+
+Except `Unemployed` and `Armed.Forces`, all variables are highly correlated. This can be explained by the growth of population and inflation in the US in the 1947-1962 period.
+
+Let's build a regression model `mod01` with `Employed` as dependent variable including all variables.
+
+```{r}
+mod01 <- lm(Employed ~ ., longley)
+summary(mod01)
+```
+
+In this model, `Year`, `Unemployed` and `Armed.Forces` show a significant relationship with `Employed`. Although `GNP`, `GNP.deflator` and `Population` are highly correlated with the dependent variable, the regression coefficients are not significant. This is an example of **multicollinearity**: when dependent variables are highly correlated, the standard errors of the coefficients are inflated and then they can appear as non significant. Standard errors appear in the `Std. Error` column of the model summary.
+
+A diagnostic of multicollinearity is the **variance inflation factor (VIF)**. The VIF of a variable is obtained regressing the variable on the rest of dependent variables. Values of VIF above 10 are an indicator of high multicollinearity.
+
+We can obtain VIFs with the `car::vif()` function.
+
+```{r}
+vif(mod01)
+```
+
+In `mod01` all variables except `Armed.Forces` show high multicollinearity.
+
+To show how introducing high correlated independent variables affects results, let's build a regression of `Employed` on `GNP` only. `GNP` had a non significant coefficient in the previous model.
+
+```{r}
+mod02 <- lm(Employed ~ GNP, longley)
+summary(mod02)
+```
+
+While in `mod01` the coefficient of `GNP` was non significant, in `mod02` is highly significant. The standard error of the coefficient of `GNP` was of 0.03 in `mod01`, and of 0.002 in `mod02`: this error was 19 times higher in `mod01` than in `mod02`.
+
+The value of `Population` is of people of age greter or equal than fourteen years. Then, we may think that the total `Population` is larger than the sum of `Employed`, `Unemployed` or enroled in `Armed.Forces`.
+
+```{r, fig.align='center'}
+longley |>
+  select(Year, Unemployed, Employed, Armed.Forces, Population) |>
+  pivot_longer(-Year) |>
+  ggplot(aes(Year, value, color = name)) +
+  geom_line(linewidth = 1) +
+  scale_color_manual(values = c("#990000", "#FF8000", "#0080FF", "#CCCC00")) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom") +
+  labs(x = NULL, y = NULL, title = "Evolution of population variables longley")
+```
+
+The representation of the variables shows that the values of population are inconsistent, as the number of people in the Armed Forces and unemployed are much larger than total population.
+
+## A Better `longley` Dataset: `longley2`
+
+In the `RXshrink` package, we can find a `longley2` dataset. It includes data from the *Employment and Training Report of the President, 1976* compiled by Art Hoerl, from the University of Delaware. This data frame contains some different ("corrected") numerical values from those used by Longley (1967) and the added years of 1963-1975.
+
+```{r, echo = FALSE}
+load("longley2.rda")
+```
+
+```{r}
+tibble(longley2)
+```
+
+For this dataset, quantities make sense. The difference between total population and the other three variables are people not willing to work.
+
+```{r, fig.align='center'}
+longley2 |>
+  select(Year, Unemployed, Employed, Armed.Forces, Population) |>
+  pivot_longer(-Year) |>
+  ggplot(aes(Year, value, color = name)) +
+  geom_line(linewidth = 1) +
+  scale_color_manual(values = c("#990000", "#CC0000", "#0080FF", "#FF3333")) +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(x = NULL, y = NULL, title = "Evolution of population variables longley2")
+```
+
+## Macroeconomic Variables
+
+`longley2` allows obtaining variables more related with macroeconomic theory.
+
+| Variable | Description |
+|----------|-------------|
+| `year` | Year of the observation. |
+| `deflacted_gnp_growth` | Growth of the deflacted GNP. |
+| `activity_rate` | Fraction of the population willing to work (active). |
+| `unemployment_rate` | Fraction of active population without employment. |
+| `inflation` | Yearly inflation obtained from the GNP deflactor. |
+
+
+```{r}
+longley2_mod <- longley2 |>
+  mutate(deflacted_gnp = GNP*100/GNP.deflator,
+         activity_rate = (Unemployed + Employed + Armed.Forces)*100/Population,
+         unemployment_rate = Unemployed*100/(Unemployed + Employed + Armed.Forces),
+         inflation = (GNP.deflator - lag(GNP.deflator))*100/lag(GNP.deflator),
+         deflacted_gnp_growth = (deflacted_gnp - lag(deflacted_gnp))*100/lag(deflacted_gnp)) |>
+  filter(!is.na(inflation)) |>
+  rename(year = Year) |>
+  select(year, deflacted_gnp_growth, activity_rate, unemployment_rate, inflation)
+```
+
+All these variables are listed in `longley2_mod`.
+
+```{r}
+tibble(longley2_mod)
+```
+
+As the new variables refer either to yearly change or are indices independent of total population the correlations among them are lower.
+
+```{r, fig.align='center', out.width='60%'}
+longley2_mod |>
+  cor() |>
+  corrplot()
+```
+
+Here is the temporal evolution of the variables. For years 1974 and 1975 we can see the effect on unemployment and inflation of the oil shock crisis which started in 1973 (see the dashed red line).
+
+```{r, fig.align='center'}
+labels <- c("deflacted_gnp_growth" = "gnp",
+            "activity_rate" = "activity",
+            "unemployment_rate" = "unemp.",
+            "inflation" = "inflation")
+
+longley2_mod |>
+  pivot_longer(-year) |>
+  ggplot(aes(year, value)) +
+  geom_line(linewidth = 1) +
+  geom_vline(xintercept = 1973, lty = "dashed", color = "red") +
+  facet_grid(name ~ ., scale = "free", 
+             labeller = as_labeller(labels)) +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, title = "Evolution of Macroeconomic Variables")
+```
+
+In this plot I have represented the values of unemployment and inflation for each year.
+
+```{r, fig.align='center', message=FALSE}
+longley2_mod |>
+  ggplot(aes(unemployment_rate, inflation)) +
+  geom_label(aes(label = year)) +
+  geom_smooth(data = longley2_mod |> filter(year <= 1973),
+              aes(unemployment_rate, inflation),
+              method = "lm") +
+  theme_minimal() +
+  labs(x = "unemployment", y = "inflation", title = "Relationship Unemployment and Inflation")
+```
+
+We can see how 1974 and 1975 have abormal high values of inflation *and* unemployment, as a result of the supply shock of the oil crisis. In the other years we can see how these variables have a negative relationship, associated to shifts of demand.
+
+## A Regression Model with `longley2`
+
+Let's build a regression model `mod03`, relating unemployment with GNP growth and inflation.
+
+```{r}
+mod03 <- lm(unemployment_rate ~ deflacted_gnp_growth + inflation, longley2_mod)
+summary(mod03)
+```
+
+We observe that unemployment is negatively related with GNP growth. This means that when GNP is contracting, unemployment arises. Unemployment has a weak relationship with inflation. Although the coefficient is negative, it is not significant.
+
+Let's evaluate multicollinearity computing VIF.
+
+```{r}
+vif(mod03)
+```
+
+In this model, VIF values are close to one, so we can discard multicollinearity.
+
+Finally, let's plot standardized residuals against fitted values. I have labelled the observations with absolute value of standardized residuals larger than two. I have used `broom::augment()` to get the residuals `.std.resid` and fitted values `.fitted`.
+
+```{r, fig.align='center'}
+resid_data <- augment(mod03) |>
+  bind_cols(longley2_mod |> select(year))
+
+resid_data |>
+  ggplot(aes(.fitted, .std.resid)) +
+  geom_point() +
+  geom_smooth(se = FALSE, color = "red") +
+  theme_minimal() +
+  geom_label(data = resid_data |> filter(abs(.std.resid) >2),
+             aes(x = .fitted, y = .std.resid, label = year)) +
+  labs(x = "fitted values", y = "std residuals", title = "Fitted values vs residuals") 
+```
+
+The plot of residuals shows that the variance is stable along fitted values. The only abnormal value is the observation of 1975, heavily affected by the oil crisis.
+
+To test for normality of residuals, I have built a quantile-quantile plot (QQ-plot). This can be accomplished with `stat_qq()` and `stat_qq_line()` setting `aes(sample = .std.resid)`.
+
+```{r, fig.align='center'}
+resid_data |>
+  ggplot(aes(sample = .std.resid)) +
+  stat_qq(size = 1) +
+  stat_qq_line() +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, title = "QQ-plot of residuals")
+```
+
+As most values are along the line, it si reaasonable to suppose that the residuals follow a normal distribution.
+
+## The Two Longley Datasets
+
+The `longley` dataset has been used to show the impact of having highly correlated dependent variables in linear regression. Beyond that, this dataset is quite short (only 16 observations) and has significant errors in the values related to population to be usable beyond showing the problems of multicollinearity.
+
+The `longley2` has a longer series of data and the values of population are corrected. Most variables are also highly correlated, but this dataset has allowed me to define ratios of components of population and a metric of inflation. 
+
+These variables have lower values of correlation, and allow to illustrate some basic relationship between economic growth, unemployment and inflation. While results show a negative relationship between economic growth and unemployment, the relationship between growth and employment is too weak to be statistically significant.
+
+## References
+
+- Longley, J. W. (1967). An appraisal of least squares programs for the electronic computer from the point of view of the user. *Journal of the American Statistical association*, 62(319), 819-841.
+- Art Hoerl's update of the infamous Longley(1967) benchmark dataset. <https://search.r-project.org/CRAN/refmans/RXshrink/html/longley2.html>.
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
