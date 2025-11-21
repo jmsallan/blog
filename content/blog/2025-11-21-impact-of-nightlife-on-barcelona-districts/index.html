@@ -1,0 +1,286 @@
+---
+title: Impact of Nightlife on Barcelona Districts
+author: Jose M Sallan
+date: '2025-11-21'
+slug: impact-of-nightlife-on-barcelona-districts
+categories:
+  - R
+  - data analysis
+tags:
+  - Barcelona
+  - maps
+  - spatial analysis
+  - nightlife
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>Urban nightlife has become a central component of contemporary cities, shaping their cultural identity, economic vitality, and patterns of social interaction. Nightlife generates significant flows of people, goods, and services, and produces both opportunities and challenges for urban governance. Understanding its spatial distribution is essential for analyzing how nighttime economies emerge, and how they affect issues such as mobility, public safety, tourism, noise, and residential well-being.</p>
+<p>Nightlife plays a particularly significant role in <strong>Barcelona</strong>, where the city’s identity, economy, and urban dynamics are deeply intertwined with its vibrant after-dark culture. As a major Mediterranean tourist destination, Barcelona’s nightlife attracts millions of visitors each year, supporting a wide ecosystem of bars, clubs, music venues, restaurants, and cultural spaces that contribute substantially to local employment and economic activity. At the same time, nightlife is woven into the daily life of residents, shaping the social fabric of neighborhoods such as El Raval, Gràcia, Poblenou, or the Barceloneta waterfront. However, this vitality also generates complex urban challenges—ranging from noise conflicts and public space pressure to mobility demands and tensions between residents and visitors—making the spatial organization of nightlife a key concern for city planners and policymakers. Understanding how nightlife is distributed, how it interacts with residential areas, and how it evolves in response to tourism, regulation, and cultural change is therefore essential to designing sustainable and inclusive nighttime policies for Barcelona.</p>
+<p>In this post, I will carry out a preliminary examination of the spatial configuration of Barcelona nightlife, analyzing the impact of nightlife across districts. I will use data about commercial activity from 2019 and 2024. The availability of data for these two years allows comparing nightlife activity before and after the 2020 COVID-19 pandemic.</p>
+<pre class="r"><code>library(tidyverse)
+library(sf)</code></pre>
+<div id="data-and-analysis" class="section level2">
+<h2>Data and Analysis</h2>
+<p>Data comes from the <em>census of premises on the ground floor intended for economic activity in the city of Barcelona</em>, accessible through Open Data BCN from the <code>cens-locals-planta-baixa-act-economica</code> package. For this analysis, I have retrieved data from 2019 and 2024. These datasets have 80,544 and 68,024 rows, respectively. To detect the active premises related with nightlife, I have filtered each dataset as follows:</p>
+<ul>
+<li>2019 data: <code>SN_Oci_Nocturn == 1</code> and <code>Codi_Principal_Activitat == 1</code>. The obtained dataset has 232 rows.</li>
+<li>2024 data: <code>SN_Oci_Nocturn == "Si"</code> and <code>Codi_Principal_Activitat == 1</code>. the obtained dataset has 242 rows.</li>
+</ul>
+<p>With the resulting datasets, I have performed the following analysis:</p>
+<ul>
+<li>Evolution of number of premises opened in each district at 2019 and 2024.</li>
+<li>Number of premises relative to area and population.</li>
+<li>Clustering analysis to detect zones of high volume of nightlife.</li>
+</ul>
+</div>
+<div id="data-preparation-nightlife-venues" class="section level2">
+<h2>Data Preparation: Nightlife Venues</h2>
+<p>Here is a view of relevant columns of the 2019 data:</p>
+<pre class="r"><code>data_2019 |&gt;
+  select(nom_local, latitud, longitud, codi_barri:nom_districte)</code></pre>
+<pre><code>## # A tibble: 232 × 7
+##    nom_local  latitud longitud codi_barri nom_barri codi_districte nom_districte
+##    &lt;chr&gt;        &lt;dbl&gt;    &lt;dbl&gt; &lt;chr&gt;      &lt;chr&gt;     &lt;chr&gt;          &lt;chr&gt;        
+##  1 BAR SCHUL…    41.4     2.17 07         la Dreta… 02             Eixample     
+##  2 L&#39;OVELLA …    41.4     2.19 66         el Parc … 10             Sant Martí   
+##  3 APOLO CAS…    41.4     2.17 11         el Poble… 03             Sants-Montju…
+##  4 EL GIARDI…    41.4     2.15 26         Sant Ger… 05             Sarrià-Sant …
+##  5 DISCOTECA…    41.4     2.19 66         el Parc … 10             Sant Martí   
+##  6 BARROKOS …    41.4     2.15 26         Sant Ger… 05             Sarrià-Sant …
+##  7 IVY RESTO…    41.4     2.15 26         Sant Ger… 05             Sarrià-Sant …
+##  8 APOLO BAI…    41.4     2.17 11         el Poble… 03             Sants-Montju…
+##  9 APOLO         41.4     2.17 11         el Poble… 03             Sants-Montju…
+## 10 SR LOBO       41.4     2.19 66         el Parc … 10             Sant Martí   
+## # ℹ 222 more rows</code></pre>
+<p>and of the data of 2024:</p>
+<pre class="r"><code>data_2024 |&gt;
+  select(nom_local, latitud, longitud, codi_barri:nom_districte)</code></pre>
+<pre><code>## # A tibble: 242 × 7
+##    nom_local  latitud longitud codi_barri nom_barri codi_districte nom_districte
+##    &lt;chr&gt;        &lt;dbl&gt;    &lt;dbl&gt;      &lt;dbl&gt; &lt;chr&gt;              &lt;dbl&gt; &lt;chr&gt;        
+##  1 LA MOLE B…    41.4     2.12         17 Sants - …              3 Sants-Montju…
+##  2 LA TRAVIE…    41.4     2.15         26 Sant Ger…              5 Sarrià-Sant …
+##  3 LA CLAVE      41.4     2.13         17 Sants - …              3 Sants-Montju…
+##  4 PEREJIL       41.4     2.16         11 el Poble…              3 Sants-Montju…
+##  5 AFTERLIFE…    41.4     2.14         26 Sant Ger…              5 Sarrià-Sant …
+##  6 APOLO         41.4     2.17         11 el Poble…              3 Sants-Montju…
+##  7 APOLO BAI…    41.4     2.17         11 el Poble…              3 Sants-Montju…
+##  8 EL GIARDI…    41.4     2.15         26 Sant Ger…              5 Sarrià-Sant …
+##  9 APOLO CAS…    41.4     2.17         11 el Poble…              3 Sants-Montju…
+## 10 BAR SCHUL…    41.4     2.17          7 la Dreta…              2 Eixample     
+## # ℹ 232 more rows</code></pre>
+<p>Some transformations are required to manipulate data:</p>
+<pre class="r"><code>data_2024 &lt;- data_2024 |&gt;
+  select(nom_local, latitud, longitud, codi_barri:nom_districte) |&gt;
+  mutate(year = 2024)
+
+data_2019 &lt;- data_2019 |&gt;
+  select(nom_local, latitud, longitud, codi_barri:nom_districte) |&gt;
+  mutate(year = 2019,
+         codi_barri = as.numeric(codi_barri),
+         codi_districte = as.numeric(codi_districte))</code></pre>
+<p>Then, I am obtaining simple features <code>sf</code> objects from the coordinates of each premise:</p>
+<pre class="r"><code>data_2019_sf &lt;- data_2019 |&gt;
+  st_as_sf(coords = c(&quot;longitud&quot;, &quot;latitud&quot;), crs = 4326, remove = FALSE)
+
+data_2024_sf &lt;- data_2024 |&gt;
+  st_as_sf(coords = c(&quot;longitud&quot;, &quot;latitud&quot;), crs = 4326, remove = FALSE)</code></pre>
+<p>Finally, I am binding the two datasets together, transforming the type of some columns:</p>
+<pre class="r"><code>data_bcn_sf &lt;- bind_rows(data_2019_sf, data_2024_sf) |&gt;
+  mutate(year = as_factor(year))</code></pre>
+<p>To summarise, I will be using the following tables for the analysis:</p>
+<ul>
+<li><code>data_2019_sf</code> and <code>data_2024_sf</code>, with geographical information of the nightlife premises for each year.</li>
+<li><code>data_bcn_sf</code>, combining the two tables into a single dataset.</li>
+</ul>
+</div>
+<div id="data-preparation-population-data" class="section level2">
+<h2>Data Preparation: Population Data</h2>
+<p>To obtain metrics of venues scaled by inhabitants, I need the values of the population of each district. Let’s examine the density of nightlife premises according to population and area. I have retrieved the population of each district for 2019 and 2024 from the <code>pad_mdbas</code> package of Open Data BCN. The values are stored in <code>pop_district_2019</code> and <code>pop_district_2024</code>.</p>
+<pre class="r"><code>load(&quot;data/pop_bcn_district.rd&quot;)</code></pre>
+<pre class="r"><code>pop_district_2019</code></pre>
+<pre><code>## # A tibble: 10 × 2
+##    codi_districte population
+##             &lt;dbl&gt;      &lt;dbl&gt;
+##  1              1     105733
+##  2              2     269173
+##  3              3     185481
+##  4              4      82591
+##  5              5     150446
+##  6              6     123060
+##  7              7     172266
+##  8              8     171290
+##  9              9     150353
+## 10             10     239965</code></pre>
+<pre class="r"><code>pop_district_2024</code></pre>
+<pre><code>## # A tibble: 10 × 2
+##    codi_districte population
+##             &lt;dbl&gt;      &lt;dbl&gt;
+##  1              1     111155
+##  2              2     274636
+##  3              3     191391
+##  4              4      83551
+##  5              5     151890
+##  6              6     125787
+##  7              7     180138
+##  8              8     179590
+##  9              9     155470
+## 10             10     249206</code></pre>
+</div>
+<div id="data-preparation-map-of-districts" class="section level2">
+<h2>Data Preparation: Map of Districts</h2>
+<p>I retrieve the map of Barcelona districts from the <code>BAdatasetsSpatial</code> package.</p>
+<pre class="r"><code>library(BAdatasetsSpatial)
+bcn_districts &lt;- BCNDistricts</code></pre>
+<pre class="r"><code>ggplot(bcn_districts) +
+  geom_sf(fill = &quot;white&quot;) +
+  geom_text(aes(coord_x, coord_y, label = n_distri)) +
+  theme_void(base_size = 8)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-11-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="open-premises-by-district" class="section level2">
+<h2>Open Premises by District</h2>
+<p>Let’s start counting how many nightlife premises were open in each district at each year.</p>
+<pre class="r"><code>data_bcn_sf |&gt;
+  mutate(nom_districte = fct_infreq(nom_districte) |&gt; fct_rev()) |&gt;
+  ggplot(aes(nom_districte, fill = year)) +
+  geom_bar(position = &quot;dodge&quot;) +
+  coord_flip() +
+  labs(x = NULL, y = NULL, title = &quot;BCN nightlife spots (2019-2024)&quot;) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = c(0.8, 0.2))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-12-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Comparing the results of each year, we can draw the following conclusions:</p>
+<ul>
+<li>The total number of nightlife premises has increased in 2014 respect to 2019. The largest increase comes from Ciutat Vella. Eixample, Gràcia, Les Corts, Horta-Guinardó and Nou Barris have also increased the number of venues. On the other hand, the nightlife market is contracting at Sarrià-Sant Gervasi, Sants-Montjuïc, Sant Martí and Sant Andreu.</li>
+<li>The largest increase is in Ciutat Vella, while the largest decrease happens at Sarrià-Sant Gervasi. This suggests that nightlife is moving from non-turistic, affluent districs to poorer districts with an intense touristic activity.</li>
+</ul>
+</div>
+<div id="scaling-by-population" class="section level2">
+<h2>Scaling by Population</h2>
+<p>Now we can obtain the number of nightlife premises per 100,000 inhabitants, joining the tables of nightlife premises and population adequately.</p>
+<pre class="r"><code>prem_2019 &lt;- data_2019_sf |&gt;
+  st_drop_geometry() |&gt;
+  group_by(codi_districte) |&gt;
+  count()
+dens_2019 &lt;- left_join(prem_2019,
+                       pop_district_2019, by = &quot;codi_districte&quot;) |&gt;
+  mutate(dens_2019 = n*100000/population)
+
+prem_2024 &lt;- data_2024_sf |&gt;
+  st_drop_geometry() |&gt;
+  group_by(codi_districte) |&gt;
+  count()
+dens_2024 &lt;- left_join(prem_2024,
+                       pop_district_2024, by = &quot;codi_districte&quot;) |&gt;
+  mutate(dens_2024 = n*100000/population)</code></pre>
+<p>Let’s build a choropletic map of the number of nightlife premises per 100,000 in 2019 inhabitants adding the density information of <code>dens_2019</code> to <code>bcn_districts</code>.</p>
+<pre class="r"><code>bcn_districts |&gt;
+  left_join(dens_2019, by = c(&quot;c_distri&quot; = &quot;codi_districte&quot;)) |&gt;
+  ggplot() +
+  geom_sf(aes(fill = dens_2019)) +
+  scale_fill_gradient(low = &quot;#99FF99&quot;, high = &quot;#00CC00&quot;) +
+  theme_void() +
+  theme(legend.position = &quot;none&quot;) +
+  labs(title = &quot;Nightlife venues per 100,000 inhabitants (2019)&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-14-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Scaling by population, Ciutat Vella and Sarrià Sant Gervasi are the districts with denser nightlife. Sants-Montjuïc goes next because of its low population.</p>
+<pre class="r"><code>bcn_districts |&gt;
+  left_join(dens_2024, by = c(&quot;c_distri&quot; = &quot;codi_districte&quot;)) |&gt;
+  ggplot() +
+  geom_sf(aes(fill = dens_2024)) +
+  scale_fill_gradient(low = &quot;#99FF99&quot;, high = &quot;#00CC00&quot;) +
+  theme_void() +
+  theme(legend.position = &quot;none&quot;) +
+  labs(title = &quot;Nightlife venues per 100,000 inhabitants (2024)&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-15-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>In 2024, Ciutat Vella has taken the lead position in this metric. Although still in the second place, Sarrià-Sant Gervasi is loosing presence of nightlife. The results of 2024 show a stark difference between the south and north of Barcelona.</p>
+</div>
+<div id="scaling-by-district-area" class="section level2">
+<h2>Scaling by District Area</h2>
+<p>In the case of nightlife, scaling by district area may be an adequate metric to assess the impact of this activity in each district. A high value of venues per square kilometer may lead to increase of the negative consequences of nightlife: high environmental impact (noise, waste and energy), higher prevalence of alcohol-driven incidents, and possibly a higher probability of harassment and other criminal activities.</p>
+<p>The 2019 data show Ciutat Vella as the district with highest impact, followed by Eixample and Gràcia. This ranking correspond with the vibes of locals regarding nightlife in districts. In Eixample and Gràcia there is less nightlife than in Sarrià-Sant Gervasi, but it takes place in a smaller area.</p>
+<pre class="r"><code>bcn_districts |&gt;
+  left_join(dens_2019, by = c(&quot;c_distri&quot; = &quot;codi_districte&quot;)) |&gt;
+  mutate(n_area_2019 = n*1000000/area) |&gt;
+  ggplot() +
+  geom_sf(aes(fill = n_area_2019)) +
+  scale_fill_gradient(low = &quot;#FF9999&quot;, high = &quot;#CC0000&quot;) +
+  theme_void() +
+  theme(legend.position = &quot;none&quot;) +
+  labs(title = &quot;Nightlife venues per square Km. (2019)&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-16-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>The 2024 plot shows how nightlife takes place in the Gràcia - Eixample - Ciutat Vella axis. Except Les Corts, the other districts have restrained nightlife activity since 2019.</p>
+<pre class="r"><code>bcn_districts |&gt;
+  left_join(dens_2024, by = c(&quot;c_distri&quot; = &quot;codi_districte&quot;)) |&gt;
+  mutate(n_area_2024 = n*1000000/area) |&gt;
+  ggplot() +
+  geom_sf(aes(fill = n_area_2024)) +
+  scale_fill_gradient(low = &quot;#FF9999&quot;, high = &quot;#CC0000&quot;) +
+  theme_void() +
+  theme(legend.position = &quot;none&quot;) +
+  labs(title = &quot;Nightlife venues per square Km. (2024)&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-17-1.png" width="672" style="display: block; margin: auto;" /></p>
+</div>
+<div id="conclusions" class="section level2">
+<h2>Conclusions</h2>
+<p>The analysis of city nightlife is relevant because the impact of this activity in urban planning and city policies. This is specially true for Barcelona, a Mediaterranian tourist destination with a long history of a vibrant nightlife. To know more about how is nightlife distributed, I have compared information about nightlife venues in 2019 and 2024, obtained from the BCN Open Data website.</p>
+<p>Results show that the number of nightlife venues in 2024 is larger than in 2019. This increase has taken place mostly on Ciutat Vella, with smaller increases in Eixample and Gràcia. On the other hand, the nightlife venues in Sarrià-Sant Gervasi have decreased in 2024 respect to the values of 2019. Nightlife activity is moving from residential, affluent districts to districts with a high touristic activity. This suggests that nightlife is oriented more to tourists than to local population, which is suffering most of the problems that nightlife carries out. Regarding metrics of number of venues per 100,000 inhabitant and venues per square kilometers, the secon metric seems more adequate to evaluate the impact of city life in the different districts.</p>
+<p>This analysis of nightlife is preliminary, and further research is needed. Two potential directions for research is to replicate the analysis to the neighborhood level, and to locate clusters of nightlife venues extending beyond the boundaries of neighborhoods and districts.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Census of premises on the ground floor intended for economic activity in the city of Barcelona <a href="https://opendata-ajuntament.barcelona.cat/data/en/dataset/cens-locals-planta-baixa-act-economica" class="uri">https://opendata-ajuntament.barcelona.cat/data/en/dataset/cens-locals-planta-baixa-act-economica</a>.</li>
+<li>Population of Barcelona according to the Municipal Register of Inhabitants on January 1 of each year <a href="https://opendata-ajuntament.barcelona.cat/data/en/dataset/pad_mdbas" class="uri">https://opendata-ajuntament.barcelona.cat/data/en/dataset/pad_mdbas</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre class="r"><code>sessionInfo()</code></pre>
+<pre><code>## R version 4.5.2 (2025-10-31)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0  LAPACK version 3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] BAdatasetsSpatial_0.1.0 sf_1.0-20               lubridate_1.9.4        
+##  [4] forcats_1.0.1           stringr_1.6.0           dplyr_1.1.4            
+##  [7] purrr_1.2.0             readr_2.1.5             tidyr_1.3.1            
+## [10] tibble_3.3.0            ggplot2_4.0.0           tidyverse_2.0.0        
+## 
+## loaded via a namespace (and not attached):
+##  [1] utf8_1.2.4         sass_0.4.10        generics_0.1.3     class_7.3-23      
+##  [5] KernSmooth_2.23-26 blogdown_1.21      stringi_1.8.7      hms_1.1.4         
+##  [9] digest_0.6.37      magrittr_2.0.4     evaluate_1.0.3     grid_4.5.2        
+## [13] timechange_0.3.0   RColorBrewer_1.1-3 bookdown_0.43      fastmap_1.2.0     
+## [17] jsonlite_2.0.0     e1071_1.7-16       DBI_1.2.3          scales_1.4.0      
+## [21] jquerylib_0.1.4    cli_3.6.4          rlang_1.1.6        units_0.8-7       
+## [25] withr_3.0.2        cachem_1.1.0       yaml_2.3.10        tools_4.5.2       
+## [29] tzdb_0.5.0         vctrs_0.6.5        R6_2.6.1           proxy_0.4-27      
+## [33] lifecycle_1.0.4    classInt_0.4-11    pkgconfig_2.0.3    pillar_1.11.1     
+## [37] bslib_0.9.0        gtable_0.3.6       Rcpp_1.0.14        glue_1.8.0        
+## [41] xfun_0.52          tidyselect_1.2.1   rstudioapi_0.17.1  knitr_1.50        
+## [45] farver_2.1.2       htmltools_0.5.8.1  labeling_0.4.3     rmarkdown_2.29    
+## [49] compiler_4.5.2     S7_0.2.0</code></pre>
+</div>

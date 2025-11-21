@@ -1,0 +1,253 @@
+---
+title: Impact of Nightlife on Barcelona Districts
+author: Jose M Sallan
+date: '2025-11-21'
+slug: impact-of-nightlife-on-barcelona-districts
+categories:
+  - R
+  - data analysis
+tags:
+  - Barcelona
+  - maps
+  - spatial analysis
+  - nightlife
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Urban nightlife has become a central component of contemporary cities, shaping their cultural identity, economic vitality, and patterns of social interaction. Nightlife generates significant flows of people, goods, and services, and produces both opportunities and challenges for urban governance. Understanding its spatial distribution is essential for analyzing how nighttime economies emerge, and how they affect issues such as mobility, public safety, tourism, noise, and residential well-being. 
+
+Nightlife plays a particularly significant role in **Barcelona**, where the city’s identity, economy, and urban dynamics are deeply intertwined with its vibrant after-dark culture. As a major Mediterranean tourist destination, Barcelona’s nightlife attracts millions of visitors each year, supporting a wide ecosystem of bars, clubs, music venues, restaurants, and cultural spaces that contribute substantially to local employment and economic activity. At the same time, nightlife is woven into the daily life of residents, shaping the social fabric of neighborhoods such as El Raval, Gràcia, Poblenou, or the Barceloneta waterfront. However, this vitality also generates complex urban challenges—ranging from noise conflicts and public space pressure to mobility demands and tensions between residents and visitors—making the spatial organization of nightlife a key concern for city planners and policymakers. Understanding how nightlife is distributed, how it interacts with residential areas, and how it evolves in response to tourism, regulation, and cultural change is therefore essential to designing sustainable and inclusive nighttime policies for Barcelona.
+
+In this post, I will carry out a preliminary examination of the spatial configuration of Barcelona nightlife, analyzing the impact of nightlife across districts. I will use data about commercial activity from 2019 and 2024. The availability of data for these two years allows comparing nightlife activity before and after the 2020 COVID-19 pandemic.
+
+```{r, message=FALSE}
+library(tidyverse)
+library(sf)
+```
+
+## Data and Analysis
+
+Data comes from the *census of premises on the ground floor intended for economic activity in the city of Barcelona*, accessible through Open Data BCN from the `cens-locals-planta-baixa-act-economica` package. For this analysis, I have retrieved data from 2019 and 2024. These datasets have 80,544 and 68,024 rows, respectively. To detect the active premises related with nightlife, I have filtered each dataset as follows:
+
+- 2019 data: `SN_Oci_Nocturn == 1` and `Codi_Principal_Activitat == 1`. The obtained dataset has 232 rows.
+- 2024 data: `SN_Oci_Nocturn == "Si"` and `Codi_Principal_Activitat == 1`. the obtained dataset has 242 rows.
+
+With the resulting datasets, I have performed the following analysis:
+
+- Evolution of number of premises opened in each district at 2019 and 2024.
+- Number of premises relative to area and population.
+- Clustering analysis to detect zones of high volume of nightlife.
+
+## Data Preparation: Nightlife Venues
+
+```{r, echo=FALSE}
+load("data/nightlife.rd")
+```
+
+Here is a view of relevant columns of the 2019 data:
+
+```{r}
+data_2019 |>
+  select(nom_local, latitud, longitud, codi_barri:nom_districte)
+```
+
+and of the data of 2024:
+
+```{r}
+data_2024 |>
+  select(nom_local, latitud, longitud, codi_barri:nom_districte)
+```
+
+Some transformations are required to manipulate data:
+
+```{r}
+data_2024 <- data_2024 |>
+  select(nom_local, latitud, longitud, codi_barri:nom_districte) |>
+  mutate(year = 2024)
+
+data_2019 <- data_2019 |>
+  select(nom_local, latitud, longitud, codi_barri:nom_districte) |>
+  mutate(year = 2019,
+         codi_barri = as.numeric(codi_barri),
+         codi_districte = as.numeric(codi_districte))
+```
+
+Then, I am obtaining simple features `sf` objects from the coordinates of each premise:
+
+```{r}
+data_2019_sf <- data_2019 |>
+  st_as_sf(coords = c("longitud", "latitud"), crs = 4326, remove = FALSE)
+
+data_2024_sf <- data_2024 |>
+  st_as_sf(coords = c("longitud", "latitud"), crs = 4326, remove = FALSE)
+```
+
+Finally, I am binding the two datasets together, transforming the type of some columns:
+
+```{r}
+data_bcn_sf <- bind_rows(data_2019_sf, data_2024_sf) |>
+  mutate(year = as_factor(year))
+```
+
+To summarise, I will be using the following tables for the analysis:
+
+- `data_2019_sf` and `data_2024_sf`, with geographical information of the nightlife premises for each year.
+- `data_bcn_sf`, combining the two tables into a single dataset.
+
+## Data Preparation: Population Data
+
+To obtain metrics of venues scaled by inhabitants, I need the values of the population of each district. Let's examine the density of nightlife premises according to population and area. I have retrieved the population of each district for 2019 and 2024 from the `pad_mdbas` package of Open Data BCN. The values are stored in `pop_district_2019` and `pop_district_2024`. 
+
+```{r}
+load("data/pop_bcn_district.rd")
+```
+
+
+```{r}
+pop_district_2019
+pop_district_2024
+```
+
+## Data Preparation: Map of Districts
+
+I retrieve the map of Barcelona districts from the `BAdatasetsSpatial` package.
+
+```{r}
+library(BAdatasetsSpatial)
+bcn_districts <- BCNDistricts
+```
+
+```{r, fig.align='center'}
+ggplot(bcn_districts) +
+  geom_sf(fill = "white") +
+  geom_text(aes(coord_x, coord_y, label = n_distri)) +
+  theme_void(base_size = 8)
+```
+
+
+## Open Premises by District
+
+Let's start counting how many nightlife premises were open in each district at each year.
+
+```{r, fig.align='center'}
+data_bcn_sf |>
+  mutate(nom_districte = fct_infreq(nom_districte) |> fct_rev()) |>
+  ggplot(aes(nom_districte, fill = year)) +
+  geom_bar(position = "dodge") +
+  coord_flip() +
+  labs(x = NULL, y = NULL, title = "BCN nightlife spots (2019-2024)") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = c(0.8, 0.2))
+```
+
+Comparing the results of each year, we can draw the following conclusions:
+
+- The total number of nightlife premises has increased in 2014 respect to 2019. The largest increase comes from Ciutat Vella. Eixample, Gràcia, Les Corts, Horta-Guinardó and Nou Barris have also increased the number of venues. On the other hand, the nightlife market is contracting at Sarrià-Sant Gervasi, Sants-Montjuïc, Sant Martí and Sant Andreu.
+- The largest increase is in Ciutat Vella, while the largest decrease happens at Sarrià-Sant Gervasi. This suggests that nightlife is moving from non-turistic, affluent districs to poorer districts with an intense touristic activity.
+
+## Scaling by Population
+
+Now we can obtain the number of nightlife premises per 100,000 inhabitants, joining the tables of nightlife premises and population adequately.
+
+```{r}
+prem_2019 <- data_2019_sf |>
+  st_drop_geometry() |>
+  group_by(codi_districte) |>
+  count()
+dens_2019 <- left_join(prem_2019,
+                       pop_district_2019, by = "codi_districte") |>
+  mutate(dens_2019 = n*100000/population)
+
+prem_2024 <- data_2024_sf |>
+  st_drop_geometry() |>
+  group_by(codi_districte) |>
+  count()
+dens_2024 <- left_join(prem_2024,
+                       pop_district_2024, by = "codi_districte") |>
+  mutate(dens_2024 = n*100000/population)
+```
+
+Let's build a choropletic map of the number of nightlife premises per 100,000 in 2019 inhabitants adding the density information of `dens_2019`  to `bcn_districts`.
+
+```{r, fig.align='center'}
+bcn_districts |>
+  left_join(dens_2019, by = c("c_distri" = "codi_districte")) |>
+  ggplot() +
+  geom_sf(aes(fill = dens_2019)) +
+  scale_fill_gradient(low = "#99FF99", high = "#00CC00") +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(title = "Nightlife venues per 100,000 inhabitants (2019)")
+```
+
+Scaling by population, Ciutat Vella and Sarrià Sant Gervasi are the districts with denser nightlife. Sants-Montjuïc goes next because of its low population.
+
+```{r, fig.align='center'}
+bcn_districts |>
+  left_join(dens_2024, by = c("c_distri" = "codi_districte")) |>
+  ggplot() +
+  geom_sf(aes(fill = dens_2024)) +
+  scale_fill_gradient(low = "#99FF99", high = "#00CC00") +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(title = "Nightlife venues per 100,000 inhabitants (2024)")
+```
+
+In 2024, Ciutat Vella has taken the lead position in this metric. Although still in the second place, Sarrià-Sant Gervasi is loosing presence of nightlife. The results of 2024 show a stark difference between the south and north of Barcelona.
+
+## Scaling by District Area
+
+In the case of nightlife, scaling by district area may be an adequate metric to assess the impact of this activity in each district. A high value of venues per square kilometer may lead to increase of the negative consequences of nightlife: high environmental impact (noise, waste and energy), higher prevalence of alcohol-driven incidents, and possibly a higher probability of harassment and other criminal activities.
+
+The 2019 data show Ciutat Vella as the district with highest impact, followed by Eixample and Gràcia. This ranking correspond with the vibes of locals regarding nightlife in districts. In Eixample and Gràcia there is less nightlife than in Sarrià-Sant Gervasi, but it takes place in a smaller area.
+
+```{r, fig.align='center'}
+bcn_districts |>
+  left_join(dens_2019, by = c("c_distri" = "codi_districte")) |>
+  mutate(n_area_2019 = n*1000000/area) |>
+  ggplot() +
+  geom_sf(aes(fill = n_area_2019)) +
+  scale_fill_gradient(low = "#FF9999", high = "#CC0000") +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(title = "Nightlife venues per square Km. (2019)")
+```
+
+The 2024 plot shows how nightlife takes place in the Gràcia - Eixample - Ciutat Vella axis. Except Les Corts, the other districts have restrained nightlife activity since 2019.
+
+```{r, fig.align='center'}
+bcn_districts |>
+  left_join(dens_2024, by = c("c_distri" = "codi_districte")) |>
+  mutate(n_area_2024 = n*1000000/area) |>
+  ggplot() +
+  geom_sf(aes(fill = n_area_2024)) +
+  scale_fill_gradient(low = "#FF9999", high = "#CC0000") +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(title = "Nightlife venues per square Km. (2024)")
+```
+
+
+## Conclusions
+
+The analysis of city nightlife is relevant because the impact of this activity in urban planning and city policies. This is specially true for Barcelona, a Mediaterranian tourist destination with a long history of a vibrant nightlife. To know more about how is nightlife distributed, I have compared information about nightlife venues in 2019 and 2024, obtained from the BCN Open Data website.
+
+Results show that the number of nightlife venues in 2024 is larger than in 2019. This increase has taken place mostly on Ciutat Vella, with smaller increases in Eixample and Gràcia. On the other hand, the nightlife venues in Sarrià-Sant Gervasi have decreased in 2024 respect to the values of 2019. Nightlife activity is moving from residential, affluent districts to districts with a high touristic activity. This suggests that nightlife is oriented more to tourists than to local population, which is suffering most of the problems that nightlife carries out. Regarding metrics of number of venues per 100,000 inhabitant and venues per square kilometers, the secon metric seems more adequate to evaluate the impact of city life in the different districts.
+
+This analysis of nightlife is preliminary, and further research is needed. Two potential directions for research is to replicate the analysis to the neighborhood level, and to locate clusters of nightlife venues extending beyond the boundaries of neighborhoods and districts.
+
+## References
+
+- Census of premises on the ground floor intended for economic activity in the city of Barcelona <https://opendata-ajuntament.barcelona.cat/data/en/dataset/cens-locals-planta-baixa-act-economica>.
+- Population of Barcelona according to the Municipal Register of Inhabitants on January 1 of each year <https://opendata-ajuntament.barcelona.cat/data/en/dataset/pad_mdbas>
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
