@@ -1,0 +1,262 @@
+---
+title: Nightlife of Barcelona Neighborhoods
+author: Jose M Sallan
+date: '2025-12-07'
+slug: nightlife-of-barcelona-neighborhoods
+categories:
+  - data analysis
+  - R
+tags:
+  - Barcelona
+  - maps
+  - spatial analysis
+  - nightlife
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In [a previous post](https://jmsallan.netlify.app/blog/impact-of-nightlife-on-barcelona-districts/), I presented an analysis of the Barcelona nightlife at the district level. In this post, I will make an analysis at the neighbourhood level, including:
+
+- An assessment of which venues are inside each neighbourhood using **spatial analysis**.
+- Evaluate the relevance of nightlife at each neighbourhood using two metrics: **number of venues** and **venue density**.
+- Present **choropleth maps** of these metrics to examine them spatially.
+
+I have used `sf` for spatial analysis. I will pick the Barcelona map through `BAdatasetsSpatial`. The tidyverse and `kableExtra` are for wrangling data, making plots and presenting nice tables.
+
+```{r, message=FALSE}
+library(tidyverse)
+library(sf)
+library(BAdatasetsSpatial)
+library(kableExtra)
+```
+
+```{r, echo=FALSE}
+load("data/nightlife.rd")
+```
+
+## Barcelona Neighborhoods
+
+I have retrieved the geographical information of Barcelona neighbourhoods from the map stored in `BAdatasetsSPatial`. I will be using the `bcn_neigh` map.
+
+```{r}
+bcn_neigh <- BCNNeigh |>
+  select(c_barri, n_barri, area, perim, coord_x, coord_y)
+```
+
+Barcelona is administratively divided into ten districts and seventy-three neighbourhoods. In this map, i am presenting each neighbourhood with its code.
+
+```{r, out.width='100%'}
+ggplot(bcn_neigh) +
+  geom_sf(fill = "white") +
+  geom_text(aes(coord_x, coord_y, label = c_barri), size = 3) +
+  theme_void() +
+  ggtitle(label = "Barcelona Neighborhoods")
+```
+
+And here is the official list of neighbourhoods in Barcelona.
+
+```{r}
+bcn_neigh |>
+  st_drop_geometry() |>
+  select(c_barri, n_barri) |>
+  rename(code = c_barri, name = n_barri) |>
+  arrange(code) |>
+  kbl() |>
+  kable_minimal(full_width = FALSE)
+```
+
+
+## Nightlife Data
+
+The information abouth nightlife has been retrieved from the 2024 **census of ground floor premises** published in Open Data BCN. As the dataset includes latitude and longitude, it can be turned into a spatial object.
+
+```{r}
+nightlife_2024 <- data_2024 |>
+  select(nom_local, latitud, longitud, nom_barri, codi_barri, nom_via, porta)
+
+nightlife_2024_sf <- nightlife_2024 |>
+  st_as_sf(coords = c("longitud", "latitud"), crs = 4326, remove = FALSE)
+
+nightlife_2024_sf
+```
+
+## Checking Data Quality
+
+The `nightlife_2024_sf` includes information about the neighbourhood in the `nom_barri` and `codi_barri` columns. Let's check if the Raval venues are located into the Raval neighbourhood. To do so, I create:
+
+- The `nl_raval` table of venues encoded as located at El Raval with codi_barri == 1.
+- The `sf_raval` table, corresponding with the polygon of El Raval.
+
+```{r}
+nl_raval <- nightlife_2024_sf |>
+  filter(codi_barri == 1)
+
+sf_raval <- bcn_neigh |>
+  filter(c_barri == 1) 
+```
+
+Let's plot both spatial objects together.
+
+```{r, fig.align='center'}
+ggplot(sf_raval) +
+  geom_sf() +
+  geom_sf(data = nl_raval)
+```
+
+Some of the points fall outside the polygon (and maybe there are points inside the polygon incorrectly encoded too). We need to assign points to neighborhoods spatially using `sf::st_join()`. The result is stored in `nightlife_2024_sf2`.
+
+```{r}
+nightlife_2024_sf2 <- st_join(nightlife_2024_sf, 
+                              bcn_neigh |> select(c_barri, n_barri),
+                              join = st_intersects)
+```
+
+In one case the spatial join has not found the neighborhood, so we keep it in the original neighborhood.
+
+```{r}
+nightlife_2024_sf2 <- nightlife_2024_sf2 |>
+  mutate(c_barri = ifelse(is.na(c_barri), codi_barri, c_barri),
+         n_barri = ifelse(is.na(c_barri), nom_barri, n_barri))
+```
+
+The neighbourhood code assigned spatially is in `c_barri` and the code included in the nightlife dataset is in `codi_barri`. We can appreciate some differences:
+
+```{r}
+nightlife_2024_sf2 |>
+  filter(c_barri != codi_barri)
+```
+
+Let's check where are the points assigned to `c_barri == 1`.
+
+```{r, fig.align='center'}
+nl2_raval <- nightlife_2024_sf2 |>
+  filter(c_barri == 1)
+
+ggplot(sf_raval) +
+  geom_sf() +
+  geom_sf(data = nl2_raval)
+```
+
+Seeing the results, I will be using the `c_barri` column to assign venues to neighbourhoods.
+
+## Metrics of Neighborhood Nightlife
+
+I will be using **two metrics** to evaluate the intensity of nightlife in a neighbourhood:
+
+- **Number of venues**.
+- **Venue density**, measured in number of venues per square kilometer.
+
+These metrics will be stored in the `count_nl` table. I am grouping by `c_barri` and count to obtain venues per neighbourhood.
+
+```{r}
+count_nl <- nightlife_2024_sf2 |>
+  st_drop_geometry() |>
+  group_by(c_barri) |>
+  summarise(venues = n(), .groups = "drop")
+count_nl
+```
+
+Seeing the number of rows of `count_nl`, not all neighbourhoods have nightlife. I will pick the area of the incumbent neighbourhoods from `bcn_neigh` making a `left_join()` with `count_nl` as first table.
+
+```{r}
+count_nl <- left_join(count_nl,
+                      bcn_neigh |> 
+                        st_drop_geometry() |>
+                        select(c_barri, n_barri, area),
+                      by = "c_barri")  
+```
+
+As the area is in square meters, I transform it in square kilometers and then compute density.
+
+```{r}
+count_nl <- count_nl |>
+  mutate(area = area/1e+06,
+         density = venues/area)
+```
+
+The ten neighbourhoods with **more nightlife venues** are:
+
+```{r}
+count_nl |>
+  arrange(-venues) |>
+  select(n_barri, venues, density) |>
+  slice(1:10) |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+And the top ten neighbourhoods by **venue density** of venues:
+
+```{r}
+count_nl |>
+  arrange(-density) |>
+  select(n_barri, venues, density) |>
+  slice(1:10) |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+## Choropleth Maps
+
+I will present the results of above as choroplet maps. I need to add the values of `count_nl` to `bcn_neigh`. As we need to keep all the regions of the map, I use a `left_join()` with `bcn_neigh` as first table.
+
+```{r}
+bcn_neigh <- left_join(bcn_neigh,
+                       count_nl |> 
+                         select(c_barri, venues, density),
+                       by = "c_barri") 
+```
+
+Some neighborhoods have no venues, so I replace `NA` by zeros in `venues` and `density`.
+
+```{r}
+bcn_neigh <- bcn_neigh |>
+  mutate(venues= ifelse(is.na(venues), 0, venues),
+         density = ifelse(is.na(density), 0, density))
+```
+
+Now I can do the choropleth of the **number of venues**. I have chosen a gradient fill color scale with low value white (for neighbourhoods with no venues) to red (maximum value of venues).
+
+```{r, out.width='100%'}
+ggplot(bcn_neigh) +
+  geom_sf(aes(fill = venues)) +
+  scale_fill_gradient(low = "white", high = "red") +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(title = "Number of Venues by Neighborhood (2024)",
+          caption = "Source: Open Data BCN")
+```
+
+The **venue density** choropleth is built with the same principle, using orange instead of red.
+
+```{r, out.width='100%'}
+ggplot(bcn_neigh) +
+  geom_sf(aes(fill = density)) +
+  scale_fill_gradient(low = "white", high = "orange") +
+  theme_void() +
+  theme(legend.position = "none") +
+  labs(title = "Venue Density by Neighborhood (2024)",
+          caption = "Source: Open Data BCN")
+```
+
+## Conclusions
+
+In this post, I have used a Barcelona neighbourhood map to analyze the intensity of nightlife across the city. I have used a spatial join to assign a neighbourhood to each venue, and I have calculated two metrics: the number of venues and density of venues for each neighbourhood. I have used this information to present a top ten ranking of neighbourhoods and a choropleth for each metric.
+
+Results show two distinct geographical zones: the residential neighbourhood of Sant Gervasi-Galvany and downtown neighbourhoods. Public of **Sant Gervasi–Galvany** is predominantly middle- to upper-middle-class residents. Many patrons are locals from the district or nearby upscale areas (Sarrià, Tres Torres, Eixample). Nightlife here tends to be more oriented toward cocktail bars, lounges, and premium venues. The public of downtonw neighbourhoods like **Barri Gòtic**, **El Raval**, **Poble Sec** and **Sant Pere, Santa Caterina i la Ribera** is more socially mixed but heavily influenced by tourists, visitors, and young people from across the city. There is presence of international residents, students, and creative communities. In the Barri Gòtic especially, the nightlife public is tourism-driven, with a high proportion of short-term visitors.
+
+## References
+
+- Census of premises on the ground floor intended for economic activity in the city of Barcelona <https://opendata-ajuntament.barcelona.cat/data/en/dataset/cens-locals-planta-baixa-act-economica>.
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+

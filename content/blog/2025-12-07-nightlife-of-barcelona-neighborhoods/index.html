@@ -1,0 +1,1135 @@
+---
+title: Nightlife of Barcelona Neighborhoods
+author: Jose M Sallan
+date: '2025-12-07'
+slug: nightlife-of-barcelona-neighborhoods
+categories:
+  - data analysis
+  - R
+tags:
+  - Barcelona
+  - maps
+  - spatial analysis
+  - nightlife
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>In <a href="https://jmsallan.netlify.app/blog/impact-of-nightlife-on-barcelona-districts/">a previous post</a>, I presented an analysis of the Barcelona nightlife at the district level. In this post, I will make an analysis at the neighbourhood level, including:</p>
+<ul>
+<li>An assessment of which venues are inside each neighbourhood using <strong>spatial analysis</strong>.</li>
+<li>Evaluate the relevance of nightlife at each neighbourhood using two metrics: <strong>number of venues</strong> and <strong>venue density</strong>.</li>
+<li>Present <strong>choropleth maps</strong> of these metrics to examine them spatially.</li>
+</ul>
+<p>I have used <code>sf</code> for spatial analysis. I will pick the Barcelona map through <code>BAdatasetsSpatial</code>. The tidyverse and <code>kableExtra</code> are for wrangling data, making plots and presenting nice tables.</p>
+<pre class="r"><code>library(tidyverse)
+library(sf)
+library(BAdatasetsSpatial)
+library(kableExtra)</code></pre>
+<div id="barcelona-neighborhoods" class="section level2">
+<h2>Barcelona Neighborhoods</h2>
+<p>I have retrieved the geographical information of Barcelona neighbourhoods from the map stored in <code>BAdatasetsSPatial</code>. I will be using the <code>bcn_neigh</code> map.</p>
+<pre class="r"><code>bcn_neigh &lt;- BCNNeigh |&gt;
+  select(c_barri, n_barri, area, perim, coord_x, coord_y)</code></pre>
+<p>Barcelona is administratively divided into ten districts and seventy-three neighbourhoods. In this map, i am presenting each neighbourhood with its code.</p>
+<pre class="r"><code>ggplot(bcn_neigh) +
+  geom_sf(fill = &quot;white&quot;) +
+  geom_text(aes(coord_x, coord_y, label = c_barri), size = 3) +
+  theme_void() +
+  ggtitle(label = &quot;Barcelona Neighborhoods&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-4-1.png" width="100%" /></p>
+<p>And here is the official list of neighbourhoods in Barcelona.</p>
+<pre class="r"><code>bcn_neigh |&gt;
+  st_drop_geometry() |&gt;
+  select(c_barri, n_barri) |&gt;
+  rename(code = c_barri, name = n_barri) |&gt;
+  arrange(code) |&gt;
+  kbl() |&gt;
+  kable_minimal(full_width = FALSE)</code></pre>
+<table class=" lightable-minimal" style="font-family: &quot;Trebuchet MS&quot;, verdana, sans-serif; width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+code
+</th>
+<th style="text-align:left;">
+name
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:left;">
+el Raval
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+2
+</td>
+<td style="text-align:left;">
+el Barri Gòtic
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:left;">
+la Barceloneta
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+4
+</td>
+<td style="text-align:left;">
+Sant Pere, Santa Caterina i la Ribera
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+el Fort Pienc
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:left;">
+la Sagrada Família
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+7
+</td>
+<td style="text-align:left;">
+la Dreta de l’Eixample
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:left;">
+l’Antiga Esquerra de l’Eixample
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+9
+</td>
+<td style="text-align:left;">
+la Nova Esquerra de l’Eixample
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+10
+</td>
+<td style="text-align:left;">
+Sant Antoni
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+11
+</td>
+<td style="text-align:left;">
+el Poble Sec
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+12
+</td>
+<td style="text-align:left;">
+la Marina del Prat Vermell
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+13
+</td>
+<td style="text-align:left;">
+la Marina de Port
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+14
+</td>
+<td style="text-align:left;">
+la Font de la Guatlla
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+15
+</td>
+<td style="text-align:left;">
+Hostafrancs
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+16
+</td>
+<td style="text-align:left;">
+la Bordeta
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+17
+</td>
+<td style="text-align:left;">
+Sants - Badal
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+18
+</td>
+<td style="text-align:left;">
+Sants
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+19
+</td>
+<td style="text-align:left;">
+les Corts
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+20
+</td>
+<td style="text-align:left;">
+la Maternitat i Sant Ramon
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+21
+</td>
+<td style="text-align:left;">
+Pedralbes
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+22
+</td>
+<td style="text-align:left;">
+Vallvidrera, el Tibidabo i les Planes
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+23
+</td>
+<td style="text-align:left;">
+Sarrià
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+24
+</td>
+<td style="text-align:left;">
+les Tres Torres
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+25
+</td>
+<td style="text-align:left;">
+Sant Gervasi - la Bonanova
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+26
+</td>
+<td style="text-align:left;">
+Sant Gervasi - Galvany
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+27
+</td>
+<td style="text-align:left;">
+el Putxet i el Farró
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+28
+</td>
+<td style="text-align:left;">
+Vallcarca i els Penitents
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+29
+</td>
+<td style="text-align:left;">
+el Coll
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+30
+</td>
+<td style="text-align:left;">
+la Salut
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+31
+</td>
+<td style="text-align:left;">
+la Vila de Gràcia
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+32
+</td>
+<td style="text-align:left;">
+el Camp d’en Grassot i Gràcia Nova
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+33
+</td>
+<td style="text-align:left;">
+el Baix Guinardó
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+34
+</td>
+<td style="text-align:left;">
+Can Baró
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+35
+</td>
+<td style="text-align:left;">
+el Guinardó
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+36
+</td>
+<td style="text-align:left;">
+la Font d’en Fargues
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+37
+</td>
+<td style="text-align:left;">
+el Carmel
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+38
+</td>
+<td style="text-align:left;">
+la Teixonera
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+39
+</td>
+<td style="text-align:left;">
+Sant Genís dels Agudells
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+40
+</td>
+<td style="text-align:left;">
+Montbau
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+41
+</td>
+<td style="text-align:left;">
+la Vall d’Hebron
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+42
+</td>
+<td style="text-align:left;">
+la Clota
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+43
+</td>
+<td style="text-align:left;">
+Horta
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+44
+</td>
+<td style="text-align:left;">
+Vilapicina i la Torre Llobeta
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+45
+</td>
+<td style="text-align:left;">
+Porta
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+46
+</td>
+<td style="text-align:left;">
+el Turó de la Peira
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+47
+</td>
+<td style="text-align:left;">
+Can Peguera
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+48
+</td>
+<td style="text-align:left;">
+la Guineueta
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+49
+</td>
+<td style="text-align:left;">
+Canyelles
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+50
+</td>
+<td style="text-align:left;">
+les Roquetes
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+51
+</td>
+<td style="text-align:left;">
+Verdun
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+52
+</td>
+<td style="text-align:left;">
+la Prosperitat
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+53
+</td>
+<td style="text-align:left;">
+la Trinitat Nova
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+54
+</td>
+<td style="text-align:left;">
+Torre Baró
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+55
+</td>
+<td style="text-align:left;">
+Ciutat Meridiana
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+56
+</td>
+<td style="text-align:left;">
+Vallbona
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+57
+</td>
+<td style="text-align:left;">
+la Trinitat Vella
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+58
+</td>
+<td style="text-align:left;">
+Baró de Viver
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+59
+</td>
+<td style="text-align:left;">
+el Bon Pastor
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+60
+</td>
+<td style="text-align:left;">
+Sant Andreu
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+61
+</td>
+<td style="text-align:left;">
+la Sagrera
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+62
+</td>
+<td style="text-align:left;">
+el Congrés i els Indians
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+63
+</td>
+<td style="text-align:left;">
+Navas
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+64
+</td>
+<td style="text-align:left;">
+el Camp de l’Arpa del Clot
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+65
+</td>
+<td style="text-align:left;">
+el Clot
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+66
+</td>
+<td style="text-align:left;">
+el Parc i la Llacuna del Poblenou
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+67
+</td>
+<td style="text-align:left;">
+la Vila Olímpica del Poblenou
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+68
+</td>
+<td style="text-align:left;">
+el Poblenou
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+69
+</td>
+<td style="text-align:left;">
+Diagonal Mar i el Front Marítim del Poblenou
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+70
+</td>
+<td style="text-align:left;">
+el Besòs i el Maresme
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+71
+</td>
+<td style="text-align:left;">
+Provençals del Poblenou
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+72
+</td>
+<td style="text-align:left;">
+Sant Martí de Provençals
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+73
+</td>
+<td style="text-align:left;">
+la Verneda i la Pau
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="nightlife-data" class="section level2">
+<h2>Nightlife Data</h2>
+<p>The information abouth nightlife has been retrieved from the 2024 <strong>census of ground floor premises</strong> published in Open Data BCN. As the dataset includes latitude and longitude, it can be turned into a spatial object.</p>
+<pre class="r"><code>nightlife_2024 &lt;- data_2024 |&gt;
+  select(nom_local, latitud, longitud, nom_barri, codi_barri, nom_via, porta)
+
+nightlife_2024_sf &lt;- nightlife_2024 |&gt;
+  st_as_sf(coords = c(&quot;longitud&quot;, &quot;latitud&quot;), crs = 4326, remove = FALSE)
+
+nightlife_2024_sf</code></pre>
+<pre><code>## Simple feature collection with 242 features and 7 fields
+## Geometry type: POINT
+## Dimension:     XY
+## Bounding box:  xmin: 2.11062 ymin: 41.37241 xmax: 2.200073 ymax: 41.43286
+## Geodetic CRS:  WGS 84
+## # A tibble: 242 × 8
+##    nom_local                 latitud longitud nom_barri codi_barri nom_via porta
+##  * &lt;chr&gt;                       &lt;dbl&gt;    &lt;dbl&gt; &lt;chr&gt;          &lt;dbl&gt; &lt;chr&gt;   &lt;dbl&gt;
+##  1 LA MOLE BAR MUSICAL          41.4     2.12 Sants - …         17 TORNS      10
+##  2 LA TRAVIESA TUSET            41.4     2.15 Sant Ger…         26 TUSET      10
+##  3 LA CLAVE                     41.4     2.13 Sants - …         17 SUGRAN…    20
+##  4 PEREJIL                      41.4     2.16 el Poble…         11 BLAI       10
+##  5 AFTERLIFE ESPORTS GAMER …    41.4     2.14 Sant Ger…         26 MARIÀ …    10
+##  6 APOLO                        41.4     2.17 el Poble…         11 NOU DE…    10
+##  7 APOLO BAILE                  41.4     2.17 el Poble…         11 NOU DE…    20
+##  8 EL GIARDINETTO               41.4     2.15 Sant Ger…         26 GRANAD…    10
+##  9 APOLO CASINO                 41.4     2.17 el Poble…         11 NOU DE…    50
+## 10 BAR SCHULTZ                  41.4     2.17 la Dreta…          7 BAILÈN     30
+## # ℹ 232 more rows
+## # ℹ 1 more variable: geometry &lt;POINT [°]&gt;</code></pre>
+</div>
+<div id="checking-data-quality" class="section level2">
+<h2>Checking Data Quality</h2>
+<p>The <code>nightlife_2024_sf</code> includes information about the neighbourhood in the <code>nom_barri</code> and <code>codi_barri</code> columns. Let’s check if the Raval venues are located into the Raval neighbourhood. To do so, I create:</p>
+<ul>
+<li>The <code>nl_raval</code> table of venues encoded as located at El Raval with codi_barri == 1.</li>
+<li>The <code>sf_raval</code> table, corresponding with the polygon of El Raval.</li>
+</ul>
+<pre class="r"><code>nl_raval &lt;- nightlife_2024_sf |&gt;
+  filter(codi_barri == 1)
+
+sf_raval &lt;- bcn_neigh |&gt;
+  filter(c_barri == 1) </code></pre>
+<p>Let’s plot both spatial objects together.</p>
+<pre class="r"><code>ggplot(sf_raval) +
+  geom_sf() +
+  geom_sf(data = nl_raval)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Some of the points fall outside the polygon (and maybe there are points inside the polygon incorrectly encoded too). We need to assign points to neighborhoods spatially using <code>sf::st_join()</code>. The result is stored in <code>nightlife_2024_sf2</code>.</p>
+<pre class="r"><code>nightlife_2024_sf2 &lt;- st_join(nightlife_2024_sf, 
+                              bcn_neigh |&gt; select(c_barri, n_barri),
+                              join = st_intersects)</code></pre>
+<p>In one case the spatial join has not found the neighborhood, so we keep it in the original neighborhood.</p>
+<pre class="r"><code>nightlife_2024_sf2 &lt;- nightlife_2024_sf2 |&gt;
+  mutate(c_barri = ifelse(is.na(c_barri), codi_barri, c_barri),
+         n_barri = ifelse(is.na(c_barri), nom_barri, n_barri))</code></pre>
+<p>The neighbourhood code assigned spatially is in <code>c_barri</code> and the code included in the nightlife dataset is in <code>codi_barri</code>. We can appreciate some differences:</p>
+<pre class="r"><code>nightlife_2024_sf2 |&gt;
+  filter(c_barri != codi_barri)</code></pre>
+<pre><code>## Simple feature collection with 43 features and 9 fields
+## Geometry type: POINT
+## Dimension:     XY
+## Bounding box:  xmin: 2.127625 ymin: 41.37542 xmax: 2.195337 ymax: 41.43224
+## Geodetic CRS:  WGS 84
+## # A tibble: 43 × 10
+##    nom_local               latitud longitud nom_barri   codi_barri nom_via porta
+##  * &lt;chr&gt;                     &lt;dbl&gt;    &lt;dbl&gt; &lt;chr&gt;            &lt;dbl&gt; &lt;chr&gt;   &lt;dbl&gt;
+##  1 ALIMENTACIÓ MONK           41.4     2.18 Sant Pere,…          4 ABAIXA…    10
+##  2 BLING BLING                41.4     2.15 Sant Gerva…         26 TUSET      20
+##  3 RATAFIA                    41.4     2.13 les Tres T…         24 RAFAEL…    20
+##  4 ARENA XPERIENCE            41.4     2.17 la Dreta d…          7 RDA SA…    40
+##  5 EL PATRÓN SHISHA LOUNGE    41.4     2.14 el Putxet …         27 MANUEL…    10
+##  6 ARENA CHICAS               41.4     2.16 la Dreta d…          7 DIPUTA…    20
+##  7 IMPERATOR                  41.4     2.16 la Vila de…         31 CÒRSEGA    10
+##  8 SALA VIVALDI               41.4     2.15 Sant Antoni         10 LLANÇA     10
+##  9 BEACH CLUB                 41.4     2.15 l&#39;Antiga E…          8 VALÈNC…    10
+## 10 SCOBIE&#39;S IRISH PUB         41.4     2.17 la Dreta d…          7 RDA UN…    20
+## # ℹ 33 more rows
+## # ℹ 3 more variables: geometry &lt;POINT [°]&gt;, c_barri &lt;dbl&gt;, n_barri &lt;chr&gt;</code></pre>
+<p>Let’s check where are the points assigned to <code>c_barri == 1</code>.</p>
+<pre class="r"><code>nl2_raval &lt;- nightlife_2024_sf2 |&gt;
+  filter(c_barri == 1)
+
+ggplot(sf_raval) +
+  geom_sf() +
+  geom_sf(data = nl2_raval)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-12-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Seeing the results, I will be using the <code>c_barri</code> column to assign venues to neighbourhoods.</p>
+</div>
+<div id="metrics-of-neighborhood-nightlife" class="section level2">
+<h2>Metrics of Neighborhood Nightlife</h2>
+<p>I will be using <strong>two metrics</strong> to evaluate the intensity of nightlife in a neighbourhood:</p>
+<ul>
+<li><strong>Number of venues</strong>.</li>
+<li><strong>Venue density</strong>, measured in number of venues per square kilometer.</li>
+</ul>
+<p>These metrics will be stored in the <code>count_nl</code> table. I am grouping by <code>c_barri</code> and count to obtain venues per neighbourhood.</p>
+<pre class="r"><code>count_nl &lt;- nightlife_2024_sf2 |&gt;
+  st_drop_geometry() |&gt;
+  group_by(c_barri) |&gt;
+  summarise(venues = n(), .groups = &quot;drop&quot;)
+count_nl</code></pre>
+<pre><code>## # A tibble: 35 × 2
+##    c_barri venues
+##      &lt;dbl&gt;  &lt;int&gt;
+##  1       1     16
+##  2       2     23
+##  3       3      3
+##  4       4     16
+##  5       5      3
+##  6       6      1
+##  7       7     14
+##  8       8     11
+##  9       9      8
+## 10      10      7
+## # ℹ 25 more rows</code></pre>
+<p>Seeing the number of rows of <code>count_nl</code>, not all neighbourhoods have nightlife. I will pick the area of the incumbent neighbourhoods from <code>bcn_neigh</code> making a <code>left_join()</code> with <code>count_nl</code> as first table.</p>
+<pre class="r"><code>count_nl &lt;- left_join(count_nl,
+                      bcn_neigh |&gt; 
+                        st_drop_geometry() |&gt;
+                        select(c_barri, n_barri, area),
+                      by = &quot;c_barri&quot;)  </code></pre>
+<p>As the area is in square meters, I transform it in square kilometers and then compute density.</p>
+<pre class="r"><code>count_nl &lt;- count_nl |&gt;
+  mutate(area = area/1e+06,
+         density = venues/area)</code></pre>
+<p>The ten neighbourhoods with <strong>more nightlife venues</strong> are:</p>
+<pre class="r"><code>count_nl |&gt;
+  arrange(-venues) |&gt;
+  select(n_barri, venues, density) |&gt;
+  slice(1:10) |&gt;
+  kbl() |&gt;
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+n_barri
+</th>
+<th style="text-align:right;">
+venues
+</th>
+<th style="text-align:right;">
+density
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Sant Gervasi - Galvany
+</td>
+<td style="text-align:right;">
+32
+</td>
+<td style="text-align:right;">
+19.289704
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+el Barri Gòtic
+</td>
+<td style="text-align:right;">
+23
+</td>
+<td style="text-align:right;">
+27.318994
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+el Poble Sec
+</td>
+<td style="text-align:right;">
+23
+</td>
+<td style="text-align:right;">
+4.995069
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+el Raval
+</td>
+<td style="text-align:right;">
+16
+</td>
+<td style="text-align:right;">
+14.566736
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Sant Pere, Santa Caterina i la Ribera
+</td>
+<td style="text-align:right;">
+16
+</td>
+<td style="text-align:right;">
+14.358806
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+la Vila de Gràcia
+</td>
+<td style="text-align:right;">
+15
+</td>
+<td style="text-align:right;">
+11.312043
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+la Dreta de l’Eixample
+</td>
+<td style="text-align:right;">
+14
+</td>
+<td style="text-align:right;">
+6.593185
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+l’Antiga Esquerra de l’Eixample
+</td>
+<td style="text-align:right;">
+11
+</td>
+<td style="text-align:right;">
+8.910827
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+les Corts
+</td>
+<td style="text-align:right;">
+11
+</td>
+<td style="text-align:right;">
+7.787210
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Sants
+</td>
+<td style="text-align:right;">
+9
+</td>
+<td style="text-align:right;">
+8.198509
+</td>
+</tr>
+</tbody>
+</table>
+<p>And the top ten neighbourhoods by <strong>venue density</strong> of venues:</p>
+<pre class="r"><code>count_nl |&gt;
+  arrange(-density) |&gt;
+  select(n_barri, venues, density) |&gt;
+  slice(1:10) |&gt;
+  kbl() |&gt;
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+n_barri
+</th>
+<th style="text-align:right;">
+venues
+</th>
+<th style="text-align:right;">
+density
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+el Barri Gòtic
+</td>
+<td style="text-align:right;">
+23
+</td>
+<td style="text-align:right;">
+27.318994
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Sant Gervasi - Galvany
+</td>
+<td style="text-align:right;">
+32
+</td>
+<td style="text-align:right;">
+19.289704
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+el Raval
+</td>
+<td style="text-align:right;">
+16
+</td>
+<td style="text-align:right;">
+14.566736
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Sant Pere, Santa Caterina i la Ribera
+</td>
+<td style="text-align:right;">
+16
+</td>
+<td style="text-align:right;">
+14.358806
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+la Vila de Gràcia
+</td>
+<td style="text-align:right;">
+15
+</td>
+<td style="text-align:right;">
+11.312043
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+l’Antiga Esquerra de l’Eixample
+</td>
+<td style="text-align:right;">
+11
+</td>
+<td style="text-align:right;">
+8.910827
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Sant Antoni
+</td>
+<td style="text-align:right;">
+7
+</td>
+<td style="text-align:right;">
+8.739239
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Sants
+</td>
+<td style="text-align:right;">
+9
+</td>
+<td style="text-align:right;">
+8.198509
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+les Corts
+</td>
+<td style="text-align:right;">
+11
+</td>
+<td style="text-align:right;">
+7.787210
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Sants - Badal
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+7.307104
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="choropleth-maps" class="section level2">
+<h2>Choropleth Maps</h2>
+<p>I will present the results of above as choroplet maps. I need to add the values of <code>count_nl</code> to <code>bcn_neigh</code>. As we need to keep all the regions of the map, I use a <code>left_join()</code> with <code>bcn_neigh</code> as first table.</p>
+<pre class="r"><code>bcn_neigh &lt;- left_join(bcn_neigh,
+                       count_nl |&gt; 
+                         select(c_barri, venues, density),
+                       by = &quot;c_barri&quot;) </code></pre>
+<p>Some neighborhoods have no venues, so I replace <code>NA</code> by zeros in <code>venues</code> and <code>density</code>.</p>
+<pre class="r"><code>bcn_neigh &lt;- bcn_neigh |&gt;
+  mutate(venues= ifelse(is.na(venues), 0, venues),
+         density = ifelse(is.na(density), 0, density))</code></pre>
+<p>Now I can do the choropleth of the <strong>number of venues</strong>. I have chosen a gradient fill color scale with low value white (for neighbourhoods with no venues) to red (maximum value of venues).</p>
+<pre class="r"><code>ggplot(bcn_neigh) +
+  geom_sf(aes(fill = venues)) +
+  scale_fill_gradient(low = &quot;white&quot;, high = &quot;red&quot;) +
+  theme_void() +
+  theme(legend.position = &quot;none&quot;) +
+  labs(title = &quot;Number of Venues by Neighborhood (2024)&quot;,
+          caption = &quot;Source: Open Data BCN&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-20-1.png" width="100%" /></p>
+<p>The <strong>venue density</strong> choropleth is built with the same principle, using orange instead of red.</p>
+<pre class="r"><code>ggplot(bcn_neigh) +
+  geom_sf(aes(fill = density)) +
+  scale_fill_gradient(low = &quot;white&quot;, high = &quot;orange&quot;) +
+  theme_void() +
+  theme(legend.position = &quot;none&quot;) +
+  labs(title = &quot;Venue Density by Neighborhood (2024)&quot;,
+          caption = &quot;Source: Open Data BCN&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-21-1.png" width="100%" /></p>
+</div>
+<div id="conclusions" class="section level2">
+<h2>Conclusions</h2>
+<p>In this post, I have used a Barcelona neighbourhood map to analyze the intensity of nightlife across the city. I have used a spatial join to assign a neighbourhood to each venue, and I have calculated two metrics: the number of venues and density of venues for each neighbourhood. I have used this information to present a top ten ranking of neighbourhoods and a choropleth for each metric.</p>
+<p>Results show two distinct geographical zones: the residential neighbourhood of Sant Gervasi-Galvany and downtown neighbourhoods. Public of <strong>Sant Gervasi–Galvany</strong> is predominantly middle- to upper-middle-class residents. Many patrons are locals from the district or nearby upscale areas (Sarrià, Tres Torres, Eixample). Nightlife here tends to be more oriented toward cocktail bars, lounges, and premium venues. The public of downtonw neighbourhoods like <strong>Barri Gòtic</strong>, <strong>El Raval</strong>, <strong>Poble Sec</strong> and <strong>Sant Pere, Santa Caterina i la Ribera</strong> is more socially mixed but heavily influenced by tourists, visitors, and young people from across the city. There is presence of international residents, students, and creative communities. In the Barri Gòtic especially, the nightlife public is tourism-driven, with a high proportion of short-term visitors.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Census of premises on the ground floor intended for economic activity in the city of Barcelona <a href="https://opendata-ajuntament.barcelona.cat/data/en/dataset/cens-locals-planta-baixa-act-economica" class="uri">https://opendata-ajuntament.barcelona.cat/data/en/dataset/cens-locals-planta-baixa-act-economica</a>.</li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.5.2 (2025-10-31)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0  LAPACK version 3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] kableExtra_1.4.0        BAdatasetsSpatial_0.1.0 sf_1.0-20              
+##  [4] lubridate_1.9.4         forcats_1.0.1           stringr_1.6.0          
+##  [7] dplyr_1.1.4             purrr_1.2.0             readr_2.1.5            
+## [10] tidyr_1.3.1             tibble_3.3.0            ggplot2_4.0.0          
+## [13] tidyverse_2.0.0        
+## 
+## loaded via a namespace (and not attached):
+##  [1] s2_1.1.7           utf8_1.2.4         sass_0.4.10        generics_0.1.3    
+##  [5] xml2_1.4.1         class_7.3-23       KernSmooth_2.23-26 blogdown_1.21     
+##  [9] stringi_1.8.7      hms_1.1.4          digest_0.6.37      magrittr_2.0.4    
+## [13] evaluate_1.0.3     grid_4.5.2         timechange_0.3.0   RColorBrewer_1.1-3
+## [17] bookdown_0.43      fastmap_1.2.0      jsonlite_2.0.0     e1071_1.7-16      
+## [21] DBI_1.2.3          viridisLite_0.4.2  scales_1.4.0       textshaping_1.0.0 
+## [25] jquerylib_0.1.4    cli_3.6.4          rlang_1.1.6        units_0.8-7       
+## [29] withr_3.0.2        cachem_1.1.0       yaml_2.3.10        tools_4.5.2       
+## [33] tzdb_0.5.0         vctrs_0.6.5        R6_2.6.1           proxy_0.4-27      
+## [37] lifecycle_1.0.4    classInt_0.4-11    pkgconfig_2.0.3    pillar_1.11.1     
+## [41] bslib_0.9.0        gtable_0.3.6       Rcpp_1.0.14        glue_1.8.0        
+## [45] systemfonts_1.2.3  xfun_0.52          tidyselect_1.2.1   rstudioapi_0.17.1 
+## [49] knitr_1.50         farver_2.1.2       htmltools_0.5.8.1  labeling_0.4.3    
+## [53] svglite_2.2.0      rmarkdown_2.29     wk_0.9.4           compiler_4.5.2    
+## [57] S7_0.2.0</code></pre>
+</div>
