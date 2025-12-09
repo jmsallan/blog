@@ -117,12 +117,10 @@ pop_district_2024
 
 I retrieve the map of Barcelona districts from the `BAdatasetsSpatial` package.
 
-```{r}
+```{r, fig.align='center'}
 library(BAdatasetsSpatial)
 bcn_districts <- BCNDistricts
-```
 
-```{r, fig.align='center'}
 ggplot(bcn_districts) +
   geom_sf(fill = "white") +
   geom_text(aes(coord_x, coord_y, label = n_distri)) +

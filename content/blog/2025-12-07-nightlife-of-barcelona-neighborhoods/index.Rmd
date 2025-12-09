@@ -49,7 +49,7 @@ bcn_neigh <- BCNNeigh |>
 
 Barcelona is administratively divided into ten districts and seventy-three neighbourhoods. In this map, i am presenting each neighbourhood with its code.
 
-```{r, out.width='100%'}
+```{r, out.width='100%', fig.height=12}
 ggplot(bcn_neigh) +
   geom_sf(fill = "white") +
   geom_text(aes(coord_x, coord_y, label = c_barri), size = 3) +
@@ -204,7 +204,7 @@ count_nl |>
 
 I will present the results of above as choroplet maps. I need to add the values of `count_nl` to `bcn_neigh`. As we need to keep all the regions of the map, I use a `left_join()` with `bcn_neigh` as first table.
 
-```{r}
+```{r, out.width='100%'}
 bcn_neigh <- left_join(bcn_neigh,
                        count_nl |> 
                          select(c_barri, venues, density),
@@ -221,7 +221,7 @@ bcn_neigh <- bcn_neigh |>
 
 Now I can do the choropleth of the **number of venues**. I have chosen a gradient fill color scale with low value white (for neighbourhoods with no venues) to red (maximum value of venues).
 
-```{r, out.width='100%'}
+```{r, out.width='100%', fig.height=12}
 ggplot(bcn_neigh) +
   geom_sf(aes(fill = venues)) +
   scale_fill_gradient(low = "white", high = "red") +
@@ -233,7 +233,7 @@ ggplot(bcn_neigh) +
 
 The **venue density** choropleth is built with the same principle, using orange instead of red.
 
-```{r, out.width='100%'}
+```{r, out.width='100%', fig.height=12}
 ggplot(bcn_neigh) +
   geom_sf(aes(fill = density)) +
   scale_fill_gradient(low = "white", high = "orange") +
