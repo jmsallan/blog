@@ -1,0 +1,298 @@
+---
+title: k-means clusters of Barcelona Nightlife
+author: Jose M Sallan
+date: '2025-12-13'
+slug: k-means-clusters-of-barcelona-nightlife
+categories:
+  - R
+tags:
+  - Barcelona
+  - data visualization
+  - maps
+  - nightlife
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p><strong>Cluster analysis</strong>, or <strong>clustering</strong>, is a data analysis technique aimed at partitioning a set of objects into groups such that objects within the same group or cluster exhibit greater similarity to one another than to those in other groups. One of the best known clustering techniques is <strong>k-means clustering</strong>. The aim of k-means clustering is to minimize the sum of within-clusters sum of squares. Objects are assigned to the cluster whose centroid is closer to the object. Usually k-means is implemented through a iterative heuristic. In R, this heuristic is implemented in the <code>kmeans()</code> R base function.</p>
+<p>In this post, I will present an example of k-means clustering with geographical data, using the set of nightlife venues of Barcelona registered in 2024. Additionnally I will show how can we extract information from <code>kmeans()</code> using <code>broom</code>, how to obtain a reasonable value of the number of clusters <span class="math inline">\(k\)</span> and how to interpret the results using data features, in this case the neoighbourhood where venues are located.</p>
+<pre class="r"><code>library(tidyverse)
+library(broom)
+library(sf)
+library(BAdatasetsSpatial)
+library(kselection)</code></pre>
+<div id="data" class="section level2">
+<h2>Data</h2>
+<p>There are two relevant datasets for this analysis. First I will retrieve a Barcelona neighborhood map <code>bcn_neigh</code> from <code>BAdatasetsSpatial</code>.</p>
+<pre class="r"><code>bcn_neigh &lt;- BCNNeigh |&gt;
+  select(c_barri, n_barri, c_distri, n_distri)</code></pre>
+<p>Second I will retrieve relevant information from each venue, specifically the geographical location with <code>longitud</code> and <code>latitud</code>, the neighborhood and the name and address. All is gathered in the <code>nightlife_2024</code> data frame.</p>
+<pre class="r"><code>nightlife_2024 &lt;- data_2024 |&gt;
+  select(nom_local, latitud, longitud, nom_barri, codi_barri, nom_via, porta)</code></pre>
+<p>Now I need to elaborate on this data a bit more. Instead of relying on dataset information, I will perform a spatial join to assign the neighborhood to each venue. To do so, I need to create the simple feature object <code>nightlife_2024_sf</code> and then do the spatial join with <code>bcn_neigh</code>.</p>
+<pre class="r"><code>nightlife_2024_sf &lt;- nightlife_2024 |&gt;
+  st_as_sf(coords = c(&quot;longitud&quot;, &quot;latitud&quot;), crs = 4326, remove = FALSE)
+
+nightlife_2024_sf  &lt;- st_join(nightlife_2024_sf, 
+                              bcn_neigh |&gt; select(c_barri, n_barri),
+                              join = st_intersects)</code></pre>
+<p>Finally, I am removing observations that fall out of the polygons of <code>bcn_neigh</code>.</p>
+<pre class="r"><code>nightlife_2024_sf &lt;- nightlife_2024_sf |&gt;
+  filter(!is.na(c_barri))</code></pre>
+</div>
+<div id="k-means-clustering-with-broom" class="section level2">
+<h2>k-means Clustering with broom</h2>
+<p>Let’s test how the <code>kmeans()</code> function works. In this case, we are using as features longitude and latitude. In this case, the distance between observations can be interpreted as geographical distance. First we need to prepare the <code>nl_coords</code> table retaining the relevant variables and removing the <code>geometry</code> column.</p>
+<pre class="r"><code>nl_coords &lt;- nightlife_2024_sf |&gt;
+  st_drop_geometry() |&gt;
+  select(longitud, latitud)</code></pre>
+<p>Let’s do a k-means clustering with four centers. As the heuristics has random elements, I am setting a seed of random numbers for reproducibility. The result of the analysis is stored in <code>test_kmeans</code>.</p>
+<pre class="r"><code>set.seed(55)
+test_kmeans &lt;- kmeans(nl_coords, centers = 4)</code></pre>
+<p>Let’s apply the three functions of broom to <code>test_kemans</code>.</p>
+<pre class="r"><code>tidy(test_kmeans) # centers of clusters</code></pre>
+<pre><code>## # A tibble: 4 × 5
+##   longitud latitud  size withinss cluster
+##      &lt;dbl&gt;   &lt;dbl&gt; &lt;int&gt;    &lt;dbl&gt; &lt;fct&gt;  
+## 1     2.16    41.4    54  0.00403 1      
+## 2     2.14    41.4    77  0.0125  2      
+## 3     2.18    41.4    63  0.00541 3      
+## 4     2.17    41.4    47  0.0119  4</code></pre>
+<pre class="r"><code>glance(test_kmeans) # performance metrics</code></pre>
+<pre><code>## # A tibble: 1 × 4
+##   totss tot.withinss betweenss  iter
+##   &lt;dbl&gt;        &lt;dbl&gt;     &lt;dbl&gt; &lt;int&gt;
+## 1 0.128       0.0338    0.0938     3</code></pre>
+<pre class="r"><code>augment(test_kmeans, data = nl_coords) # assigns cluster variable</code></pre>
+<pre><code>## # A tibble: 241 × 3
+##    longitud latitud .cluster
+##       &lt;dbl&gt;   &lt;dbl&gt; &lt;fct&gt;   
+##  1     2.15    41.4 2       
+##  2     2.13    41.4 2       
+##  3     2.16    41.4 1       
+##  4     2.14    41.4 2       
+##  5     2.17    41.4 1       
+##  6     2.17    41.4 1       
+##  7     2.15    41.4 2       
+##  8     2.17    41.4 1       
+##  9     2.17    41.4 4       
+## 10     2.13    41.4 2       
+## # ℹ 231 more rows</code></pre>
+<p>For k-means clustering the broom functions retrieve the following information:</p>
+<ul>
+<li><code>tidy()</code> returns the centroids of each of the clusters.</li>
+<li><code>glance()</code> presents some performance parameters. The more relevant is the within-clusters sum of squares <code>tot.withinss</code>.</li>
+<li><code>augment()</code> adds to <code>data</code> a <code>.cluster</code> column with the cluster assigned to each observation. For convenience, this column is encoded as factor.</li>
+</ul>
+<p>I have used <code>augment()</code> and <code>tidy()</code> to plot the solution of the clustering with four centers, representing each point and the clusters centroids.</p>
+<pre class="r"><code>augment(test_kmeans, data = nl_coords) |&gt;
+  ggplot(aes(longitud, latitud, color = .cluster)) +
+  geom_point() +
+  geom_point(data = tidy(test_kmeans), aes(longitud, latitud, color = cluster), shape = 3, size = 10) +
+  theme_minimal() +
+  theme(legend.position = &quot;none&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="100%" /></p>
+<p>From the plot, we observe that the clusters obtained with k-means tend to be of circular shape, centered in the cluster centroid.</p>
+</div>
+<div id="number-of-clusters" class="section level2">
+<h2>Number of Clusters</h2>
+<p>It is about time to select how many clusters to enter into the k-means algorithm. The first strategy is to evaluate the within-clusters sum of squares for a range of values of k. As k increases the sum of squares is smaller, but there is a moment where the gain of performance is not significant. We can appreciate that plotting the within-clusters sum of squares versus the number of clusters. The <code>elbow_table</code> contains the performance metrics obtained with <code>glance()</code> for values of <code>k</code> between one and ten.</p>
+<pre class="r"><code>set.seed(1111)
+elbow_table &lt;- 
+  map_dfr(1:10, ~ kmeans(nl_coords, centers = .) |&gt; 
+            glance() |&gt; 
+            mutate(k = .) |&gt; 
+            relocate(k))
+
+elbow_table |&gt;
+  ggplot(aes(k, tot.withinss)) +
+  geom_line() +
+  geom_point() +
+  geom_vline(xintercept = 5, linetype = &quot;dashed&quot;, 
+             color =&quot;red&quot;, linewidth = 1) +
+  scale_x_continuous(breaks = 1:10) +
+  theme_minimal(base_size = 12)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-11-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>From the plot above, the elbow point from which within-clusters sum of squares is not reduced significantly is <code>k = 5</code>.</p>
+<p>The kselection package implements the procedure described by Pahm et al. (2004) to determine the number of clusters in k-means clustering. Here I have just run the code presented in the package vignette.</p>
+<pre class="r"><code>set.seed(1313)
+sol &lt;- kselection(nl_coords)
+num_clusters(sol)</code></pre>
+<pre><code>## [1] 13</code></pre>
+<pre class="r"><code>get_f_k(sol)</code></pre>
+<pre><code>##  [1] 1.0000000 0.8644771 0.9132815 1.0342962 0.8466897 1.0194538 0.9463159
+##  [8] 0.9961763 1.0007176 0.9894164 1.0666465 0.9523737 0.7859992 1.0725217
+## [15] 0.8699234</code></pre>
+<pre class="r"><code>plot(sol)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-12-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p><code>kselection</code> recommends also <code>k = 5</code> clusters.</p>
+</div>
+<div id="five-nightlife-clusters" class="section level2">
+<h2>Five Nightlife Clusters</h2>
+<p>Let’s find the k-means partition of nightlife venues into five clusters. The result is in <code>nl_kmeans05</code>.</p>
+<pre class="r"><code>set.seed(1212)
+nl_kmeans_05 &lt;- kmeans(nl_coords, centers = 5)</code></pre>
+<p>I am adding the <code>cluster</code> variable to <code>nightlife_2024_sf</code> as a vector. I cannot use <code>glance()</code> here, as it does not work with spatial objects.</p>
+<pre class="r"><code>nightlife_2024_sf &lt;- nightlife_2024_sf |&gt;
+  mutate(cluster = as.factor(nl_kmeans_05$cluster)) # augment() cannot be used</code></pre>
+<p>Let’s do a draft of the map with the venues colored by cluster.</p>
+<pre class="r"><code>ggplot(bcn_neigh) +
+  geom_sf() +
+  geom_sf(data = nightlife_2024_sf, aes(color = cluster))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-15-1.png" width="100%" /></p>
+</div>
+<div id="interpreting-clusters" class="section level2">
+<h2>Interpreting Clusters</h2>
+<p>To interpret the clusters, I will count the number of venues by cluster and neighborhood. The results are in the <code>clusters_neigh</code> table.</p>
+<pre class="r"><code>clusters_neigh &lt;- nightlife_2024_sf |&gt;
+  st_drop_geometry() |&gt;
+  group_by(cluster, n_barri) |&gt;
+  summarise(venues = n(), .groups = &quot;drop&quot;)</code></pre>
+<p>Let’s examine clusters one by one:</p>
+<pre class="r"><code>clusters_neigh |&gt;
+  filter(cluster == 1) # gotic - la ribera</code></pre>
+<pre><code>## # A tibble: 9 × 3
+##   cluster n_barri                               venues
+##   &lt;fct&gt;   &lt;chr&gt;                                  &lt;int&gt;
+## 1 1       Sant Pere, Santa Caterina i la Ribera     16
+## 2 1       el Barri Gòtic                            21
+## 3 1       el Clot                                    1
+## 4 1       el Fort Pienc                              3
+## 5 1       el Parc i la Llacuna del Poblenou          8
+## 6 1       el Poblenou                                1
+## 7 1       la Barceloneta                             3
+## 8 1       la Dreta de l&#39;Eixample                     6
+## 9 1       la Vila Olímpica del Poblenou              2</code></pre>
+<pre class="r"><code>clusters_neigh |&gt;
+  filter(cluster == 2) # sant gervasi - gracia</code></pre>
+<pre><code>## # A tibble: 6 × 3
+##   cluster n_barri                            venues
+##   &lt;fct&gt;   &lt;chr&gt;                               &lt;int&gt;
+## 1 2       Sant Gervasi - Galvany                 29
+## 2 2       el Camp d&#39;en Grassot i Gràcia Nova      1
+## 3 2       l&#39;Antiga Esquerra de l&#39;Eixample         8
+## 4 2       la Dreta de l&#39;Eixample                  8
+## 5 2       la Nova Esquerra de l&#39;Eixample          5
+## 6 2       la Vila de Gràcia                      15</code></pre>
+<pre class="r"><code>clusters_neigh |&gt;
+  filter(cluster == 3) #poble sec and raval, lower Eixample</code></pre>
+<pre><code>## # A tibble: 6 × 3
+##   cluster n_barri                         venues
+##   &lt;fct&gt;   &lt;chr&gt;                            &lt;int&gt;
+## 1 3       Sant Antoni                          7
+## 2 3       el Barri Gòtic                       2
+## 3 3       el Poble Sec                        23
+## 4 3       el Raval                            16
+## 5 3       l&#39;Antiga Esquerra de l&#39;Eixample      3
+## 6 3       la Nova Esquerra de l&#39;Eixample       1</code></pre>
+<pre class="r"><code>clusters_neigh |&gt;
+  filter(cluster == 4) # guinardo - horta</code></pre>
+<pre><code>## # A tibble: 10 × 3
+##    cluster n_barri                       venues
+##    &lt;fct&gt;   &lt;chr&gt;                          &lt;int&gt;
+##  1 4       Horta                              3
+##  2 4       Navas                              3
+##  3 4       Vilapicina i la Torre Llobeta      1
+##  4 4       el Baix Guinardó                   1
+##  5 4       el Carmel                          1
+##  6 4       el Congrés i els Indians           1
+##  7 4       el Guinardó                        8
+##  8 4       el Turó de la Peira                2
+##  9 4       la Sagrada Família                 1
+## 10 4       la Sagrera                         1</code></pre>
+<pre class="r"><code>clusters_neigh |&gt;
+  filter(cluster == 5) # sants and les corts // covers also Sarrià and Les Tres Torres</code></pre>
+<pre><code>## # A tibble: 10 × 3
+##    cluster n_barri                        venues
+##    &lt;fct&gt;   &lt;chr&gt;                           &lt;int&gt;
+##  1 5       Hostafrancs                         2
+##  2 5       Pedralbes                           2
+##  3 5       Sant Gervasi - Galvany              3
+##  4 5       Sants                               9
+##  5 5       Sants - Badal                       2
+##  6 5       Sarrià                              3
+##  7 5       la Maternitat i Sant Ramon          3
+##  8 5       la Nova Esquerra de l&#39;Eixample      2
+##  9 5       les Corts                          11
+## 10 5       les Tres Torres                     3</code></pre>
+<p>The five clusters can be interpreted as follows:</p>
+<ul>
+<li>Cluster 1 <strong>Gòtic - la Ribera</strong>. A cluster covering the north of the city centre. Also covers venues of close neighborhoods, extening to Port Olímpic.</li>
+<li>Cluster 2 <strong>Sant Gervasi - Gràcia</strong>. Venues above the Diagonal street, more focused on a local, affluent public.</li>
+<li>Cluster 3 <strong>Poble Sec - Raval</strong>: Venues of the south of the city centre. While Raval venues are targeted to tourists, Poble Sec honors a lasting tradition of nightlife.</li>
+<li>Cluster 4 <strong>Guinardó - Horta</strong>: This part of the city comes from villages that were absorbed by Barcelona, and that they have still their own communities. The most relevant nightlife scenes are from Guinardó, Horta and Navas.</li>
+<li>Cluster 5 <strong>Les Corts - Sarrià</strong>: even more posh than Sant Gervasi, this cluster covers the nightlife of the richest neighbourhoods.</li>
+</ul>
+</div>
+<div id="the-five-nightlife-clusters" class="section level2">
+<h2>The Five Nightlife Clusters</h2>
+<p>Here is the map of the five nightlife clusters, with some coloring and the clusters labels.</p>
+<pre class="r"><code>ggplot(bcn_neigh) +
+  geom_sf(fill = &quot;#FFE5CC&quot;) +
+  geom_sf(data = nightlife_2024_sf, aes(color = cluster)) +
+  scale_color_brewer(labels = c(&quot;Gòtic - la Ribera&quot;, &quot;Sant Gervasi - Gràcia&quot;, &quot;Poble Sec - Raval&quot;, &quot;Guinardó - Horta&quot;,  &quot;Les Corts - Sarrià&quot;), 
+                     palette = &quot;Dark2&quot;) +
+  theme_void() +
+  theme(legend.position = &quot;inside&quot;, 
+        legend.position.inside = c(0.2, 0.3),
+        panel.background = element_rect(fill = &quot;white&quot;))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-18-1.png" width="100%" /></p>
+<p>As elements are added to the cluster by proximity to cluster centroid, these tend to be circular. This can be overriden by other clustering algorithms like DBSCAN.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Package <code>kselection</code>: <a href="https://github.com/drodriguezperez/kselection" class="uri">https://github.com/drodriguezperez/kselection</a></li>
+<li>D T Pham, S S Dimov, and C D Nguyen (2004). Selection of k in k-means clustering, <em>Mechanical Engineering Science</em>, 219(1), 103-119. <a href="https://doi.org/10.1243/095440605X8298" class="uri">https://doi.org/10.1243/095440605X8298</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.5.2 (2025-10-31)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0  LAPACK version 3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] kselection_0.2.1        BAdatasetsSpatial_0.1.0 sf_1.0-20              
+##  [4] broom_1.0.10            lubridate_1.9.4         forcats_1.0.1          
+##  [7] stringr_1.6.0           dplyr_1.1.4             purrr_1.2.0            
+## [10] readr_2.1.5             tidyr_1.3.1             tibble_3.3.0           
+## [13] ggplot2_4.0.0           tidyverse_2.0.0        
+## 
+## loaded via a namespace (and not attached):
+##  [1] s2_1.1.7           utf8_1.2.4         sass_0.4.10        generics_0.1.3    
+##  [5] class_7.3-23       KernSmooth_2.23-26 blogdown_1.21      stringi_1.8.7     
+##  [9] hms_1.1.4          digest_0.6.37      magrittr_2.0.4     evaluate_1.0.3    
+## [13] grid_4.5.2         timechange_0.3.0   RColorBrewer_1.1-3 bookdown_0.43     
+## [17] fastmap_1.2.0      jsonlite_2.0.0     e1071_1.7-16       backports_1.5.0   
+## [21] DBI_1.2.3          scales_1.4.0       jquerylib_0.1.4    cli_3.6.4         
+## [25] rlang_1.1.6        units_0.8-7        withr_3.0.2        cachem_1.1.0      
+## [29] yaml_2.3.10        tools_4.5.2        tzdb_0.5.0         vctrs_0.6.5       
+## [33] R6_2.6.1           proxy_0.4-27       lifecycle_1.0.4    classInt_0.4-11   
+## [37] pkgconfig_2.0.3    pillar_1.11.1      bslib_0.9.0        gtable_0.3.6      
+## [41] Rcpp_1.1.0         glue_1.8.0         xfun_0.52          tidyselect_1.2.1  
+## [45] rstudioapi_0.17.1  knitr_1.50         farver_2.1.2       htmltools_0.5.8.1 
+## [49] labeling_0.4.3     rmarkdown_2.29     wk_0.9.4           compiler_4.5.2    
+## [53] S7_0.2.0</code></pre>
+</div>

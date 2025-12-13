@@ -1,0 +1,244 @@
+---
+title: k-means clusters of Barcelona Nightlife
+author: Jose M Sallan
+date: '2025-12-13'
+slug: k-means-clusters-of-barcelona-nightlife
+categories:
+  - R
+tags:
+  - Barcelona
+  - data visualization
+  - maps
+  - nightlife
+  - R
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Cluster analysis**, or **clustering**, is a data analysis technique aimed at partitioning a set of objects into groups such that objects within the same group or cluster exhibit greater similarity to one another than to those in other groups. One of the best known clustering techniques is **k-means clustering**. The aim of k-means clustering is to minimize the sum of within-clusters sum of squares. Objects are assigned to the cluster whose centroid is closer to the object. Usually k-means is implemented through a iterative heuristic. In R, this heuristic is implemented in the `kmeans()` R base function. 
+
+In this post, I will present an example of k-means clustering with geographical data, using the set of nightlife venues of Barcelona registered in 2024. Additionnally I will show how can we extract information from `kmeans()` using `broom`, how to obtain a reasonable value of the number of clusters $k$ and how to interpret the results using data features, in this case the neoighbourhood where venues are located.
+
+```{r, message=FALSE}
+library(tidyverse)
+library(broom)
+library(sf)
+library(BAdatasetsSpatial)
+library(kselection)
+```
+
+## Data
+
+```{r, echo=FALSE}
+load("data/nightlife.rd")
+```
+
+There are two relevant datasets for this analysis. First I will retrieve a Barcelona neighborhood map `bcn_neigh` from `BAdatasetsSpatial`.
+
+```{r}
+bcn_neigh <- BCNNeigh |>
+  select(c_barri, n_barri, c_distri, n_distri)
+```
+
+Second I will retrieve relevant information from each venue, specifically the geographical location with `longitud` and `latitud`, the neighborhood and the name and address. All is gathered in the `nightlife_2024` data frame.
+
+```{r}
+nightlife_2024 <- data_2024 |>
+  select(nom_local, latitud, longitud, nom_barri, codi_barri, nom_via, porta)
+```
+
+Now I need to elaborate on this data a bit more. Instead of relying on dataset information, I will perform a spatial join to assign the neighborhood to each venue. To do so, I need to create the simple feature object `nightlife_2024_sf` and then do the spatial join with `bcn_neigh`.
+
+```{r}
+nightlife_2024_sf <- nightlife_2024 |>
+  st_as_sf(coords = c("longitud", "latitud"), crs = 4326, remove = FALSE)
+
+nightlife_2024_sf  <- st_join(nightlife_2024_sf, 
+                              bcn_neigh |> select(c_barri, n_barri),
+                              join = st_intersects)
+```
+
+Finally, I am removing observations that fall out of the polygons of `bcn_neigh`.
+
+```{r}
+nightlife_2024_sf <- nightlife_2024_sf |>
+  filter(!is.na(c_barri))
+```
+
+## k-means Clustering with broom
+
+Let's test how the `kmeans()` function works. In this case, we are using as features longitude  and latitude. In this case, the distance between observations can be interpreted as geographical distance. First we need to prepare the `nl_coords` table retaining the relevant variables and removing the `geometry` column.
+
+```{r}
+nl_coords <- nightlife_2024_sf |>
+  st_drop_geometry() |>
+  select(longitud, latitud)
+```
+
+Let's do a k-means clustering with four centers. As the heuristics has random elements, I am setting a seed of random numbers for reproducibility. The result of the analysis is stored in `test_kmeans`.
+
+```{r}
+set.seed(55)
+test_kmeans <- kmeans(nl_coords, centers = 4)
+```
+
+Let's apply the three functions of broom to `test_kemans`.
+
+```{r}
+tidy(test_kmeans) # centers of clusters
+glance(test_kmeans) # performance metrics
+augment(test_kmeans, data = nl_coords) # assigns cluster variable
+```
+
+For k-means clustering the broom functions retrieve the following information:
+
+- `tidy()` returns the centroids of each of the clusters.
+- `glance()` presents some performance parameters. The more relevant is the within-clusters sum of squares `tot.withinss`.
+- `augment()` adds to `data` a `.cluster` column with the cluster assigned to each observation. For convenience, this column is encoded as factor.
+
+I have used `augment()` and `tidy()` to plot the solution of the clustering with four centers, representing each point and the clusters centroids.
+
+
+```{r, out.width='100%'}
+augment(test_kmeans, data = nl_coords) |>
+  ggplot(aes(longitud, latitud, color = .cluster)) +
+  geom_point() +
+  geom_point(data = tidy(test_kmeans), aes(longitud, latitud, color = cluster), shape = 3, size = 10) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+From the plot, we observe that the clusters obtained with k-means tend to be of circular shape, centered in the cluster centroid.
+
+## Number of Clusters
+
+It is about time to select how many clusters to enter into the k-means algorithm. The first strategy is to evaluate the within-clusters sum of squares for a range of values of k. As k increases the sum of squares is smaller, but there is a moment where the gain of performance is not significant. We can appreciate that plotting the within-clusters sum of squares versus the number of clusters. The `elbow_table` contains the performance metrics obtained with `glance()` for values of `k` between one and ten.
+
+```{r, fig.align='center'}
+set.seed(1111)
+elbow_table <- 
+  map_dfr(1:10, ~ kmeans(nl_coords, centers = .) |> 
+            glance() |> 
+            mutate(k = .) |> 
+            relocate(k))
+
+elbow_table |>
+  ggplot(aes(k, tot.withinss)) +
+  geom_line() +
+  geom_point() +
+  geom_vline(xintercept = 5, linetype = "dashed", 
+             color ="red", linewidth = 1) +
+  scale_x_continuous(breaks = 1:10) +
+  theme_minimal(base_size = 12)
+```
+
+From the plot above, the elbow point from which within-clusters sum of squares is not reduced significantly is `k = 5`.
+
+The kselection package implements the procedure described by Pahm et al. (2004) to determine the number of clusters in k-means clustering. Here I have just run the code presented in the package vignette.
+
+```{r, fig.align='center'}
+set.seed(1313)
+sol <- kselection(nl_coords)
+num_clusters(sol)
+get_f_k(sol)
+plot(sol)
+```
+
+`kselection` recommends also `k = 5` clusters.
+
+## Five Nightlife Clusters
+
+Let's find the k-means partition of nightlife venues into five clusters. The result is in `nl_kmeans05`.
+
+```{r}
+set.seed(1212)
+nl_kmeans_05 <- kmeans(nl_coords, centers = 5)
+```
+
+I am adding the `cluster` variable to `nightlife_2024_sf` as a vector. I cannot use `glance()` here, as it does not work with spatial objects.
+
+```{r}
+nightlife_2024_sf <- nightlife_2024_sf |>
+  mutate(cluster = as.factor(nl_kmeans_05$cluster)) # augment() cannot be used
+```
+
+Let's do a draft of the map with the venues colored by cluster.
+
+```{r, out.width='100%', fig.height=10}
+ggplot(bcn_neigh) +
+  geom_sf() +
+  geom_sf(data = nightlife_2024_sf, aes(color = cluster))
+```
+
+## Interpreting Clusters
+
+To interpret the clusters, I will count the number of venues by cluster and neighborhood. The results are in the `clusters_neigh` table.
+
+```{r}
+clusters_neigh <- nightlife_2024_sf |>
+  st_drop_geometry() |>
+  group_by(cluster, n_barri) |>
+  summarise(venues = n(), .groups = "drop")
+```
+
+Let's examine clusters one by one:
+
+```{r}
+clusters_neigh |>
+  filter(cluster == 1) # gotic - la ribera
+
+clusters_neigh |>
+  filter(cluster == 2) # sant gervasi - gracia
+
+clusters_neigh |>
+  filter(cluster == 3) #poble sec and raval, lower Eixample
+
+clusters_neigh |>
+  filter(cluster == 4) # guinardo - horta
+
+clusters_neigh |>
+  filter(cluster == 5) # sants and les corts // covers also Sarrià and Les Tres Torres
+```
+
+The five clusters can be interpreted as follows:
+
+- Cluster 1 **Gòtic - la Ribera**. A cluster covering the north of the city centre. Also covers venues of close neighborhoods, extening to Port Olímpic.
+- Cluster 2 **Sant Gervasi - Gràcia**. Venues above the Diagonal street, more focused on a local, affluent public.
+- Cluster 3 **Poble Sec - Raval**: Venues of the south of the city centre. While Raval venues are targeted to tourists, Poble Sec honors a lasting tradition of nightlife.
+- Cluster 4 **Guinardó - Horta**: This part of the city comes from villages that were absorbed by Barcelona, and that they have still their own communities. The most relevant nightlife scenes are from Guinardó, Horta and Navas.
+- Cluster 5 **Les Corts - Sarrià**: even more posh than Sant Gervasi, this cluster covers the nightlife of the richest neighbourhoods.
+
+## The Five Nightlife Clusters
+
+Here is the map of the five nightlife clusters, with some coloring and the clusters labels.
+
+```{r, out.width='100%', fig.height=10}
+ggplot(bcn_neigh) +
+  geom_sf(fill = "#FFE5CC") +
+  geom_sf(data = nightlife_2024_sf, aes(color = cluster)) +
+  scale_color_brewer(labels = c("Gòtic - la Ribera", "Sant Gervasi - Gràcia", "Poble Sec - Raval", "Guinardó - Horta",  "Les Corts - Sarrià"), 
+                     palette = "Dark2") +
+  theme_void() +
+  theme(legend.position = "inside", 
+        legend.position.inside = c(0.2, 0.3),
+        panel.background = element_rect(fill = "white"))
+```
+
+As elements are added to the cluster by proximity to cluster centroid, these tend to be circular. This can be overriden by other clustering algorithms like DBSCAN.
+
+## References
+
+- Package `kselection`: <https://github.com/drodriguezperez/kselection>
+- D T Pham, S S Dimov, and C D Nguyen (2004). Selection of k in k-means clustering, *Mechanical Engineering Science*, 219(1), 103-119. <https://doi.org/10.1243/095440605X8298>
+
+## Session Info
+
+```{r,echo=FALSE}
+sessionInfo()
+```
+
+
