@@ -39,17 +39,17 @@ nightlife_2024_sf &lt;- nightlife_2024 |&gt;
 <p>A common approach to cluster spatial data is use longitude and latitude directly, as they represent approximately the <span class="math inline">\(x\)</span> and <span class="math inline">\(y\)</span> coordinates of each point. But in DBSCAN the <code>eps</code> parameter is expressed in distance units, so we cannot use longitude and latitude directly. <code>dbscan::dbscan()</code> allows using a distance matrix rather than a set of coordinates. To obtain this distance, I have used the <code>sf::st_distance()</code> function and transformed the result to a distance object with <code>as.dist()</code>.</p>
 <pre class="r"><code>nl_distances &lt;- st_distance(nightlife_2024_sf) |&gt;
   as.dist()</code></pre>
-<p>As it is two-dimensional dataset, I will use the standard value <code>minPts = 3</code>. We need, though, to establish an adequate value of distance between core points <code>eps</code>. To do so, I have used the k-nearest neighbor distances plot. Obtained with <code>dbscan::kNNdistplot()</code>, it represents the distance between each element and its k-th distant neighbor. As <code>minPts</code> includes the point from we calculate distances, we need to set <code>k = minPts - 1</code>.</p>
+<p>As it is two-dimensional dataset, I will use the standard value <code>minPts = 3</code>. We need, though, to establish an adequate value of maximum distance between contiguous core points <code>eps</code>. To do so, I have used the <strong>k-nearest neighbor distances</strong> plot. Obtained with <code>dbscan::kNNdistplot()</code>, it represents the distance between each element and its k-th distant neighbor. As <code>minPts</code> includes the point from we calculate distances, we need to set <code>k = minPts - 1</code>.</p>
 <pre class="r"><code>kNNdistplot(nl_distances, k = 2)
 abline(a = 400, b = 0, col = &quot;red&quot;, lty = 2)</code></pre>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-6-1.png" width="672" style="display: block; margin: auto;" /></p>
-<p>The choice of <code>eps</code> is the elbow point of this plot. In this case, I have chose <code>eps = 450</code>. The results of the clustering are stored in <code>nl_dbscan</code>.</p>
+<p>The choice of <code>eps</code> is the elbow point of this plot. In this case, I have chosen <code>eps = 450</code>. The results of the clustering are stored in <code>nl_dbscan</code>.</p>
 <pre class="r"><code>nl_dbscan &lt;- dbscan(nl_distances, eps = 450, minPts = 3)
 table(nl_dbscan$cluster)</code></pre>
 <pre><code>## 
 ##  0  1  2  3  4  5  6  7  8 
 ## 13 13 85 96  3  4 13  4 11</code></pre>
-<p>The algorithm returns eight different clusters and 13 noise points, not assigned to any cluster. These noise points are assigned to the <code>0</code> cluster.</p>
+<p>The algorithm returns eight different clusters and 13 noise points, not assigned to any cluster. These noise points are assigned to the <code>0</code> label.</p>
 <pre class="r"><code>augment(nl_dbscan, nightlife_2024_sf) |&gt;
   filter(noise) |&gt;
   st_drop_geometry() |&gt;
@@ -70,13 +70,13 @@ table(nl_dbscan$cluster)</code></pre>
 ## 11 LOS TILOS                 0        TRUE 
 ## 12 DOWNTOWN                  0        TRUE 
 ## 13 DOWNTOWN                  0        TRUE</code></pre>
-<p>To obtain a preliminary plot of the clusters, I use <code>broom::augment()</code> to assign points to clusters.</p>
+<p>To obtain a preliminary plot of the clusters, I have used <code>broom::augment()</code> to assign points to clusters.</p>
 <pre class="r"><code>augment(nl_dbscan, nightlife_2024) |&gt;
   ggplot(aes(longitud, latitud, color = .cluster)) +
   geom_point() +   
   theme_minimal(base_size = 14)</code></pre>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-9-1.png" width="672" style="display: block; margin: auto;" /></p>
-<p>Finally, I can place clusters over a map.I need to take into account two issues:</p>
+<p>Finally, I can place clusters over a map. I need to take into account two issues:</p>
 <ul>
 <li>We cannot use <code>broom::augment()</code> with spatial objects, so I need to assign clusters with <code>dplyr::mutate()</code>.</li>
 <li>I have created a color palette <code>col_clust</code> using the divergent Brewer palette <code>Paired</code>, setting in grey the noise points.</li>
@@ -95,14 +95,15 @@ ggplot(bcn_neigh) +
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-10-1.png" width="672" style="display: block; margin: auto;" /></p>
 <p>Here is the result of the DBSCAN clustering:</p>
 <ul>
-<li>Two large clusters: cluster <code>2</code> corresponds with the city downtown, and <code>3</code> with the more residential districts of Gràcia and Sant Gervasi. - Three medium-size clusters. Cluster <code>6</code> is located at the northern neighborhoods, mainly El Guinardó. Cluster <code>8</code> includes venues around Poblenou. Cluster <code>1</code> includes venues at Sants and Badal.</li>
-<li>Three small clusters. located at Eixample (cluster <code>4</code>), Vila Olímpica (cluster <code>7') and Horta (cluster</code>5`).</li>
+<li>Two large clusters: cluster <code>2</code> corresponds with the city downtown, and <code>3</code> with the more residential districts of Gràcia and Sant Gervasi.</li>
+<li>Three medium-size clusters. Cluster <code>6</code> is located at the northern neighborhoods, mainly El Guinardó. Cluster <code>8</code> includes venues around Poblenou. Cluster <code>1</code> includes venues at Sants and Badal.</li>
+<li>Three small clusters, located at Eixample (cluster <code>4</code>), Vila Olímpica (cluster <code>7</code>) and Horta (cluster <code>5</code>).</li>
 </ul>
 <div id="references" class="section level2">
 <h2>References</h2>
 <ul>
 <li>Ester, Martin, Hans-Peter Kriegel, Jörg Sander, Xiaowei Xu, et al. (1996). A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise. In <em>Proceedings of 2nd International Conference on Knowledge Discovery and Data Mining (KDD-96)</em>, 226–231. <a href="https://dl.acm.org/doi/10.5555/3001460.3001507" class="uri">https://dl.acm.org/doi/10.5555/3001460.3001507</a></li>
-<li>Hahsler, M., Piekenbrock, M., &amp; Doran, D. (2019). dbscan: Fast density-based clustering with R. <em>Journal of Statistical Software</em>, 91, 1-30.<a href="https://doi.org/10.18637/jss.v091.i01" class="uri">https://doi.org/10.18637/jss.v091.i01</a></li>
+<li>Hahsler, M., Piekenbrock, M., &amp; Doran, D. (2019). dbscan: Fast density-based clustering with R. <em>Journal of Statistical Software</em>, 91, 1-30. <a href="https://doi.org/10.18637/jss.v091.i01" class="uri">https://doi.org/10.18637/jss.v091.i01</a></li>
 </ul>
 </div>
 <div id="session-info" class="section level2">

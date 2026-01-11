@@ -62,21 +62,21 @@ nl_distances <- st_distance(nightlife_2024_sf) |>
   as.dist()
 ```
 
-As it is two-dimensional dataset, I will use the standard value `minPts = 3`. We need, though, to establish an adequate value of distance between core points `eps`. To do so, I have used the k-nearest neighbor distances plot. Obtained with `dbscan::kNNdistplot()`, it represents the distance between each element and its k-th distant neighbor. As `minPts` includes the point from we calculate distances, we need to set `k = minPts - 1`.
+As it is two-dimensional dataset, I will use the standard value `minPts = 3`. We need, though, to establish an adequate value of maximum distance between contiguous core points `eps`. To do so, I have used the **k-nearest neighbor distances** plot. Obtained with `dbscan::kNNdistplot()`, it represents the distance between each element and its k-th distant neighbor. As `minPts` includes the point from we calculate distances, we need to set `k = minPts - 1`.
 
 ```{r, fig.align='center'}
 kNNdistplot(nl_distances, k = 2)
 abline(a = 400, b = 0, col = "red", lty = 2)
 ```
 
-The choice of `eps` is the elbow point of this plot. In this case, I have chose `eps = 450`. The results of the clustering are stored in `nl_dbscan`.
+The choice of `eps` is the elbow point of this plot. In this case, I have chosen `eps = 450`. The results of the clustering are stored in `nl_dbscan`.
 
 ```{r}
 nl_dbscan <- dbscan(nl_distances, eps = 450, minPts = 3)
 table(nl_dbscan$cluster)
 ```
 
-The algorithm returns eight different clusters and 13 noise points, not assigned to any cluster. These noise points are assigned to the `0` cluster.
+The algorithm returns eight different clusters and 13 noise points, not assigned to any cluster. These noise points are assigned to the `0` label.
 
 ```{r}
 augment(nl_dbscan, nightlife_2024_sf) |>
@@ -85,7 +85,7 @@ augment(nl_dbscan, nightlife_2024_sf) |>
   select(nom_local, .cluster, noise)
 ```
 
-To obtain a preliminary plot of the clusters, I use `broom::augment()` to assign points to clusters.
+To obtain a preliminary plot of the clusters, I have used `broom::augment()` to assign points to clusters.
 
 ```{r, fig.align='center'}
 augment(nl_dbscan, nightlife_2024) |>
@@ -94,7 +94,7 @@ augment(nl_dbscan, nightlife_2024) |>
   theme_minimal(base_size = 14)
 ```
 
-Finally, I can place clusters over a map.I need to take into account two issues:
+Finally, I can place clusters over a map. I need to take into account two issues:
 
 - We cannot use `broom::augment()` with spatial objects, so I need to assign clusters with `dplyr::mutate()`.
 - I have created a color palette `col_clust` using the divergent Brewer palette `Paired`, setting in grey the noise points.
@@ -115,13 +115,14 @@ ggplot(bcn_neigh) +
 
 Here is the result of the DBSCAN clustering:
 
-- Two large clusters: cluster `2` corresponds with the city downtown, and `3` with the more residential districts of Gràcia and Sant Gervasi. - Three medium-size clusters. Cluster `6` is located at the northern neighborhoods, mainly El Guinardó. Cluster `8` includes venues around Poblenou. Cluster `1` includes venues at Sants and Badal. 
-- Three small clusters. located at Eixample (cluster `4`), Vila Olímpica (cluster `7') and Horta (cluster `5`).
+- Two large clusters: cluster `2` corresponds with the city downtown, and `3` with the more residential districts of Gràcia and Sant Gervasi. 
+- Three medium-size clusters. Cluster `6` is located at the northern neighborhoods, mainly El Guinardó. Cluster `8` includes venues around Poblenou. Cluster `1` includes venues at Sants and Badal. 
+- Three small clusters, located at Eixample (cluster `4`), Vila Olímpica (cluster `7`) and Horta (cluster `5`).
 
 ## References
 
 - Ester, Martin, Hans-Peter Kriegel, Jörg Sander, Xiaowei Xu, et al. (1996). A Density-Based Algorithm for Discovering Clusters in Large Spatial Databases with Noise. In *Proceedings of 2nd International Conference on Knowledge Discovery and Data Mining (KDD-96)*, 226–231. <https://dl.acm.org/doi/10.5555/3001460.3001507>
-- Hahsler, M., Piekenbrock, M., & Doran, D. (2019). dbscan: Fast density-based clustering with R. *Journal of Statistical Software*, 91, 1-30.<https://doi.org/10.18637/jss.v091.i01>
+- Hahsler, M., Piekenbrock, M., & Doran, D. (2019). dbscan: Fast density-based clustering with R. *Journal of Statistical Software*, 91, 1-30. <https://doi.org/10.18637/jss.v091.i01>
 
 ## Session Info
 
