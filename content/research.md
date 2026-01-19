@@ -21,6 +21,36 @@ description: "A description of the page"
 
 *Here is a list of recent scientific publications. For an updated record, visit [Futur UPC](https://futur.upc.edu/JoseMariaSallanLeyes).*
 
+**2025**
+
+Sallan, J. M., & Lordan, O. (2025). University technology transfer: leveraging experiential learning and TTO’s resources. Small Business Economics, 64(1), 221-237. <https://doi.org/10.1007/s11187-024-00899-y>
+
+**2024**
+
+* Lafuente, E., & Sallan, J. M. (2024). Digitally powered solution delivery: The use of IoT and AI for transitioning towards a solution business model. International Journal of Production Economics, 277, 109383. <https://doi.org/10.1016/j.ijpe.2024.109383>
+
+* Pirayesh, H., & Sallan, J. M. (2024). Advancements in AI for Predicting Price Movements: An In-Depth Literature Survey. Journal of Financial Data Science, 6(4). <https://doi.org/10.3905/jfds.2024.1.172>
+
+* Xiang, J., Zhang, J., Cheng, T. C. E., Hua, G., & Sallan, J. M. (2024). The impact of suppliers’ overconfidence on the choice of auction formats under supply disruption. Expert Systems with Applications, 248, 123432. <https://doi.org/10.1016/j.eswa.2024.123432>
+
+* Ma, Y., Sallan, J. M., & Lordan, O. (2024). Rail transit networks and network motifs: a review and research agenda. Sustainability, 16(9), 3641. <https://doi.org/10.3390/su16093641>
+
+**2023**
+
+* Sallan, J. M., & Lordan, O. (2023). Recent trends in air transport research: A bibliometric analysis. Future Transportation, 3(3), 1046-1067. <https://doi.org/10.3390/futuretransp3030058>
+
+* Ma, Y., Sallan, J. M., & Lordan, O. (2023). Motif analysis of urban rail transit network. Physica A: Statistical Mechanics and its Applications, 625, 129016. <https://doi.org/10.1016/j.physa.2023.129016>
+
+* Kiliç, K., & Sallan, J. M. (2023). Study of delay prediction in the US airport network. Aerospace, 10(4), 342. <https://doi.org/10.3390/aerospace10040342>
+
+* Bombelli, A., & Sallan, J. M. (2023). Analysis of the effect of extreme weather on the US domestic air network. A delay and cancellation propagation network approach. Journal of Transport Geography, 107, 103541. <https://doi.org/10.1016/j.jtrangeo.2023.103541>
+
+
+**2022**
+
+* Birolini, S., Besana, E., Cattaneo, M., Redondi, R., & Sallan, J. M. (2022). An integrated connection planning and passenger allocation model for low-cost carriers. Journal of Air Transport Management, 99, 102160. 
+<https://doi.org/10.1016/j.jairtraman.2021.102160>
+
 **2021**
 
 * Grimaldi, D.; Bianca Villar, E.; Dupont, L.; Jose M Sallan & Carrasco-Farré, C. (2021). Governance, decision-making, and strategy for urban development. <https://doi.org/10.1016/B978-0-12-821122-9.00001-4>. In Grimaldi, D. & Carrasco-Farré, C.  Implementing Data-Driven Strategies in Smart Cities (47-87). Elsevier <https://doi.org/10.1016/C2019-0-01442-2>
@@ -32,6 +62,7 @@ description: "A description of the page"
 **2020**
 
 * Lordan, O. & Sallan, J. M. (2020). Dynamic measures for transportation networks. Plos one, 15(12), e0242875. <https://doi.org/10.1371/journal.pone.0242875>
+
 * Carreras-Maide, J.; Lordan, O. & Sallan, J. M. (2020). Cost savings from trajectory deviations in the European air space. Journal of air transport management, 88, 101887. <https://doi.org/10.1016/j.jairtraman.2020.101887>
 
 **2019**
