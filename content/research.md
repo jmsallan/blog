@@ -23,7 +23,7 @@ description: "A description of the page"
 
 **2025**
 
-Sallan, J. M., & Lordan, O. (2025). University technology transfer: leveraging experiential learning and TTO’s resources. Small Business Economics, 64(1), 221-237. <https://doi.org/10.1007/s11187-024-00899-y>
+* Sallan, J. M., & Lordan, O. (2025). University technology transfer: leveraging experiential learning and TTO’s resources. Small Business Economics, 64(1), 221-237. <https://doi.org/10.1007/s11187-024-00899-y>
 
 **2024**
 
