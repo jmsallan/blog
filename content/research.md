@@ -45,7 +45,6 @@ description: "A description of the page"
 
 * Bombelli, A., & Sallan, J. M. (2023). Analysis of the effect of extreme weather on the US domestic air network. A delay and cancellation propagation network approach. Journal of Transport Geography, 107, 103541. <https://doi.org/10.1016/j.jtrangeo.2023.103541>
 
-
 **2022**
 
 * Birolini, S., Besana, E., Cattaneo, M., Redondi, R., & Sallan, J. M. (2022). An integrated connection planning and passenger allocation model for low-cost carriers. Journal of Air Transport Management, 99, 102160. 

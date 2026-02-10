@@ -1,0 +1,187 @@
+---
+title: Error and Bias Prediction Metrics for Regression
+author: Jose M Sallan
+date: '2026-02-10'
+slug: error-and-bias-prediction-metrics-for-regression
+categories:
+  - R
+  - data analysis
+tags:
+  - linear regression
+  - machine learning
+  - tidymodels
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+A key step in any prediction job is to assess model performance of the prediction model. In the case of regression or numerical prediction, we aim to assess to what extent a model brings a prediction $\hat{y}_i$ close to the real value of the variable $y_i$. Let's see some metrics for regression using a simple modelling of the `ames` dataset. The dataset is available from the `modeldata` package of tidymodels.
+
+```{r, message=FALSE}
+library(tidymodels)
+data("ames")
+```
+
+As we are interested in illustrating performance metrics, I will code a very simple prediction model, based on linear regression. First, I am defining a stratified split of the dataset into train and test sets.
+
+```{r}
+set.seed(22)
+ames_split <- initial_split(ames, prop = 0.8, strata = "Sale_Price")
+```
+
+The `ames_rec` recipel collapses infrequent levels of factor variables,  filters variables of near zero variance and variables highly correlated with other variables. The resulting fitted model is `ames_lm`.
+
+```{r}
+ames_rec <- recipe(Sale_Price ~ ., training(ames_split)) |>
+  step_other(all_nominal_predictors(), threshold = 0.1) |>
+  step_nzv() |>
+  step_corr(all_numeric_predictors())
+
+lm <- linear_reg()
+
+ames_lm <- workflow() |>
+  add_recipe(ames_rec) |>
+  add_model(lm) |>
+  fit(training(ames_split))
+```
+
+The tidy structure of tidymodels functions allows defining easily an `ames_pred` table with the real `Sale_Price` values and the `.pred` estimates of the test set. 
+
+```{r, fig.align='center'}
+ames_pred <- ames_lm |>
+  predict(testing(ames_split)) |>
+  bind_cols(testing(ames_split)) |>
+  select(Sale_Price, .pred)
+```
+
+Then, I can plot the predicted values versus the real values.
+
+```{r, fig.align='center'}
+ames_pred |>
+  ggplot(aes(Sale_Price, .pred)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = "red") +
+  theme_minimal(base_size = 12)
+```
+
+I have added a 45 degrees line, so that perfect predictions are on that line. **Values over the line are overfitting**, as the predicted value is larger than the real value, and **values under the line are underfitting**, as the predicted value is smaller than the real value.
+
+Let's define some metrics to asses how good a prediction like this is. These metrics will refer to two properties of the prediction:
+
+- **Magnitude of error:** how large is the error respect to the values of the target variable.
+- **Bias of error:** the model tends to overfit or to underfit the target variable?
+
+## Measures of Magnitude of Error
+
+One of the most used metrics to asses magnitude of error is the root mean squared error (RMSE). Errors $y_i - \hat{y}_i$ are squared and averaged to make them all positive, and then the square root of the mean is extracted.
+
+$$ RMSE = \sqrt{\frac{1}{n} \sum_{i=1}^{n} \left(y_i - \hat{y}_i \right)^2} $$
+
+To make all error terms positive, we can also take the absolute value. The resulting metric is the **mean absolute error**.
+
+$$MAE = \sum_{i=1}^n \frac{\left| y_i - \hat{y}_i \right|}{n}$$
+
+Both metrics are roughly equivalent, although **RMSE is more sensitive to outliers than MAPE**. Then, a RMSE larger than MAPE is an indication of the presence of outliers in the prediction.
+
+RMSE and MAPE are expressed in the units of the target variable. This can make the results hard to interpret. A remedy is using the **mean absolute percentage error (MAPE)**. Each error is divided by the value of the target variable, so the mean is non-dimensional.
+
+$$ MAPE = \frac{100}{n} \sum_{i=1}^n \left| \frac{y_i - \hat{y}_i}{y_i} \right| $$
+
+Although it returns an intuitive metric of error, MAPE cannot be used with datasets where the target variable y can be zero or negative. For instance, MAPE cannot be used with temperature values if they are expressed in Celsius or Fahrenheit scales.
+
+As the target variable must be positive, a more subtle drawback of the metric appears. While $\hat{y}_i$ cannot go below zero, it has no upper value. So MAPE can yield values larger for overestimations than for underestimations. To account for this, we can use the **symmetric mean average percentage error (SMAPE)**. In this metric, the value of the variable is replaced by the mean of the variable and the prediction.
+
+$$ SMAPE = \frac{200}{n} \sum_{i=1}^n \left| \frac{y_i - \hat{y}_i}{y_i + \hat{y}_i} \right| $$
+
+The four metrics are available in yardstick, so we can define a `error_metrics()` function calculating these. Then, we can use if on `ames_pred` to obtain the metrics for our example.
+
+```{r}
+error_metrics <- metric_set(rmse, mae, mape, smape)
+
+ames_pred |>
+  error_metrics(truth = Sale_Price, estimate = .pred)
+```
+
+From the metrics obtained, we can estate that the prediction error of around 20,000 dollars, which is around 13% in percent. RMSE is larger than MAE, showing the presence of outliers. 
+
+## Measures of Bias of Error
+
+The metrics of bias inform if the model tens to overestimate or underestimate data. The most straight metric for bias is **the mean signed deviation (MSD)**. It is the average value of differences $y_i - \hat{y}_i$.
+
+$$ MSD = \sum_{i=1}^n \frac{y_i - \hat{y}_i}{n} $$
+
+This metric can have positive or negative values. A **negative** MSD means that the model tends to **overestimate** the target variable. A **positive** MSD indicates that the model tends to **underestimate** the target variable.
+
+Like RMSE or MAE, MSD is expressed in the units of the target variable. To obtain a non-dimensional value of bias, we can use the **mean percentage error (MPE)**.
+
+$$ MPE = \frac{100}{n} \sum_{i=1}^n \frac{y_i - \hat{y}_i}{y_i} $$
+
+MPE is subject to the same caveats than MAPE: the target variable should be strictly positive to make sense.
+
+As with error metrics, I have created a `bias_metrics()` function to obtain MSD and MPE, then I have applied the function to the example.
+
+```{r}
+bias_metrics <- metric_set(msd, mpe)
+
+ames_pred |>
+  bias_metrics(truth = Sale_Price, estimate = .pred)
+```
+
+Interestingly, we obtain a positive value of MSD and a negative value of MPE. To examine the bias of the model, I have created a scatterplot of the deviation `dev` versus `Sale_Price` with three additional lines:
+
+- a red line on zero, separating underestimation (above) and overestimation (below).
+- a blue line on the value of MSD.
+- a trend line with `geom_smooth()`.
+
+```{r, message=FALSE, fig.align='center'}
+ames_pred <- ames_pred |>
+  mutate(dev = Sale_Price - .pred)
+
+msd <- mean(ames_pred$dev)
+
+ames_pred |>
+  ggplot(aes(Sale_Price, dev)) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = "red") +
+  geom_hline(yintercept = msd, color = "blue") +
+  geom_smooth() + 
+  theme_minimal(base_size = 12)
+```
+
+In this graph, it can be seen that the value of MSD is relatively small respect to deviations, and that the model tends to overestimate observations with small values of `Sale_Price` and to underestimate observations with high values.
+
+To account for the differences between the two metrics, I have created a similar plot for deviation scaled by the target variable.
+
+```{r, message=FALSE, fig.align='center'}
+ames_pred <- ames_pred |>
+  mutate(p_dev = dev/Sale_Price)
+
+mpe <- mean(ames_pred$p_dev)
+
+ames_pred |>
+  ggplot(aes(Sale_Price, p_dev)) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = "red") +
+  geom_hline(yintercept = mpe, color = "blue") +
+  geom_smooth() + 
+  theme_minimal(base_size = 12)
+```
+
+Again, here we see the same pattern as in the previous graph, but here the underestimations of expensive houses look smaller, because they have been scaled with larger values. As a result, the positive terms have a smaller weight and the metric turns negative. Nevetheless, the value of the metric is of -1.52% (the value of the graph for the metric is -0.0152), so the bias reported by the metrics is quite small. This case is another example of the explanatory power of graphical representations, when they are possible to obtain, respect to metrics.
+
+## Reference
+
+- Metrics available in the `yardstick` package: <https://yardstick.tidymodels.org/reference/index.html>
+- Symmetric mean absolute percentage error  Wikipedia article <https://en.wikipedia.org/wiki/Symmetric_mean_absolute_percentage_error>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
+
