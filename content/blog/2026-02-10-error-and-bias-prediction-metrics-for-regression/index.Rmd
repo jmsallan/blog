@@ -67,12 +67,12 @@ ames_pred |>
   theme_minimal(base_size = 12)
 ```
 
-I have added a 45 degrees line, so that perfect predictions are on that line. **Values over the line are overfitting**, as the predicted value is larger than the real value, and **values under the line are underfitting**, as the predicted value is smaller than the real value.
+I have added a 45 degrees line, so that perfect predictions are on that line. **Values over the line are overpredicted**, as the predicted value is larger than the real value, and **values under the line are underpredicted**, as the predicted value is smaller than the real value. This representation of predicted versus observed values with the 45 degree line is called **calibration plot**.
 
 Let's define some metrics to asses how good a prediction like this is. These metrics will refer to two properties of the prediction:
 
 - **Magnitude of error:** how large is the error respect to the values of the target variable.
-- **Bias of error:** the model tends to overfit or to underfit the target variable?
+- **Bias of error:** the model tends to overpredict or to underpredict the target variable?
 
 ## Measures of Magnitude of Error
 
@@ -92,7 +92,7 @@ $$ MAPE = \frac{100}{n} \sum_{i=1}^n \left| \frac{y_i - \hat{y}_i}{y_i} \right| 
 
 Although it returns an intuitive metric of error, MAPE cannot be used with datasets where the target variable y can be zero or negative. For instance, MAPE cannot be used with temperature values if they are expressed in Celsius or Fahrenheit scales.
 
-As the target variable must be positive, a more subtle drawback of the metric appears. While $\hat{y}_i$ cannot go below zero, it has no upper value. So MAPE can yield values larger for overestimations than for underestimations. To account for this, we can use the **symmetric mean average percentage error (SMAPE)**. In this metric, the value of the variable is replaced by the mean of the variable and the prediction.
+As the target variable must be positive, a more subtle drawback of the metric appears. While $\hat{y}_i$ cannot go below zero, it has no upper value. So MAPE can yield values larger for overpredictions than for underpredictions. To account for this, we can use the **symmetric mean average percentage error (SMAPE)**. In this metric, the value of the variable is replaced by the mean of the variable and the prediction.
 
 $$ SMAPE = \frac{200}{n} \sum_{i=1}^n \left| \frac{y_i - \hat{y}_i}{y_i + \hat{y}_i} \right| $$
 
@@ -109,11 +109,11 @@ From the metrics obtained, we can estate that the prediction error of around 20,
 
 ## Measures of Bias of Error
 
-The metrics of bias inform if the model tens to overestimate or underestimate data. The most straight metric for bias is **the mean signed deviation (MSD)**. It is the average value of differences $y_i - \hat{y}_i$.
+The metrics of bias inform if the model tens to overpredict or underpredict data. The most straight metric for bias is **the mean signed deviation (MSD)**. It is the average value of differences $y_i - \hat{y}_i$.
 
 $$ MSD = \sum_{i=1}^n \frac{y_i - \hat{y}_i}{n} $$
 
-This metric can have positive or negative values. A **negative** MSD means that the model tends to **overestimate** the target variable. A **positive** MSD indicates that the model tends to **underestimate** the target variable.
+This metric can have positive or negative values. A **negative** MSD means that the model tends to **overpredict** the target variable. A **positive** MSD indicates that the model tends to **underpredict** the target variable.
 
 Like RMSE or MAE, MSD is expressed in the units of the target variable. To obtain a non-dimensional value of bias, we can use the **mean percentage error (MPE)**.
 
@@ -132,7 +132,7 @@ ames_pred |>
 
 Interestingly, we obtain a positive value of MSD and a negative value of MPE. To examine the bias of the model, I have created a scatterplot of the deviation `dev` versus `Sale_Price` with three additional lines:
 
-- a red line on zero, separating underestimation (above) and overestimation (below).
+- a red line on zero, separating underprediction (above) and overprediction (below).
 - a blue line on the value of MSD.
 - a trend line with `geom_smooth()`.
 
@@ -151,7 +151,7 @@ ames_pred |>
   theme_minimal(base_size = 12)
 ```
 
-In this graph, it can be seen that the value of MSD is relatively small respect to deviations, and that the model tends to overestimate observations with small values of `Sale_Price` and to underestimate observations with high values.
+In this graph, it can be seen that the value of MSD is relatively small respect to deviations, and that the model tends to overpredict observations with small values of `Sale_Price` and to underpredict observations with high values.
 
 To account for the differences between the two metrics, I have created a similar plot for deviation scaled by the target variable.
 
@@ -183,5 +183,5 @@ Again, here we see the same pattern as in the previous graph, but here the under
 sessionInfo()
 ```
 
-
+*Post modified on 2026-01-11. I would like to thank Jesse Onland for his valuous feedback.*
 

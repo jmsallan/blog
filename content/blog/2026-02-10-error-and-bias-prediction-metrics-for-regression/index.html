@@ -46,11 +46,11 @@ ames_lm &lt;- workflow() |&gt;
   geom_abline(slope = 1, intercept = 0, color = &quot;red&quot;) +
   theme_minimal(base_size = 12)</code></pre>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-5-1.png" width="672" style="display: block; margin: auto;" /></p>
-<p>I have added a 45 degrees line, so that perfect predictions are on that line. <strong>Values over the line are overfitting</strong>, as the predicted value is larger than the real value, and <strong>values under the line are underfitting</strong>, as the predicted value is smaller than the real value.</p>
+<p>I have added a 45 degrees line, so that perfect predictions are on that line. <strong>Values over the line are overpredicted</strong>, as the predicted value is larger than the real value, and <strong>values under the line are underpredicted</strong>, as the predicted value is smaller than the real value. This representation of predicted versus observed values with the 45 degree line is called <strong>calibration plot</strong>.</p>
 <p>Let’s define some metrics to asses how good a prediction like this is. These metrics will refer to two properties of the prediction:</p>
 <ul>
 <li><strong>Magnitude of error:</strong> how large is the error respect to the values of the target variable.</li>
-<li><strong>Bias of error:</strong> the model tends to overfit or to underfit the target variable?</li>
+<li><strong>Bias of error:</strong> the model tends to overpredict or to underpredict the target variable?</li>
 </ul>
 <div id="measures-of-magnitude-of-error" class="section level2">
 <h2>Measures of Magnitude of Error</h2>
@@ -62,7 +62,7 @@ ames_lm &lt;- workflow() |&gt;
 <p>RMSE and MAPE are expressed in the units of the target variable. This can make the results hard to interpret. A remedy is using the <strong>mean absolute percentage error (MAPE)</strong>. Each error is divided by the value of the target variable, so the mean is non-dimensional.</p>
 <p><span class="math display">\[ MAPE = \frac{100}{n} \sum_{i=1}^n \left| \frac{y_i - \hat{y}_i}{y_i} \right| \]</span></p>
 <p>Although it returns an intuitive metric of error, MAPE cannot be used with datasets where the target variable y can be zero or negative. For instance, MAPE cannot be used with temperature values if they are expressed in Celsius or Fahrenheit scales.</p>
-<p>As the target variable must be positive, a more subtle drawback of the metric appears. While <span class="math inline">\(\hat{y}_i\)</span> cannot go below zero, it has no upper value. So MAPE can yield values larger for overestimations than for underestimations. To account for this, we can use the <strong>symmetric mean average percentage error (SMAPE)</strong>. In this metric, the value of the variable is replaced by the mean of the variable and the prediction.</p>
+<p>As the target variable must be positive, a more subtle drawback of the metric appears. While <span class="math inline">\(\hat{y}_i\)</span> cannot go below zero, it has no upper value. So MAPE can yield values larger for overpredictions than for underpredictions. To account for this, we can use the <strong>symmetric mean average percentage error (SMAPE)</strong>. In this metric, the value of the variable is replaced by the mean of the variable and the prediction.</p>
 <p><span class="math display">\[ SMAPE = \frac{200}{n} \sum_{i=1}^n \left| \frac{y_i - \hat{y}_i}{y_i + \hat{y}_i} \right| \]</span></p>
 <p>The four metrics are available in yardstick, so we can define a <code>error_metrics()</code> function calculating these. Then, we can use if on <code>ames_pred</code> to obtain the metrics for our example.</p>
 <pre class="r"><code>error_metrics &lt;- metric_set(rmse, mae, mape, smape)
@@ -80,9 +80,9 @@ ames_pred |&gt;
 </div>
 <div id="measures-of-bias-of-error" class="section level2">
 <h2>Measures of Bias of Error</h2>
-<p>The metrics of bias inform if the model tens to overestimate or underestimate data. The most straight metric for bias is <strong>the mean signed deviation (MSD)</strong>. It is the average value of differences <span class="math inline">\(y_i - \hat{y}_i\)</span>.</p>
+<p>The metrics of bias inform if the model tens to overpredict or underpredict data. The most straight metric for bias is <strong>the mean signed deviation (MSD)</strong>. It is the average value of differences <span class="math inline">\(y_i - \hat{y}_i\)</span>.</p>
 <p><span class="math display">\[ MSD = \sum_{i=1}^n \frac{y_i - \hat{y}_i}{n} \]</span></p>
-<p>This metric can have positive or negative values. A <strong>negative</strong> MSD means that the model tends to <strong>overestimate</strong> the target variable. A <strong>positive</strong> MSD indicates that the model tends to <strong>underestimate</strong> the target variable.</p>
+<p>This metric can have positive or negative values. A <strong>negative</strong> MSD means that the model tends to <strong>overpredict</strong> the target variable. A <strong>positive</strong> MSD indicates that the model tends to <strong>underpredict</strong> the target variable.</p>
 <p>Like RMSE or MAE, MSD is expressed in the units of the target variable. To obtain a non-dimensional value of bias, we can use the <strong>mean percentage error (MPE)</strong>.</p>
 <p><span class="math display">\[ MPE = \frac{100}{n} \sum_{i=1}^n \frac{y_i - \hat{y}_i}{y_i} \]</span></p>
 <p>MPE is subject to the same caveats than MAPE: the target variable should be strictly positive to make sense.</p>
@@ -98,7 +98,7 @@ ames_pred |&gt;
 ## 2 mpe     standard       -1.52</code></pre>
 <p>Interestingly, we obtain a positive value of MSD and a negative value of MPE. To examine the bias of the model, I have created a scatterplot of the deviation <code>dev</code> versus <code>Sale_Price</code> with three additional lines:</p>
 <ul>
-<li>a red line on zero, separating underestimation (above) and overestimation (below).</li>
+<li>a red line on zero, separating underprediction (above) and overprediction (below).</li>
 <li>a blue line on the value of MSD.</li>
 <li>a trend line with <code>geom_smooth()</code>.</li>
 </ul>
@@ -115,7 +115,7 @@ ames_pred |&gt;
   geom_smooth() + 
   theme_minimal(base_size = 12)</code></pre>
 <p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-8-1.png" width="672" style="display: block; margin: auto;" /></p>
-<p>In this graph, it can be seen that the value of MSD is relatively small respect to deviations, and that the model tends to overestimate observations with small values of <code>Sale_Price</code> and to underestimate observations with high values.</p>
+<p>In this graph, it can be seen that the value of MSD is relatively small respect to deviations, and that the model tends to overpredict observations with small values of <code>Sale_Price</code> and to underpredict observations with high values.</p>
 <p>To account for the differences between the two metrics, I have created a similar plot for deviation scaled by the target variable.</p>
 <pre class="r"><code>ames_pred &lt;- ames_pred |&gt;
   mutate(p_dev = dev/Sale_Price)
@@ -195,4 +195,5 @@ ames_pred |&gt;
 ## [64] backports_1.5.0     bslib_0.9.0         class_7.3-23       
 ## [67] Rcpp_1.1.0          nlme_3.1-168        prodlim_2024.06.25 
 ## [70] mgcv_1.9-4          xfun_0.52           pkgconfig_2.0.3</code></pre>
+<p><em>Post modified on 2026-01-11. I would like to thank Jesse Onland for his valuous feedback.</em></p>
 </div>

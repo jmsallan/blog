@@ -130,5 +130,3 @@ Here is the result of the DBSCAN clustering:
 sessionInfo()
 ```
 
-
-
