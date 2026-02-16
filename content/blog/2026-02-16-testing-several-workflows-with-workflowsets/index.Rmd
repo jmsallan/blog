@@ -1,0 +1,244 @@
+---
+title: Testing several workflows with workflowsets
+author: Jose M Sallan
+date: '2026-02-16'
+slug: testing-several-workflows-with-workflowsets
+categories:
+  - R
+tags:
+  - logistic regression
+  - machine learning
+  - tidymodels
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In the tidymodels framework, a prediction job usually consists of a preprocessing recipe and the application of a model to the preprocessed data set. The use of recipes allows applying the preprocessing to any test data to be assessed, using parameters of the train set to avoid data leaking.
+
+A particularly hard problem to tackle are **unbalanced classification problems**, where the levels of the target variable appear with different probabilities. In problems like credit card fraud prediction or attrition prediction, it is critical to predict correctly the less like level of the target variable (i.e., the existence of fraud or employee attrition). As models tend to overestimate the probability of the majority class, some specific steps must be taken to foster model quality. A frequent strategy (no the only one) to achieve this is to train models with a balanced dataset. This is achieved either by **oversampling** (adding artificial data of the minority class) or by **undersampling** (removing a fraction of the data of the majority class). In tidymodels, this is done with the pre-processing steps delivered by the `themis` package.
+
+The recipe and the model are put together with functions of the `workflows` package. If we are using more than one combination of preprocessing and model, it can be useful to test them at once. We can do that with the functionalities of the `workflowsets` package.
+
+The performance of a specific model may depend on specific parameters that cannot be learned from the training set, called hyperparameters. In tidymodels, **hyperparameter tuning** is performed with the `tune:tune_grid()` function. This process can be guided through functions of the `dials` package, such as `dials:grid_regular()`.
+
+In this post, I will present a tidymodels workflow to predict employee attrition with the `attrition` dataset from `modeldata`. The workflow test the combination of three pre-processing recipes and a logistic regression model using the `glmnet` package that implements regularized regression. The recipes include oversampling and undersampling, and the best version of the regularized regression model is obtained through hyperparameter tuning. Then, we are using workflow sets and a regular tuning grid scheme.
+
+Let's start loading the packages we need and the dataset.
+
+```{r, message=FALSE}
+library(tidymodels)
+library(themis)
+
+data("attrition")
+```
+
+I will set the positive case as first level of the target variable to get the right values of sensitivity and specificity.
+
+```{r}
+attrition <- attrition |>
+  mutate(Attrition = factor(Attrition, levels = c("Yes", "No")))
+```
+
+Doing a barplot we confirm that the dataset is unbalanced.
+
+```{r, fig.align='center'}
+attrition |>
+  ggplot(aes(Attrition)) +
+  geom_bar()
+```
+
+As the dataset is relatively small, I am assigning a 85% to train and 15% to test. Samples are obtained with stratification of the target variable.
+
+```{r}
+set.seed(11)
+at_split <- initial_split(attrition, prop = 0.85, strata = "Attrition")
+```
+
+## Pre-processing
+
+I am setting three pre-processing recipes:
+
+- A baseline recipe `at_rec`. It includes the `step_nzv()` and `step_corr()` filters. Oversampling schemes and the `glmnet` functions work with numerical variables only, so I include a step_dummy() step to transform each nominal predictor into a set of dummy variables.
+- An undersampling recipe `at_downsample`, obtained by adding `step_downsample()` to the baseline.
+- An oversampling recipe `at_oversample`, adding now `step_smote()`.
+
+```{r}
+at_rec <- recipe(Attrition ~ ., training(at_split)) |>
+  step_nzv(all_predictors()) |>
+  step_corr(all_numeric_predictors()) |>
+  step_dummy(all_nominal_predictors())
+
+at_downsample <- at_rec |>
+  step_downsample(Attrition, under_ratio = 1)
+
+at_oversample <- at_rec |>
+  step_smote(Attrition, over_ratio = 1)
+```
+
+## The model
+
+The dataset has many variables, and adding all of them can result in a noisy model. Regularized regression tackles that automating feature selection by adding penalty terms to the squared sum of regressions. In **lasso** (L1) regression the term is equal to the sum of absolute values of coefficients and in **ridge** regression (L2) is equal to the sum of squared coefficients. While L1 regression tends to set some coefficients to zero, L2 tends to reduce coefficient values for noisy variables. Both terms can be combined in a model, so we have **elastic nets**.
+
+In `parsnip`, `logistic_reg()` with `glmmet` has two tuning parameters:
+
+- the amount of regularization `penalty`.
+- the proportion of lasso penalty `mixture`, so `mixture = 1` means L1 regression, `mixture = 0` L2 regression and intermediate values elastic nets. In the `lr` model, we set the values to be tuned with `tune()`.
+
+```{r}
+lr <- logistic_reg(mode = "classification",
+                   engine = "glmnet",
+                   penalty = tune(),
+                   mixture = tune())
+```
+
+The functions of the `grid` package provide typical values for tuning parameters. `lr_grid` is a regular grid of 5 levels of each parameter, so there are 25 combinations of tuning parameters to be tested.
+
+```{r}
+lr_grid <- grid_regular(penalty(),
+                        mixture(),
+                        levels = 5)
+```
+
+
+## Folds and Metrics
+
+To test each combination of tuning parameters for a workflow, I am defining a cross validation scheme with six folds of the training set. These are also stratified by the target variable.
+
+```{r} 
+set.seed(44)
+folds <- vfold_cv(training(at_split), v= 6, strata = "Attrition")
+```
+
+To assess performance, I addition to accuracy, sensitivity and specifity I am using the **J-index**, equal to sensitivity plus specificity minus one. I will obtained these metrics with a tailored `class_metrics()` function.
+
+```{r}
+class_metrics <- metric_set(accuracy, sens, spec, j_index)
+
+```
+
+## Building and Testing Workflow Sets
+
+We need to test three different workflows: the combination of the recipes `at_rec`, `at_downsample` and `at_oversample` with the model `lr`. We can evaluate them jointly using the `workflowsets` package:
+
+- the `workflowsets::workflow_set()` function creates the objects.
+- the `workflowsets::workflow_map()` evaluates the workflowset with a tuning function, in this case `tune::tune_grid()`.
+
+We define the workflowsets `lr_wfs` doing:
+
+```{r}
+lr_wfs <- workflow_set(
+  preproc = list(normal = at_rec, under = at_downsample, over = at_oversample),
+  models = list(lr = lr),
+  cross = TRUE
+)
+```
+
+And evaluate the models of the workflowset, storing the result at `lr_models`, doing:
+
+```{r}
+lr_models <- lr_wfs |>
+  option_add(control = control_grid(save_workflow = TRUE)) |>
+  workflow_map("tune_grid",
+               resamples = folds,
+               grid = lr_grid,
+               metrics = class_metrics,
+               verbose = TRUE)
+```
+
+As I want to examine the detail of the running of each workflow, I have used `workflowsets::option_add()` to save the resulting workflows.
+
+## Obtaining the best model
+
+Let's see the best results with `workflowsets::rank_results()`. I want a good balance between sensitivy and specificity, so I am using the J-index as ranking criterion.
+
+```{r}
+rank_results(lr_models, 
+             rank_metric = "j_index", select_best = TRUE)
+```
+
+The best results are obtained with oversampling. Then, I estract these results with `workflowsets::extract_workflow()`.
+
+```{r}
+over_lr_results <- extract_workflow_set_result(lr_models, 
+                                                id = "over_lr")
+
+over_lr_results |>
+  collect_metrics()
+```
+
+It is usual to plot each metric against the tuning parameters of a workflow. Here I am doing this with the `over_lr` workflow.
+
+```{r, fig.align='center'}
+over_lr_results |>
+  collect_metrics() |>
+  mutate(mixture = as.factor(mixture)) |>
+  ggplot(aes(penalty, mean, color = mixture)) +
+  geom_line() +
+  scale_x_log10() +
+  facet_grid(.metric ~ .) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "bottom") +
+  labs(y = NULL, x = NULL)
+```
+
+Let's list the best results of oversampling with `tune::show_best()`. Here we are obtaining the specific value of the tuning parameters.
+
+```{r}
+show_best(over_lr_results, metric = "j_index")
+```
+
+With `tune::select_best()` we pick the best values of hyperparameters.
+
+```{r}
+lr_best <- over_lr_results |>
+  select_best(metric = "j_index")
+lr_best
+```
+
+The functions `tune::show_best()` and `tune::select_best()` work with workflows only, that's why it is convenient to extract the best workflow from the set.
+
+Let's fit the final model:
+
+```{r}
+lr_final_model <- fit_best(over_lr_results, metric = "j_index")
+```
+
+The metrics on the test set are:
+
+```{r}
+lr_final_model |>
+  predict(testing(at_split)) |>
+  bind_cols(testing(at_split)) |>
+  class_metrics(truth = Attrition, estimate = .pred_class)
+```
+
+As usual, the metrics on the test set are slightly better than with cross validation, as the model is built with the whole train set. Let's see the confusion matrix:
+
+```{r}
+lr_final_model |>
+  predict(testing(at_split)) |>
+  bind_cols(testing(at_split)) |>
+  conf_mat(truth = Attrition, estimate = .pred_class)
+```
+
+Considering the size of the dataset, the results obtained predicting train and test sets are fairly good. In this kind of problems, it is important to rely on a metric that evaluates sensitivity and specificty simultaneously. If not, it is usual to obain models that assign the same level of the target variable to any testing instance.
+
+
+## References
+
+- `themis` website: <https://themis.tidymodels.org/>
+- logistic regression via glmnet <https://parsnip.tidymodels.org/reference/details_logistic_reg_glmnet.html>.
+- technical aspects of the `glmnet` model <https://parsnip.tidymodels.org/reference/glmnet-details.html>.
+- Youden's J-index <https://yardstick.tidymodels.org/reference/j_index.html>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+

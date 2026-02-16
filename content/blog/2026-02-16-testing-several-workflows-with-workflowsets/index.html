@@ -1,0 +1,275 @@
+---
+title: Testing several workflows with workflowsets
+author: Jose M Sallan
+date: '2026-02-16'
+slug: testing-several-workflows-with-workflowsets
+categories:
+  - R
+tags:
+  - logistic regression
+  - machine learning
+  - tidymodels
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>In the tidymodels framework, a prediction job usually consists of a preprocessing recipe and the application of a model to the preprocessed data set. The use of recipes allows applying the preprocessing to any test data to be assessed, using parameters of the train set to avoid data leaking.</p>
+<p>A particularly hard problem to tackle are <strong>unbalanced classification problems</strong>, where the levels of the target variable appear with different probabilities. In problems like credit card fraud prediction or attrition prediction, it is critical to predict correctly the less like level of the target variable (i.e., the existence of fraud or employee attrition). As models tend to overestimate the probability of the majority class, some specific steps must be taken to foster model quality. A frequent strategy (no the only one) to achieve this is to train models with a balanced dataset. This is achieved either by <strong>oversampling</strong> (adding artificial data of the minority class) or by <strong>undersampling</strong> (removing a fraction of the data of the majority class). In tidymodels, this is done with the pre-processing steps delivered by the <code>themis</code> package.</p>
+<p>The recipe and the model are put together with functions of the <code>workflows</code> package. If we are using more than one combination of preprocessing and model, it can be useful to test them at once. We can do that with the functionalities of the <code>workflowsets</code> package.</p>
+<p>The performance of a specific model may depend on specific parameters that cannot be learned from the training set, called hyperparameters. In tidymodels, <strong>hyperparameter tuning</strong> is performed with the <code>tune:tune_grid()</code> function. This process can be guided through functions of the <code>dials</code> package, such as <code>dials:grid_regular()</code>.</p>
+<p>In this post, I will present a tidymodels workflow to predict employee attrition with the <code>attrition</code> dataset from <code>modeldata</code>. The workflow test the combination of three pre-processing recipes and a logistic regression model using the <code>glmnet</code> package that implements regularized regression. The recipes include oversampling and undersampling, and the best version of the regularized regression model is obtained through hyperparameter tuning. Then, we are using workflow sets and a regular tuning grid scheme.</p>
+<p>Let’s start loading the packages we need and the dataset.</p>
+<pre class="r"><code>library(tidymodels)
+library(themis)
+
+data(&quot;attrition&quot;)</code></pre>
+<p>I will set the positive case as first level of the target variable to get the right values of sensitivity and specificity.</p>
+<pre class="r"><code>attrition &lt;- attrition |&gt;
+  mutate(Attrition = factor(Attrition, levels = c(&quot;Yes&quot;, &quot;No&quot;)))</code></pre>
+<p>Doing a barplot we confirm that the dataset is unbalanced.</p>
+<pre class="r"><code>attrition |&gt;
+  ggplot(aes(Attrition)) +
+  geom_bar()</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>As the dataset is relatively small, I am assigning a 85% to train and 15% to test. Samples are obtained with stratification of the target variable.</p>
+<pre class="r"><code>set.seed(11)
+at_split &lt;- initial_split(attrition, prop = 0.85, strata = &quot;Attrition&quot;)</code></pre>
+<div id="pre-processing" class="section level2">
+<h2>Pre-processing</h2>
+<p>I am setting three pre-processing recipes:</p>
+<ul>
+<li>A baseline recipe <code>at_rec</code>. It includes the <code>step_nzv()</code> and <code>step_corr()</code> filters. Oversampling schemes and the <code>glmnet</code> functions work with numerical variables only, so I include a step_dummy() step to transform each nominal predictor into a set of dummy variables.</li>
+<li>An undersampling recipe <code>at_downsample</code>, obtained by adding <code>step_downsample()</code> to the baseline.</li>
+<li>An oversampling recipe <code>at_oversample</code>, adding now <code>step_smote()</code>.</li>
+</ul>
+<pre class="r"><code>at_rec &lt;- recipe(Attrition ~ ., training(at_split)) |&gt;
+  step_nzv(all_predictors()) |&gt;
+  step_corr(all_numeric_predictors()) |&gt;
+  step_dummy(all_nominal_predictors())
+
+at_downsample &lt;- at_rec |&gt;
+  step_downsample(Attrition, under_ratio = 1)
+
+at_oversample &lt;- at_rec |&gt;
+  step_smote(Attrition, over_ratio = 1)</code></pre>
+</div>
+<div id="the-model" class="section level2">
+<h2>The model</h2>
+<p>The dataset has many variables, and adding all of them can result in a noisy model. Regularized regression tackles that automating feature selection by adding penalty terms to the squared sum of regressions. In <strong>lasso</strong> (L1) regression the term is equal to the sum of absolute values of coefficients and in <strong>ridge</strong> regression (L2) is equal to the sum of squared coefficients. While L1 regression tends to set some coefficients to zero, L2 tends to reduce coefficient values for noisy variables. Both terms can be combined in a model, so we have <strong>elastic nets</strong>.</p>
+<p>In <code>parsnip</code>, <code>logistic_reg()</code> with <code>glmmet</code> has two tuning parameters:</p>
+<ul>
+<li>the amount of regularization <code>penalty</code>.</li>
+<li>the proportion of lasso penalty <code>mixture</code>, so <code>mixture = 1</code> means L1 regression, <code>mixture = 0</code> L2 regression and intermediate values elastic nets. In the <code>lr</code> model, we set the values to be tuned with <code>tune()</code>.</li>
+</ul>
+<pre class="r"><code>lr &lt;- logistic_reg(mode = &quot;classification&quot;,
+                   engine = &quot;glmnet&quot;,
+                   penalty = tune(),
+                   mixture = tune())</code></pre>
+<p>The functions of the <code>grid</code> package provide typical values for tuning parameters. <code>lr_grid</code> is a regular grid of 5 levels of each parameter, so there are 25 combinations of tuning parameters to be tested.</p>
+<pre class="r"><code>lr_grid &lt;- grid_regular(penalty(),
+                        mixture(),
+                        levels = 5)</code></pre>
+</div>
+<div id="folds-and-metrics" class="section level2">
+<h2>Folds and Metrics</h2>
+<p>To test each combination of tuning parameters for a workflow, I am defining a cross validation scheme with six folds of the training set. These are also stratified by the target variable.</p>
+<pre class="r"><code>set.seed(44)
+folds &lt;- vfold_cv(training(at_split), v= 6, strata = &quot;Attrition&quot;)</code></pre>
+<p>To assess performance, I addition to accuracy, sensitivity and specifity I am using the <strong>J-index</strong>, equal to sensitivity plus specificity minus one. I will obtained these metrics with a tailored <code>class_metrics()</code> function.</p>
+<pre class="r"><code>class_metrics &lt;- metric_set(accuracy, sens, spec, j_index)</code></pre>
+</div>
+<div id="building-and-testing-workflow-sets" class="section level2">
+<h2>Building and Testing Workflow Sets</h2>
+<p>We need to test three different workflows: the combination of the recipes <code>at_rec</code>, <code>at_downsample</code> and <code>at_oversample</code> with the model <code>lr</code>. We can evaluate them jointly using the <code>workflowsets</code> package:</p>
+<ul>
+<li>the <code>workflowsets::workflow_set()</code> function creates the objects.</li>
+<li>the <code>workflowsets::workflow_map()</code> evaluates the workflowset with a tuning function, in this case <code>tune::tune_grid()</code>.</li>
+</ul>
+<p>We define the workflowsets <code>lr_wfs</code> doing:</p>
+<pre class="r"><code>lr_wfs &lt;- workflow_set(
+  preproc = list(normal = at_rec, under = at_downsample, over = at_oversample),
+  models = list(lr = lr),
+  cross = TRUE
+)</code></pre>
+<p>And evaluate the models of the workflowset, storing the result at <code>lr_models</code>, doing:</p>
+<pre class="r"><code>lr_models &lt;- lr_wfs |&gt;
+  option_add(control = control_grid(save_workflow = TRUE)) |&gt;
+  workflow_map(&quot;tune_grid&quot;,
+               resamples = folds,
+               grid = lr_grid,
+               metrics = class_metrics,
+               verbose = TRUE)</code></pre>
+<pre><code>## i 1 of 3 tuning:     normal_lr</code></pre>
+<pre><code>## ✔ 1 of 3 tuning:     normal_lr (4.9s)</code></pre>
+<pre><code>## i 2 of 3 tuning:     under_lr</code></pre>
+<pre><code>## ✔ 2 of 3 tuning:     under_lr (3.7s)</code></pre>
+<pre><code>## i 3 of 3 tuning:     over_lr</code></pre>
+<pre><code>## ✔ 3 of 3 tuning:     over_lr (7s)</code></pre>
+<p>As I want to examine the detail of the running of each workflow, I have used <code>workflowsets::option_add()</code> to save the resulting workflows.</p>
+</div>
+<div id="obtaining-the-best-model" class="section level2">
+<h2>Obtaining the best model</h2>
+<p>Let’s see the best results with <code>workflowsets::rank_results()</code>. I want a good balance between sensitivy and specificity, so I am using the J-index as ranking criterion.</p>
+<pre class="r"><code>rank_results(lr_models, 
+             rank_metric = &quot;j_index&quot;, select_best = TRUE)</code></pre>
+<pre><code>## # A tibble: 12 × 9
+##    wflow_id  .config        .metric  mean std_err     n preprocessor model  rank
+##    &lt;chr&gt;     &lt;chr&gt;          &lt;chr&gt;   &lt;dbl&gt;   &lt;dbl&gt; &lt;int&gt; &lt;chr&gt;        &lt;chr&gt; &lt;int&gt;
+##  1 over_lr   Preprocessor1… accura… 0.777 0.0186      6 recipe       logi…     1
+##  2 over_lr   Preprocessor1… j_index 0.497 0.0648      6 recipe       logi…     1
+##  3 over_lr   Preprocessor1… sens    0.706 0.0545      6 recipe       logi…     1
+##  4 over_lr   Preprocessor1… spec    0.791 0.0135      6 recipe       logi…     1
+##  5 under_lr  Preprocessor1… accura… 0.725 0.00796     6 recipe       logi…     2
+##  6 under_lr  Preprocessor1… j_index 0.470 0.0355      6 recipe       logi…     2
+##  7 under_lr  Preprocessor1… sens    0.750 0.0388      6 recipe       logi…     2
+##  8 under_lr  Preprocessor1… spec    0.719 0.0101      6 recipe       logi…     2
+##  9 normal_lr Preprocessor1… accura… 0.880 0.00910     6 recipe       logi…     3
+## 10 normal_lr Preprocessor1… j_index 0.366 0.0349      6 recipe       logi…     3
+## 11 normal_lr Preprocessor1… sens    0.393 0.0298      6 recipe       logi…     3
+## 12 normal_lr Preprocessor1… spec    0.973 0.00570     6 recipe       logi…     3</code></pre>
+<p>The best results are obtained with oversampling. Then, I estract these results with <code>workflowsets::extract_workflow()</code>.</p>
+<pre class="r"><code>over_lr_results &lt;- extract_workflow_set_result(lr_models, 
+                                                id = &quot;over_lr&quot;)
+
+over_lr_results |&gt;
+  collect_metrics()</code></pre>
+<pre><code>## # A tibble: 100 × 8
+##         penalty mixture .metric  .estimator  mean     n std_err .config         
+##           &lt;dbl&gt;   &lt;dbl&gt; &lt;chr&gt;    &lt;chr&gt;      &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt; &lt;chr&gt;           
+##  1 0.0000000001       0 accuracy binary     0.765     6  0.0176 Preprocessor1_M…
+##  2 0.0000000001       0 j_index  binary     0.478     6  0.0580 Preprocessor1_M…
+##  3 0.0000000001       0 sens     binary     0.701     6  0.0495 Preprocessor1_M…
+##  4 0.0000000001       0 spec     binary     0.778     6  0.0147 Preprocessor1_M…
+##  5 0.0000000316       0 accuracy binary     0.765     6  0.0176 Preprocessor1_M…
+##  6 0.0000000316       0 j_index  binary     0.478     6  0.0580 Preprocessor1_M…
+##  7 0.0000000316       0 sens     binary     0.701     6  0.0495 Preprocessor1_M…
+##  8 0.0000000316       0 spec     binary     0.778     6  0.0147 Preprocessor1_M…
+##  9 0.00001            0 accuracy binary     0.765     6  0.0176 Preprocessor1_M…
+## 10 0.00001            0 j_index  binary     0.478     6  0.0580 Preprocessor1_M…
+## # ℹ 90 more rows</code></pre>
+<p>It is usual to plot each metric against the tuning parameters of a workflow. Here I am doing this with the <code>over_lr</code> workflow.</p>
+<pre class="r"><code>over_lr_results |&gt;
+  collect_metrics() |&gt;
+  mutate(mixture = as.factor(mixture)) |&gt;
+  ggplot(aes(penalty, mean, color = mixture)) +
+  geom_line() +
+  scale_x_log10() +
+  facet_grid(.metric ~ .) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = &quot;bottom&quot;) +
+  labs(y = NULL, x = NULL)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-14-1.png" width="672" style="display: block; margin: auto;" /></p>
+<p>Let’s list the best results of oversampling with <code>tune::show_best()</code>. Here we are obtaining the specific value of the tuning parameters.</p>
+<pre class="r"><code>show_best(over_lr_results, metric = &quot;j_index&quot;)</code></pre>
+<pre><code>## # A tibble: 5 × 8
+##        penalty mixture .metric .estimator  mean     n std_err .config           
+##          &lt;dbl&gt;   &lt;dbl&gt; &lt;chr&gt;   &lt;chr&gt;      &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt; &lt;chr&gt;             
+## 1 0.0000000001    0.5  j_index binary     0.497     6  0.0648 Preprocessor1_Mod…
+## 2 0.0000000316    0.5  j_index binary     0.497     6  0.0648 Preprocessor1_Mod…
+## 3 0.00001         0.5  j_index binary     0.497     6  0.0648 Preprocessor1_Mod…
+## 4 0.0000000001    0.25 j_index binary     0.496     6  0.0645 Preprocessor1_Mod…
+## 5 0.0000000316    0.25 j_index binary     0.496     6  0.0645 Preprocessor1_Mod…</code></pre>
+<p>With <code>tune::select_best()</code> we pick the best values of hyperparameters.</p>
+<pre class="r"><code>lr_best &lt;- over_lr_results |&gt;
+  select_best(metric = &quot;j_index&quot;)
+lr_best</code></pre>
+<pre><code>## # A tibble: 1 × 3
+##        penalty mixture .config              
+##          &lt;dbl&gt;   &lt;dbl&gt; &lt;chr&gt;                
+## 1 0.0000000001     0.5 Preprocessor1_Model11</code></pre>
+<p>The functions <code>tune::show_best()</code> and <code>tune::select_best()</code> work with workflows only, that’s why it is convenient to extract the best workflow from the set.</p>
+<p>Let’s fit the final model:</p>
+<pre class="r"><code>lr_final_model &lt;- fit_best(over_lr_results, metric = &quot;j_index&quot;)</code></pre>
+<p>The metrics on the test set are:</p>
+<pre class="r"><code>lr_final_model |&gt;
+  predict(testing(at_split)) |&gt;
+  bind_cols(testing(at_split)) |&gt;
+  class_metrics(truth = Attrition, estimate = .pred_class)</code></pre>
+<pre><code>## # A tibble: 4 × 3
+##   .metric  .estimator .estimate
+##   &lt;chr&gt;    &lt;chr&gt;          &lt;dbl&gt;
+## 1 accuracy binary         0.783
+## 2 sens     binary         0.806
+## 3 spec     binary         0.778
+## 4 j_index  binary         0.584</code></pre>
+<p>As usual, the metrics on the test set are slightly better than with cross validation, as the model is built with the whole train set. Let’s see the confusion matrix:</p>
+<pre class="r"><code>lr_final_model |&gt;
+  predict(testing(at_split)) |&gt;
+  bind_cols(testing(at_split)) |&gt;
+  conf_mat(truth = Attrition, estimate = .pred_class)</code></pre>
+<pre><code>##           Truth
+## Prediction Yes  No
+##        Yes  29  41
+##        No    7 144</code></pre>
+<p>Considering the size of the dataset, the results obtained predicting train and test sets are fairly good. In this kind of problems, it is important to rely on a metric that evaluates sensitivity and specificty simultaneously. If not, it is usual to obain models that assign the same level of the target variable to any testing instance.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li><code>themis</code> website: <a href="https://themis.tidymodels.org/" class="uri">https://themis.tidymodels.org/</a></li>
+<li>logistic regression via glmnet <a href="https://parsnip.tidymodels.org/reference/details_logistic_reg_glmnet.html" class="uri">https://parsnip.tidymodels.org/reference/details_logistic_reg_glmnet.html</a>.</li>
+<li>technical aspects of the <code>glmnet</code> model <a href="https://parsnip.tidymodels.org/reference/glmnet-details.html" class="uri">https://parsnip.tidymodels.org/reference/glmnet-details.html</a>.</li>
+<li>Youden’s J-index <a href="https://yardstick.tidymodels.org/reference/j_index.html" class="uri">https://yardstick.tidymodels.org/reference/j_index.html</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.5.2 (2025-10-31)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0  LAPACK version 3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] glmnet_4.1-8       Matrix_1.7-4       themis_1.0.3       yardstick_1.3.2   
+##  [5] workflowsets_1.1.0 workflows_1.2.0    tune_1.3.0         tidyr_1.3.1       
+##  [9] tibble_3.3.0       rsample_1.3.0      recipes_1.3.0      purrr_1.2.0       
+## [13] parsnip_1.3.1      modeldata_1.4.0    infer_1.0.8        ggplot2_4.0.0     
+## [17] dplyr_1.1.4        dials_1.4.0        scales_1.4.0       broom_1.0.10      
+## [21] tidymodels_1.3.0  
+## 
+## loaded via a namespace (and not attached):
+##  [1] tidyselect_1.2.1    timeDate_4041.110   farver_2.1.2       
+##  [4] S7_0.2.0            fastmap_1.2.0       RANN_2.6.2         
+##  [7] blogdown_1.21       digest_0.6.37       rpart_4.1.24       
+## [10] timechange_0.3.0    lifecycle_1.0.4     survival_3.8-6     
+## [13] magrittr_2.0.4      compiler_4.5.2      rlang_1.1.6        
+## [16] sass_0.4.10         tools_4.5.2         utf8_1.2.4         
+## [19] yaml_2.3.10         data.table_1.17.8   knitr_1.50         
+## [22] prettyunits_1.2.0   labeling_0.4.3      DiceDesign_1.10    
+## [25] RColorBrewer_1.1-3  withr_3.0.2         nnet_7.3-20        
+## [28] grid_4.5.2          sparsevctrs_0.3.3   future_1.40.0      
+## [31] globals_0.17.0      iterators_1.0.14    MASS_7.3-65        
+## [34] cli_3.6.4           rmarkdown_2.29      generics_0.1.3     
+## [37] rstudioapi_0.17.1   future.apply_1.11.3 cachem_1.1.0       
+## [40] splines_4.5.2       parallel_4.5.2      vctrs_0.6.5        
+## [43] hardhat_1.4.1       jsonlite_2.0.0      bookdown_0.43      
+## [46] listenv_0.9.1       foreach_1.5.2       gower_1.0.2        
+## [49] jquerylib_0.1.4     glue_1.8.0          parallelly_1.43.0  
+## [52] codetools_0.2-19    shape_1.4.6.1       lubridate_1.9.4    
+## [55] gtable_0.3.6        GPfit_1.0-9         ROSE_0.0-4         
+## [58] pillar_1.11.1       furrr_0.3.1         htmltools_0.5.8.1  
+## [61] ipred_0.9-15        lava_1.8.1          R6_2.6.1           
+## [64] lhs_1.2.0           evaluate_1.0.3      lattice_0.22-5     
+## [67] backports_1.5.0     bslib_0.9.0         class_7.3-23       
+## [70] Rcpp_1.1.0          prodlim_2024.06.25  xfun_0.52          
+## [73] pkgconfig_2.0.3</code></pre>
+</div>
