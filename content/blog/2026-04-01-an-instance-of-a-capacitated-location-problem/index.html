@@ -1,0 +1,310 @@
+---
+title: An Instance of a Capacitated Location Problem
+author: Jose M Sallan
+date: '2026-04-01'
+slug: an-instance-of-a-capacitated-location-problem
+categories:
+  - optimization
+  - R
+tags:
+  - linear programming
+  - maps
+  - spatial analysis
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>The location of facilities is a typical strategic decision in supply chain design. When the potential location of facilities and the potential sources of demand are discrete sets we can define <strong>discrete facility location</strong> problems.</p>
+<p>Facility location problems can have many variants. In the variant I am interested in, we have <span class="math inline">\(m\)</span> potential facility locations that serve <span class="math inline">\(n\)</span> demand points. Each potential location has an opening costs <span class="math inline">\(f_i\)</span>, and a maximum capacity <span class="math inline">\(c_i\)</span>. Each demand point requires <span class="math inline">\(d_j\)</span> units of items. The cost of serving one item from a potential location <span class="math inline">\(i\)</span> to a demand point <span class="math inline">\(j\)</span> is proportional to distance <span class="math inline">\(d_{ij}\)</span>.</p>
+<p>The formulation of this problem requires the following variables:</p>
+<ul>
+<li>A set of binaries <span class="math inline">\(y_i\)</span> equal to one if we place a facility in location <span class="math inline">\(i\)</span> and zero otherwise.</li>
+<li>A set of continuous variables <span class="math inline">\(x_{ij}\)</span> equal to the demand of <span class="math inline">\(j\)</span> covered from a facility located at <span class="math inline">\(i\)</span>.</li>
+</ul>
+<span class="math display">\[\begin{align}
+\text{MIN }  z &amp;= \sum_{i=1}^{m}\sum_{j=1}^{n}d_{ij}x_{ij} + \sum_{i=1}^{m} f_iy_i \\
+\text{s. t.} &amp; \sum_{j=1}^{n} x_{ij} \leq My_i &amp; i = 1, \dots, m \\
+&amp; \sum_{i=1}^{m} x_{ij} \geq d_j &amp; j = 1, \dots, n \\
+&amp; x_{ij} \geq 0,\ y_i \in \left\{ 0, 1\right\}
+\end{align}\]</span>
+<p>In this post, I intend to solve this problem for the set of capitals of province in peninsular Spain, considering as potential facility locations the ten largest Spanish capitals of provinces, excluding Barcelona and Madrid. This exercise can be seen as an example of prescriptive analytics, as I am trying to find the locations with more potential as logistic centres for this set.</p>
+<p>I will be using the tidyverse packages, together with <code>sf</code> and <code>mapSpain</code> for geographical data, and the <code>ompr</code> set of packages to solve linear programming with GLPK. The data of Spanish provincial capitals is stored in the <code>BAdatasetsSpatial</code> package.</p>
+<pre class="r"><code>library(tidyverse)
+library(sf)
+library(mapSpain)
+
+library(ompr)
+library(ompr.roi)
+library(ROI.plugin.glpk)
+
+library(BAdatasetsSpatial)</code></pre>
+<div id="distances-between-locations" class="section level2">
+<h2>Distances between Locations</h2>
+<p>Let’s start finding the values of the parameters with the distances between locations. The latitude, longitude and population of each capital of province is listed in the <code>cap_provincia_es</code> table.</p>
+<pre class="r"><code>data(&quot;cap_provincia_es.rd&quot;)</code></pre>
+<pre><code>## Warning in data(&quot;cap_provincia_es.rd&quot;): data set &#39;cap_provincia_es.rd&#39; not
+## found</code></pre>
+<pre class="r"><code>cap_provincia_es</code></pre>
+<pre><code>## # A tibble: 52 × 9
+##    comunidad     provincia poblacion latitud longitud altitud habitantes hombres
+##    &lt;chr&gt;         &lt;chr&gt;     &lt;chr&gt;       &lt;dbl&gt;    &lt;dbl&gt;   &lt;dbl&gt;      &lt;dbl&gt;   &lt;dbl&gt;
+##  1 Castilla La … Albacete  Albacete     39.0  -1.86     686.      169716   83838
+##  2 Valencia      Alicante… Alicante…    38.3  -0.481     16.6     334757  162853
+##  3 Andalucía     Almería   Almería      36.8  -2.47      27.0     188810   92396
+##  4 Extremadura   Badajoz   Badajoz      38.9  -6.97     192.      148334   72085
+##  5 Catalunya     Barcelona Barcelona    41.4   2.17      20.0    1621537  771570
+##  6 País Vasco    Vizcaya   Bilbao       43.3  -2.92      17.9     354860  168019
+##  7 Castilla León Burgos    Burgos       42.3  -3.70     866.      178966   86417
+##  8 Valencia      Castelló… Castelló…    40.0  -0.0377    36       180005   88979
+##  9 Ceuta y Meli… Ceuta     Ceuta        35.9  -5.32      13.5      78674   40118
+## 10 Castilla La … Ciudad R… Ciudad R…    39.0  -3.93     637.       74014   35073
+## # ℹ 42 more rows
+## # ℹ 1 more variable: mujeres &lt;dbl&gt;</code></pre>
+<p>I use the <code>sf::st_as_sf()</code> to set the locations as geographical objects, and then filter the non-peninsular cities. The result is in <code>cap_peninsula_sf</code>.</p>
+<pre class="r"><code>cap_provincia_es_sf &lt;- st_as_sf(cap_provincia_es, 
+                               coords = c(&quot;longitud&quot;, &quot;latitud&quot;),
+                               crs = 4326,
+                               remove = FALSE)
+
+cap_peninsula_sf &lt;- cap_provincia_es_sf |&gt;
+  filter(!comunidad %in% c(&quot;Ceuta y Melilla&quot;, &quot;Islas Baleares&quot;, &quot;Canarias&quot;))</code></pre>
+<p>I will calculate the distances between cities with the <code>sf::st_distance()</code> function. Distances are obtained in meters, so I will rescale them as kilometers. The resulting distance matrix is stored in <code>dist_peninsula</code>.</p>
+<pre class="r"><code>dist_peninsula &lt;- st_distance(cap_peninsula_sf) |&gt;
+  units::drop_units()
+
+dist_peninsula &lt;- dist_peninsula / 1000
+
+colnames(dist_peninsula) &lt;- cap_peninsula_sf$poblacion
+rownames(dist_peninsula) &lt;- cap_peninsula_sf$poblacion</code></pre>
+</div>
+<div id="defining-potential-facility-locations" class="section level2">
+<h2>Defining Potential Facility Locations</h2>
+<p>The demand points are all the capitals of province in Spain. The demand <span class="math inline">\(d_j\)</span> is proportional to each citie’s population. It is stored in the <code>demand</code> vector. Here I am also obtaining the number of demand points <code>n</code>.</p>
+<pre class="r"><code>demand &lt;- cap_peninsula_sf$habitantes
+demand &lt;- demand/1000
+
+n &lt;- length(demand)</code></pre>
+<p>I need to select the ten most populated areas as potential locations for facilities, excluding Barcelona and Madrid. The positions of these locations in the <code>cap_peninsula_sf</code> table, and therefore in the <code>dist_peninsula</code> matrix, can be obtained with the <code>order()</code> function. Once obtained these positions, I can define the <code>costs</code> matrix of distances from potential locations to demand points.</p>
+<pre class="r"><code>m &lt;- 10
+pos_origins &lt;- order(demand, decreasing = TRUE)[3:(m+2)]
+costs &lt;- dist_peninsula[pos_origins, ]</code></pre>
+<p>The cities selected as potential locations are:</p>
+<pre class="r"><code>colnames(dist_peninsula)[pos_origins]</code></pre>
+<pre><code>##  [1] &quot;Valencia&quot;         &quot;Sevilla&quot;          &quot;Zaragoza&quot;         &quot;Málaga&quot;          
+##  [5] &quot;Murcia&quot;           &quot;Bilbao&quot;           &quot;Alicante/Alacant&quot; &quot;Córdoba&quot;         
+##  [9] &quot;Valladolid&quot;       &quot;Coruña (A)&quot;</code></pre>
+<p>Finally, I am defining the capacity of each of the potential locations <code>capacity</code> and the cost of opening a location <code>open_cost</code>.</p>
+<pre class="r"><code>capacity &lt;- round(sum(demand)/4) + 100
+open_cost &lt;- 3e+05</code></pre>
+</div>
+<div id="building-and-solving-the-model" class="section level2">
+<h2>Building and Solving the Model</h2>
+<p>Now we are ready to solve the linear programming model. In <code>facility_model</code> I am storing the solution of the model, after parsing it with the <code>ompr</code> syntax.</p>
+<pre class="r"><code>facility_model &lt;- MIPModel() |&gt;
+  add_variable(x[i, j], i = 1:m, j = 1:n, type = &quot;continuous&quot;, lb = 0) |&gt;
+  add_variable(y[i], i = 1:m, type = &quot;binary&quot;, lb = 0) |&gt;
+  set_objective(sum_over(costs[i, j]*x[i, j], i = 1:m, j = 1:n) + sum_over(open_cost*y[i], i = 1:m), sense = &quot;min&quot;) |&gt;
+  add_constraint(sum_over(x[i, j], j = 1:n) &lt;= capacity*y[i], i = 1:m) |&gt;
+  add_constraint(sum_over(x[i, j], i = 1:m) &gt;= demand[j], j = 1:n) |&gt;
+  solve_model(with_ROI(solver = &quot;glpk&quot;))</code></pre>
+</div>
+<div id="solution" class="section level2">
+<h2>Solution</h2>
+<p>Once solved the model, we can obtain the selected facility locations, which are the ones with <span class="math inline">\(y_i = 1\)</span>.</p>
+<pre class="r"><code>fac_table &lt;- facility_model |&gt;
+  get_solution(y[i]) |&gt;
+  mutate(city = rownames(costs)) |&gt;
+  filter(value == 1) |&gt;
+  relocate(city)</code></pre>
+<p>The value of flows from facilities to locations is listed in the <span class="math inline">\(x_{ij}\)</span> which are nonzero.</p>
+<pre class="r"><code>facility_model |&gt;
+  get_solution(x[i, j]) |&gt;
+  mutate(ori = rep(rownames(costs), n),
+         des = rep(colnames(costs), each = m)) |&gt;
+  filter(value != 0) |&gt;
+  relocate(ori, des) |&gt;
+  arrange(ori)</code></pre>
+<pre><code>##           ori                                        des variable i  j    value
+## 1      Bilbao                                     Bilbao        x 6  6  354.860
+## 2      Bilbao                                     Burgos        x 6  7  178.966
+## 3      Bilbao                                 Coruña (A)        x 6 10  246.056
+## 4      Bilbao                     Donostia-San Sebastián        x 6 15  185.357
+## 5      Bilbao                                       León        x 6 22  134.305
+## 6      Bilbao                                    Logroño        x 6 24  152.107
+## 7      Bilbao                                       Lugo        x 6 25   96.678
+## 8      Bilbao                                     Oviedo        x 6 30  224.005
+## 9      Bilbao                             Pamplona/Iruña        x 6 32  198.491
+## 10     Bilbao                                  Santander        x 6 35  182.700
+## 11     Bilbao                            Vitoria-Gasteiz        x 6 44  235.661
+## 12    Sevilla                                    Almería        x 2  3  188.810
+## 13    Sevilla                                    Badajoz        x 2  4  148.334
+## 14    Sevilla                                Ciudad Real        x 2  9   74.014
+## 15    Sevilla                                    Cáceres        x 2 12   93.131
+## 16    Sevilla                                      Cádiz        x 2 13  126.766
+## 17    Sevilla                                    Córdoba        x 2 14  328.428
+## 18    Sevilla                                    Granada        x 2 17  234.325
+## 19    Sevilla                                     Huelva        x 2 19  148.806
+## 20    Sevilla                                       Jaén        x 2 21  116.557
+## 21    Sevilla                                     Málaga        x 2 28  568.305
+## 22    Sevilla                                    Sevilla        x 2 37  703.206
+## 23   Valencia                                   Albacete        x 1  1  169.716
+## 24   Valencia                           Alicante/Alacant        x 1  2  334.757
+## 25   Valencia Castellón de la Plana/Castelló de la Plana        x 1  8  180.005
+## 26   Valencia                                     Cuenca        x 1 11   55.866
+## 27   Valencia                                     Murcia        x 1 27  436.870
+## 28   Valencia                                     Teruel        x 1 40   35.396
+## 29   Valencia                                     Toledo        x 1 41   82.291
+## 30   Valencia                                   Valencia        x 1 42  814.208
+## 31 Valladolid                                     Madrid        x 9 26 2687.740
+## 32 Valladolid                                    Ourense        x 9 29  107.742
+## 33 Valladolid                                   Palencia        x 9 31   82.651
+## 34 Valladolid                                 Pontevedra        x 9 33   81.576
+## 35 Valladolid                                  Salamanca        x 9 34  155.619
+## 36 Valladolid                                    Segovia        x 9 36   56.660
+## 37 Valladolid                                 Valladolid        x 9 43  317.864
+## 38 Valladolid                                     Zamora        x 9 45   66.293
+## 39 Valladolid                                      Ávila        x 9 47   56.855
+## 40   Zaragoza                                  Barcelona        x 3  5 1621.537
+## 41   Zaragoza                                     Girona        x 3 16   96.188
+## 42   Zaragoza                                Guadalajara        x 3 18   83.039
+## 43   Zaragoza                                     Huesca        x 3 20   52.059
+## 44   Zaragoza                                     Lleida        x 3 23  135.919
+## 45   Zaragoza                                     Madrid        x 3 26  568.204
+## 46   Zaragoza                                      Soria        x 3 38   39.528
+## 47   Zaragoza                                  Tarragona        x 3 39  140.323
+## 48   Zaragoza                                   Zaragoza        x 3 46  674.317</code></pre>
+</div>
+<div id="plotting-the-solution" class="section level2">
+<h2>Plotting the Solution</h2>
+<p>Now I will use the mapSpain package to plot the flows from facilities to demand points. To distinguish facilities from demand points, I create the <code>facility</code> column in the cap_peninsula_sf table.</p>
+<pre class="r"><code>facilities &lt;- fac_table$city
+
+cap_peninsula_sf &lt;- cap_peninsula_sf |&gt;
+  mutate(pos = 1:n(),
+         facility = ifelse(poblacion %in% facilities, &quot;fac&quot;, &quot;not_fac&quot;))</code></pre>
+<p>To represent flows, I need to plot lines as spatial objects. First, I am picking the list of edges from the model solution, excluding the flows with origin and destination in the same city. The result is stored in the <code>edges</code> data fram.e</p>
+<pre class="r"><code>edges &lt;- facility_model |&gt;
+  get_solution(x[i, j]) |&gt;
+  mutate(ori = rep(rownames(costs), n),
+         des = rep(colnames(costs), each = m)) |&gt;
+  filter(value != 0, ori != des) |&gt;
+  select(i, j)</code></pre>
+<p>Then, I need to get the latitude and longitude of the origin and destination of each edge. To avoid uncontrolled column renaming, I obtain two tables of coordinates with renamed longitude and latitude columns.</p>
+<pre class="r"><code>ori_coord &lt;- cap_peninsula_sf |&gt;
+  st_drop_geometry() |&gt;
+  slice(pos_origins) |&gt;
+  select(longitud, latitud) |&gt;
+  mutate(i = 1:n()) |&gt;
+  rename(lon_x = longitud, lat_x = latitud)
+
+des_coord &lt;- cap_peninsula_sf |&gt;
+  st_drop_geometry() |&gt;
+  select(longitud, latitud) |&gt;
+  mutate(j = 1:n()) |&gt;
+  rename(lon_y = longitud, lat_y = latitud)</code></pre>
+<p>Then, I can add safely origin and destination coordinates to the <code>edges</code> list.</p>
+<pre class="r"><code>edges &lt;- edges |&gt;
+  left_join(ori_coord, by = &quot;i&quot;) |&gt;
+  left_join(des_coord, by = &quot;j&quot;)</code></pre>
+<p>As I need a geometry column of line objects, I need to obtain these lines as a list of spatial objectes with <code>purrr:pmap()</code> and <code>sf::st_linestring()</code>.</p>
+<pre class="r"><code>lines &lt;- pmap(edges, 
+              ~ st_linestring(matrix(c(..3, ..4, ..5, ..6), 
+                                     2, 2, byrow = TRUE)))</code></pre>
+<p>Then, I use <code>sf::st_sfc()</code> and <code>sf::st_sf()</code> to obtain a geometry column of lines. The result is stored in the <code>edges_sf</code> table.</p>
+<pre class="r"><code>edges_sf &lt;- st_sf(edges, 
+                  geometry = st_sfc(lines, crs = 4326))
+edges_sf</code></pre>
+<pre><code>## Simple feature collection with 43 features and 6 fields
+## Geometry type: LINESTRING
+## Dimension:     XY
+## Bounding box:  xmin: -8.648053 ymin: 36.52969 xmax: 2.8237 ymax: 43.46096
+## Geodetic CRS:  WGS 84
+## First 10 features:
+##    i  j      lon_x    lat_x      lon_y    lat_y                       geometry
+## 1  1  1 -0.3768049 39.47024 -1.8600700 38.99765 LINESTRING (-0.3768049 39.4...
+## 2  1  2 -0.3768049 39.47024 -0.4810060 38.34520 LINESTRING (-0.3768049 39.4...
+## 3  2  3 -5.9962950 37.38264 -2.4679220 36.84016 LINESTRING (-5.996295 37.38...
+## 4  2  4 -5.9962950 37.38264 -6.9702840 38.87860 LINESTRING (-5.996295 37.38...
+## 5  3  5 -0.8765379 41.65629  2.1699190 41.38792 LINESTRING (-0.8765379 41.6...
+## 6  6  7 -2.9234410 43.25696 -3.6997310 42.34087 LINESTRING (-2.923441 43.25...
+## 7  1  8 -0.3768049 39.47024 -0.0376709 39.98598 LINESTRING (-0.3768049 39.4...
+## 8  2  9 -5.9962950 37.38264 -3.9272630 38.98610 LINESTRING (-5.996295 37.38...
+## 9  6 10 -2.9234410 43.25696 -8.3958350 43.37087 LINESTRING (-2.923441 43.25...
+## 10 1 11 -0.3768049 39.47024 -2.1340050 40.07183 LINESTRING (-0.3768049 39.4...</code></pre>
+<p>Now that I have the points stored at <code>cap_peninsula_sf</code> and the lines at <code>edges_sf</code>, I can do the plot with the <code>mapSpain::esp_get_prov_siane()</code> map.</p>
+<pre class="r"><code>esp_get_prov_siane(epsg = &quot;4326&quot;) |&gt;
+  ggplot() +
+  geom_sf(fill = &quot;white&quot;) +
+  geom_sf(data = cap_peninsula_sf, aes(color = facility)) +
+  geom_sf(data = edges_sf) +
+  theme_void() +
+  theme(legend.position = &quot;none&quot;)</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-18-1.png" width="100%" /></p>
+<p>The map shows the relevance of largely populated capitals of coastal provinces like Bilbao, Sevilla and Valencia. Valladolid covers part of de demand of Madrid and Castilian and Galician cities. Finally, Zaragoza takes advantage of its position between Barcelona and Madrid. A more accurate assessment of the potential of facility locations could be obtained using the list of all Spanish towns and cities, which can be obtained at <code>BAdatasetsSpatial::poblaciones_es</code>.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li><code>mapSpain</code> package: <a href="https://github.com/rOpenSpain/mapSpain" class="uri">https://github.com/rOpenSpain/mapSpain</a>, <a href="https://rpubs.com/dieghernan/mapSpain_mapas_R" class="uri">https://rpubs.com/dieghernan/mapSpain_mapas_R</a></li>
+<li><code>ompr</code> package: <a href="https://dirkschumacher.github.io/ompr/" class="uri">https://dirkschumacher.github.io/ompr/</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre class="r"><code>sessionInfo()</code></pre>
+<pre><code>## R version 4.5.3 (2026-03-11)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0  LAPACK version 3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] BAdatasetsSpatial_0.1.0 ROI.plugin.glpk_1.0-0   ompr.roi_1.0.2         
+##  [4] ompr_1.0.4              mapSpain_0.10.0         sf_1.0-20              
+##  [7] lubridate_1.9.4         forcats_1.0.1           stringr_1.6.0          
+## [10] dplyr_1.1.4             purrr_1.2.0             readr_2.1.5            
+## [13] tidyr_1.3.1             tibble_3.3.0            ggplot2_4.0.0          
+## [16] tidyverse_2.0.0        
+## 
+## loaded via a namespace (and not attached):
+##  [1] gtable_0.3.6        xfun_0.52           bslib_0.9.0        
+##  [4] lattice_0.22-9      numDeriv_2016.8-1.1 tzdb_0.5.0         
+##  [7] vctrs_0.6.5         tools_4.5.3         generics_0.1.3     
+## [10] proxy_0.4-27        pkgconfig_2.0.3     Matrix_1.7-4       
+## [13] KernSmooth_2.23-26  data.table_1.17.8   checkmate_2.3.2    
+## [16] RColorBrewer_1.1-3  S7_0.2.0            listcomp_0.4.1     
+## [19] lifecycle_1.0.4     compiler_4.5.3      farver_2.1.2       
+## [22] htmltools_0.5.8.1   class_7.3-23        sass_0.4.10        
+## [25] yaml_2.3.10         lazyeval_0.2.2      pillar_1.11.1      
+## [28] jquerylib_0.1.4     classInt_0.4-11     cachem_1.1.0       
+## [31] wk_0.9.4            tidyselect_1.2.1    digest_0.6.37      
+## [34] slam_0.1-50         stringi_1.8.7       bookdown_0.43      
+## [37] fastmap_1.2.0       grid_4.5.3          cli_3.6.4          
+## [40] magrittr_2.0.4      utf8_1.2.4          e1071_1.7-16       
+## [43] withr_3.0.2         rappdirs_0.3.3      scales_1.4.0       
+## [46] backports_1.5.0     registry_0.5-1      timechange_0.3.0   
+## [49] rmarkdown_2.29      blogdown_1.21       hms_1.1.4          
+## [52] ROI_1.0-1           evaluate_1.0.3      knitr_1.50         
+## [55] Rglpk_0.6-5.1       s2_1.1.7            rlang_1.1.6        
+## [58] Rcpp_1.1.0          glue_1.8.0          DBI_1.2.3          
+## [61] rstudioapi_0.17.1   jsonlite_2.0.0      R6_2.6.1           
+## [64] units_0.8-7</code></pre>
+</div>

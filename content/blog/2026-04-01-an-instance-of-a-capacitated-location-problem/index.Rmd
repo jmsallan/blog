@@ -1,0 +1,248 @@
+---
+title: An Instance of a Capacitated Location Problem
+author: Jose M Sallan
+date: '2026-04-01'
+slug: an-instance-of-a-capacitated-location-problem
+categories:
+  - optimization
+  - R
+tags:
+  - linear programming
+  - maps
+  - spatial analysis
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The location of facilities is a typical strategic decision in supply chain design. When the potential location of facilities and the potential sources of demand are discrete sets we can define **discrete facility location** problems.
+
+Facility location problems can have many variants. In the variant I am interested in, we have $m$ potential facility locations that serve $n$ demand points. Each potential location has an opening costs $f_i$, and a maximum capacity $c_i$. Each demand point requires $d_j$ units of items. The cost of serving one item from a potential location $i$ to a demand point $j$ is proportional to distance $d_{ij}$.
+
+The formulation of this problem requires the following variables:
+
+- A set of binaries $y_i$ equal to one if we place a facility in location $i$ and zero otherwise.
+- A set of continuous variables $x_{ij}$ equal to the demand of $j$ covered from a facility located at $i$.
+
+```{=tex}
+\begin{align}
+\text{MIN }  z &= \sum_{i=1}^{m}\sum_{j=1}^{n}d_{ij}x_{ij} + \sum_{i=1}^{m} f_iy_i \\
+\text{s. t.} & \sum_{j=1}^{n} x_{ij} \leq My_i & i = 1, \dots, m \\
+& \sum_{i=1}^{m} x_{ij} \geq d_j & j = 1, \dots, n \\
+& x_{ij} \geq 0,\ y_i \in \left\{ 0, 1\right\}
+\end{align}
+```
+
+In this post, I intend to solve this problem for the set of capitals of province in peninsular Spain, considering as potential facility locations the ten largest Spanish capitals of provinces, excluding Barcelona and Madrid. This exercise can be seen as an example of prescriptive analytics, as I am trying to find the locations with more potential as logistic centres for this set.
+
+I will be using the tidyverse packages, together with `sf` and `mapSpain` for geographical data, and the `ompr` set of packages to solve linear programming with GLPK. The data of Spanish provincial capitals is stored in the `BAdatasetsSpatial` package.
+
+```{r, message=FALSE}
+library(tidyverse)
+library(sf)
+library(mapSpain)
+
+library(ompr)
+library(ompr.roi)
+library(ROI.plugin.glpk)
+
+library(BAdatasetsSpatial)
+```
+
+## Distances between Locations
+
+Let's start finding the values of the parameters with the distances between locations. The latitude, longitude and population of each capital of province is listed in the `cap_provincia_es` table.
+
+```{r}
+data("cap_provincia_es.rd")
+cap_provincia_es
+```
+
+I use the `sf::st_as_sf()` to set the locations as geographical objects, and then filter the non-peninsular cities. The result is in `cap_peninsula_sf`.
+
+```{r}
+cap_provincia_es_sf <- st_as_sf(cap_provincia_es, 
+                               coords = c("longitud", "latitud"),
+                               crs = 4326,
+                               remove = FALSE)
+
+cap_peninsula_sf <- cap_provincia_es_sf |>
+  filter(!comunidad %in% c("Ceuta y Melilla", "Islas Baleares", "Canarias"))
+```
+
+I will calculate the distances between cities with the `sf::st_distance()` function. Distances are obtained in meters, so I will rescale them as kilometers. The resulting distance matrix is stored in `dist_peninsula`.
+
+```{r}
+dist_peninsula <- st_distance(cap_peninsula_sf) |>
+  units::drop_units()
+
+dist_peninsula <- dist_peninsula / 1000
+
+colnames(dist_peninsula) <- cap_peninsula_sf$poblacion
+rownames(dist_peninsula) <- cap_peninsula_sf$poblacion
+```
+
+
+## Defining Potential Facility Locations
+
+The demand points are all the capitals of province in Spain. The demand $d_j$ is proportional to each citie's population. It is stored in the `demand` vector. Here I am also obtaining the number of demand points `n`.
+
+```{r}
+demand <- cap_peninsula_sf$habitantes
+demand <- demand/1000
+
+n <- length(demand)
+```
+
+I need to select the ten most populated areas as potential locations for facilities, excluding Barcelona and Madrid. The positions of these locations in the `cap_peninsula_sf` table, and therefore in the `dist_peninsula` matrix, can be obtained with the `order()` function. Once obtained these positions, I can define the `costs` matrix of distances from potential locations to demand points.
+
+```{r}
+m <- 10
+pos_origins <- order(demand, decreasing = TRUE)[3:(m+2)]
+costs <- dist_peninsula[pos_origins, ]
+```
+
+The cities selected as potential locations are:
+
+```{r}
+colnames(dist_peninsula)[pos_origins]
+```
+
+Finally, I am defining the capacity of each of the potential locations `capacity` and the cost of opening a location `open_cost`.
+
+```{r}
+capacity <- round(sum(demand)/4) + 100
+open_cost <- 3e+05
+```
+
+## Building and Solving the Model
+
+Now we are ready to solve the linear programming model. In `facility_model` I am storing the solution of the model, after parsing it with the `ompr` syntax.
+
+```{r}
+facility_model <- MIPModel() |>
+  add_variable(x[i, j], i = 1:m, j = 1:n, type = "continuous", lb = 0) |>
+  add_variable(y[i], i = 1:m, type = "binary", lb = 0) |>
+  set_objective(sum_over(costs[i, j]*x[i, j], i = 1:m, j = 1:n) + sum_over(open_cost*y[i], i = 1:m), sense = "min") |>
+  add_constraint(sum_over(x[i, j], j = 1:n) <= capacity*y[i], i = 1:m) |>
+  add_constraint(sum_over(x[i, j], i = 1:m) >= demand[j], j = 1:n) |>
+  solve_model(with_ROI(solver = "glpk"))
+```
+
+## Solution
+
+Once solved the model, we can obtain the selected facility locations, which are the ones with $y_i = 1$.
+
+```{r}
+fac_table <- facility_model |>
+  get_solution(y[i]) |>
+  mutate(city = rownames(costs)) |>
+  filter(value == 1) |>
+  relocate(city)
+```
+
+The value of flows from facilities to locations is listed in the $x_{ij}$ which are nonzero.
+
+```{r}
+facility_model |>
+  get_solution(x[i, j]) |>
+  mutate(ori = rep(rownames(costs), n),
+         des = rep(colnames(costs), each = m)) |>
+  filter(value != 0) |>
+  relocate(ori, des) |>
+  arrange(ori)
+```
+
+## Plotting the Solution
+
+Now I will use the mapSpain package to plot the flows from facilities to demand points. To distinguish facilities from demand points, I create the `facility` column in the cap_peninsula_sf table.
+
+```{r}
+facilities <- fac_table$city
+
+cap_peninsula_sf <- cap_peninsula_sf |>
+  mutate(pos = 1:n(),
+         facility = ifelse(poblacion %in% facilities, "fac", "not_fac"))
+```
+
+To represent flows, I need to plot lines as spatial objects. First, I am picking the list of edges from the model solution, excluding the flows with origin and destination in the same city. The result is stored in the `edges` data fram.e
+
+```{r}
+edges <- facility_model |>
+  get_solution(x[i, j]) |>
+  mutate(ori = rep(rownames(costs), n),
+         des = rep(colnames(costs), each = m)) |>
+  filter(value != 0, ori != des) |>
+  select(i, j)
+```
+
+Then, I need to get the latitude and longitude of the origin and destination of each edge. To avoid uncontrolled column renaming, I obtain two tables of coordinates with renamed longitude and latitude columns.
+
+```{r}
+ori_coord <- cap_peninsula_sf |>
+  st_drop_geometry() |>
+  slice(pos_origins) |>
+  select(longitud, latitud) |>
+  mutate(i = 1:n()) |>
+  rename(lon_x = longitud, lat_x = latitud)
+
+des_coord <- cap_peninsula_sf |>
+  st_drop_geometry() |>
+  select(longitud, latitud) |>
+  mutate(j = 1:n()) |>
+  rename(lon_y = longitud, lat_y = latitud)
+```
+
+Then, I can add safely origin and destination coordinates to the `edges` list.
+
+```{r}
+edges <- edges |>
+  left_join(ori_coord, by = "i") |>
+  left_join(des_coord, by = "j")
+```
+
+As I need a geometry column of line objects, I need to obtain these lines as a list of spatial objectes with `purrr:pmap()` and `sf::st_linestring()`.
+
+```{r}
+lines <- pmap(edges, 
+              ~ st_linestring(matrix(c(..3, ..4, ..5, ..6), 
+                                     2, 2, byrow = TRUE)))
+```
+
+Then, I use `sf::st_sfc()` and `sf::st_sf()` to obtain a geometry column of lines. The result is stored in the `edges_sf` table.
+
+```{r}
+edges_sf <- st_sf(edges, 
+                  geometry = st_sfc(lines, crs = 4326))
+edges_sf
+```
+
+Now that I have the points stored at `cap_peninsula_sf` and the lines at `edges_sf`, I can do the plot with the `mapSpain::esp_get_prov_siane()` map.
+
+```{r, out.width= '100%', eval=TRUE}
+esp_get_prov_siane(epsg = "4326") |>
+  ggplot() +
+  geom_sf(fill = "white") +
+  geom_sf(data = cap_peninsula_sf, aes(color = facility)) +
+  geom_sf(data = edges_sf) +
+  theme_void() +
+  theme(legend.position = "none")
+```
+
+The map shows the relevance of largely populated capitals of coastal provinces like Bilbao, Sevilla and Valencia. Valladolid covers part of de demand of Madrid and Castilian and Galician cities. Finally, Zaragoza takes advantage of its position between Barcelona and Madrid. A more accurate assessment of the potential of facility locations could be obtained using the list of all Spanish towns and cities, which can be obtained at `BAdatasetsSpatial::poblaciones_es`.
+
+## References
+
+- `mapSpain` package: <https://github.com/rOpenSpain/mapSpain>, <https://rpubs.com/dieghernan/mapSpain_mapas_R>
+- `ompr` package: <https://dirkschumacher.github.io/ompr/>
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
+
+
