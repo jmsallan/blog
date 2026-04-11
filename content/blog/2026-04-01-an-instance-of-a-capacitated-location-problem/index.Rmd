@@ -20,17 +20,22 @@ knitr::opts_chunk$set(echo = TRUE)
 
 The location of facilities is a typical strategic decision in supply chain design. When the potential location of facilities and the potential sources of demand are discrete sets we can define **discrete facility location** problems.
 
-Facility location problems can have many variants. In the variant I am interested in, we have $m$ potential facility locations that serve $n$ demand points. Each potential location has an opening costs $f_i$, and a maximum capacity $c_i$. Each demand point requires $d_j$ units of items. The cost of serving one item from a potential location $i$ to a demand point $j$ is proportional to distance $d_{ij}$.
+Facility location problems can have many variants. In the variant I am interested in, we have $m$ potential facility locations that serve $n$ demand points. Each potential location has an opening costs $f$, and a maximum capacity $c$. Each demand point requires $d_j$ units of items. The cost of serving one item from a potential location $i$ to a demand point $j$ is proportional to distance $d_{ij}$.
 
 The formulation of this problem requires the following variables:
 
 - A set of binaries $y_i$ equal to one if we place a facility in location $i$ and zero otherwise.
 - A set of continuous variables $x_{ij}$ equal to the demand of $j$ covered from a facility located at $i$.
 
+The objective function is equal to the sum of transportation costs and the cost of opening facilities. There are two sets of constraints:
+
+- The first set ensures that the sum of items coming from each facility do not exceed total capacity $c_i$ when $y_i = 1$, and that are equal to zero when $y_i = 0$.
+- The second set ensures that each demand points has covered its demand $d_j$.
+
 ```{=tex}
 \begin{align}
-\text{MIN }  z &= \sum_{i=1}^{m}\sum_{j=1}^{n}d_{ij}x_{ij} + \sum_{i=1}^{m} f_iy_i \\
-\text{s. t.} & \sum_{j=1}^{n} x_{ij} \leq My_i & i = 1, \dots, m \\
+\text{MIN }  z &= \sum_{i=1}^{m}\sum_{j=1}^{n}d_{ij}x_{ij} + \sum_{i=1}^{m} fy_i \\
+\text{s. t.} & \sum_{j=1}^{n} x_{ij} \leq cy_i & i = 1, \dots, m \\
 & \sum_{i=1}^{m} x_{ij} \geq d_j & j = 1, \dots, n \\
 & x_{ij} \geq 0,\ y_i \in \left\{ 0, 1\right\}
 \end{align}
@@ -57,7 +62,7 @@ library(BAdatasetsSpatial)
 Let's start finding the values of the parameters with the distances between locations. The latitude, longitude and population of each capital of province is listed in the `cap_provincia_es` table.
 
 ```{r}
-data("cap_provincia_es.rd")
+data("cap_provincia_es")
 cap_provincia_es
 ```
 
@@ -88,7 +93,7 @@ rownames(dist_peninsula) <- cap_peninsula_sf$poblacion
 
 ## Defining Potential Facility Locations
 
-The demand points are all the capitals of province in Spain. The demand $d_j$ is proportional to each citie's population. It is stored in the `demand` vector. Here I am also obtaining the number of demand points `n`.
+The demand points are all the capitals of province in Spain. The demand $d_j$ is proportional to each city's population. It is stored in the `demand` vector, whose length is equal to the number of demand points `n`.
 
 ```{r}
 demand <- cap_peninsula_sf$habitantes
@@ -97,7 +102,7 @@ demand <- demand/1000
 n <- length(demand)
 ```
 
-I need to select the ten most populated areas as potential locations for facilities, excluding Barcelona and Madrid. The positions of these locations in the `cap_peninsula_sf` table, and therefore in the `dist_peninsula` matrix, can be obtained with the `order()` function. Once obtained these positions, I can define the `costs` matrix of distances from potential locations to demand points.
+I am selecting the ten most populated areas as potential locations for facilities, excluding Barcelona and Madrid. The positions of these locations can be obtained applying the `order()` function to the `demand` vector. Once obtained these positions, I can define the `costs` matrix of distances from potential locations to demand points.
 
 ```{r}
 m <- 10
@@ -111,7 +116,7 @@ The cities selected as potential locations are:
 colnames(dist_peninsula)[pos_origins]
 ```
 
-Finally, I am defining the capacity of each of the potential locations `capacity` and the cost of opening a location `open_cost`.
+Finally, I am defining the `capacity` of each of the potential locations and the cost of opening a location `open_cost`.
 
 ```{r}
 capacity <- round(sum(demand)/4) + 100
@@ -144,7 +149,7 @@ fac_table <- facility_model |>
   relocate(city)
 ```
 
-The value of flows from facilities to locations is listed in the $x_{ij}$ which are nonzero.
+The values of flows from facilities to locations are listed in the $x_{ij}$ which are nonzero.
 
 ```{r}
 facility_model |>
@@ -168,7 +173,7 @@ cap_peninsula_sf <- cap_peninsula_sf |>
          facility = ifelse(poblacion %in% facilities, "fac", "not_fac"))
 ```
 
-To represent flows, I need to plot lines as spatial objects. First, I am picking the list of edges from the model solution, excluding the flows with origin and destination in the same city. The result is stored in the `edges` data fram.e
+To represent flows, I need to plot lines as spatial objects. First, I am picking the list of edges from the model solution, excluding the flows with origin and destination in the same city. The result is stored in the `edges` data frame.
 
 ```{r}
 edges <- facility_model |>

@@ -17,15 +17,20 @@ description: Description for the page
 
 
 <p>The location of facilities is a typical strategic decision in supply chain design. When the potential location of facilities and the potential sources of demand are discrete sets we can define <strong>discrete facility location</strong> problems.</p>
-<p>Facility location problems can have many variants. In the variant I am interested in, we have <span class="math inline">\(m\)</span> potential facility locations that serve <span class="math inline">\(n\)</span> demand points. Each potential location has an opening costs <span class="math inline">\(f_i\)</span>, and a maximum capacity <span class="math inline">\(c_i\)</span>. Each demand point requires <span class="math inline">\(d_j\)</span> units of items. The cost of serving one item from a potential location <span class="math inline">\(i\)</span> to a demand point <span class="math inline">\(j\)</span> is proportional to distance <span class="math inline">\(d_{ij}\)</span>.</p>
+<p>Facility location problems can have many variants. In the variant I am interested in, we have <span class="math inline">\(m\)</span> potential facility locations that serve <span class="math inline">\(n\)</span> demand points. Each potential location has an opening costs <span class="math inline">\(f\)</span>, and a maximum capacity <span class="math inline">\(c\)</span>. Each demand point requires <span class="math inline">\(d_j\)</span> units of items. The cost of serving one item from a potential location <span class="math inline">\(i\)</span> to a demand point <span class="math inline">\(j\)</span> is proportional to distance <span class="math inline">\(d_{ij}\)</span>.</p>
 <p>The formulation of this problem requires the following variables:</p>
 <ul>
 <li>A set of binaries <span class="math inline">\(y_i\)</span> equal to one if we place a facility in location <span class="math inline">\(i\)</span> and zero otherwise.</li>
 <li>A set of continuous variables <span class="math inline">\(x_{ij}\)</span> equal to the demand of <span class="math inline">\(j\)</span> covered from a facility located at <span class="math inline">\(i\)</span>.</li>
 </ul>
+<p>The objective function is equal to the sum of transportation costs and the cost of opening facilities. There are two sets of constraints:</p>
+<ul>
+<li>The first set ensures that the sum of items coming from each facility do not exceed total capacity <span class="math inline">\(c_i\)</span> when <span class="math inline">\(y_i = 1\)</span>, and that are equal to zero when <span class="math inline">\(y_i = 0\)</span>.</li>
+<li>The second set ensures that each demand points has covered its demand <span class="math inline">\(d_j\)</span>.</li>
+</ul>
 <span class="math display">\[\begin{align}
-\text{MIN }  z &amp;= \sum_{i=1}^{m}\sum_{j=1}^{n}d_{ij}x_{ij} + \sum_{i=1}^{m} f_iy_i \\
-\text{s. t.} &amp; \sum_{j=1}^{n} x_{ij} \leq My_i &amp; i = 1, \dots, m \\
+\text{MIN }  z &amp;= \sum_{i=1}^{m}\sum_{j=1}^{n}d_{ij}x_{ij} + \sum_{i=1}^{m} fy_i \\
+\text{s. t.} &amp; \sum_{j=1}^{n} x_{ij} \leq cy_i &amp; i = 1, \dots, m \\
 &amp; \sum_{i=1}^{m} x_{ij} \geq d_j &amp; j = 1, \dots, n \\
 &amp; x_{ij} \geq 0,\ y_i \in \left\{ 0, 1\right\}
 \end{align}\]</span>
@@ -43,10 +48,8 @@ library(BAdatasetsSpatial)</code></pre>
 <div id="distances-between-locations" class="section level2">
 <h2>Distances between Locations</h2>
 <p>Let’s start finding the values of the parameters with the distances between locations. The latitude, longitude and population of each capital of province is listed in the <code>cap_provincia_es</code> table.</p>
-<pre class="r"><code>data(&quot;cap_provincia_es.rd&quot;)</code></pre>
-<pre><code>## Warning in data(&quot;cap_provincia_es.rd&quot;): data set &#39;cap_provincia_es.rd&#39; not
-## found</code></pre>
-<pre class="r"><code>cap_provincia_es</code></pre>
+<pre class="r"><code>data(&quot;cap_provincia_es&quot;)
+cap_provincia_es</code></pre>
 <pre><code>## # A tibble: 52 × 9
 ##    comunidad     provincia poblacion latitud longitud altitud habitantes hombres
 ##    &lt;chr&gt;         &lt;chr&gt;     &lt;chr&gt;       &lt;dbl&gt;    &lt;dbl&gt;   &lt;dbl&gt;      &lt;dbl&gt;   &lt;dbl&gt;
@@ -81,12 +84,12 @@ rownames(dist_peninsula) &lt;- cap_peninsula_sf$poblacion</code></pre>
 </div>
 <div id="defining-potential-facility-locations" class="section level2">
 <h2>Defining Potential Facility Locations</h2>
-<p>The demand points are all the capitals of province in Spain. The demand <span class="math inline">\(d_j\)</span> is proportional to each citie’s population. It is stored in the <code>demand</code> vector. Here I am also obtaining the number of demand points <code>n</code>.</p>
+<p>The demand points are all the capitals of province in Spain. The demand <span class="math inline">\(d_j\)</span> is proportional to each city’s population. It is stored in the <code>demand</code> vector, whose length is equal to the number of demand points <code>n</code>.</p>
 <pre class="r"><code>demand &lt;- cap_peninsula_sf$habitantes
 demand &lt;- demand/1000
 
 n &lt;- length(demand)</code></pre>
-<p>I need to select the ten most populated areas as potential locations for facilities, excluding Barcelona and Madrid. The positions of these locations in the <code>cap_peninsula_sf</code> table, and therefore in the <code>dist_peninsula</code> matrix, can be obtained with the <code>order()</code> function. Once obtained these positions, I can define the <code>costs</code> matrix of distances from potential locations to demand points.</p>
+<p>I am selecting the ten most populated areas as potential locations for facilities, excluding Barcelona and Madrid. The positions of these locations can be obtained applying the <code>order()</code> function to the <code>demand</code> vector. Once obtained these positions, I can define the <code>costs</code> matrix of distances from potential locations to demand points.</p>
 <pre class="r"><code>m &lt;- 10
 pos_origins &lt;- order(demand, decreasing = TRUE)[3:(m+2)]
 costs &lt;- dist_peninsula[pos_origins, ]</code></pre>
@@ -95,7 +98,7 @@ costs &lt;- dist_peninsula[pos_origins, ]</code></pre>
 <pre><code>##  [1] &quot;Valencia&quot;         &quot;Sevilla&quot;          &quot;Zaragoza&quot;         &quot;Málaga&quot;          
 ##  [5] &quot;Murcia&quot;           &quot;Bilbao&quot;           &quot;Alicante/Alacant&quot; &quot;Córdoba&quot;         
 ##  [9] &quot;Valladolid&quot;       &quot;Coruña (A)&quot;</code></pre>
-<p>Finally, I am defining the capacity of each of the potential locations <code>capacity</code> and the cost of opening a location <code>open_cost</code>.</p>
+<p>Finally, I am defining the <code>capacity</code> of each of the potential locations and the cost of opening a location <code>open_cost</code>.</p>
 <pre class="r"><code>capacity &lt;- round(sum(demand)/4) + 100
 open_cost &lt;- 3e+05</code></pre>
 </div>
@@ -118,7 +121,7 @@ open_cost &lt;- 3e+05</code></pre>
   mutate(city = rownames(costs)) |&gt;
   filter(value == 1) |&gt;
   relocate(city)</code></pre>
-<p>The value of flows from facilities to locations is listed in the <span class="math inline">\(x_{ij}\)</span> which are nonzero.</p>
+<p>The values of flows from facilities to locations are listed in the <span class="math inline">\(x_{ij}\)</span> which are nonzero.</p>
 <pre class="r"><code>facility_model |&gt;
   get_solution(x[i, j]) |&gt;
   mutate(ori = rep(rownames(costs), n),
@@ -184,7 +187,7 @@ open_cost &lt;- 3e+05</code></pre>
 cap_peninsula_sf &lt;- cap_peninsula_sf |&gt;
   mutate(pos = 1:n(),
          facility = ifelse(poblacion %in% facilities, &quot;fac&quot;, &quot;not_fac&quot;))</code></pre>
-<p>To represent flows, I need to plot lines as spatial objects. First, I am picking the list of edges from the model solution, excluding the flows with origin and destination in the same city. The result is stored in the <code>edges</code> data fram.e</p>
+<p>To represent flows, I need to plot lines as spatial objects. First, I am picking the list of edges from the model solution, excluding the flows with origin and destination in the same city. The result is stored in the <code>edges</code> data frame.</p>
 <pre class="r"><code>edges &lt;- facility_model |&gt;
   get_solution(x[i, j]) |&gt;
   mutate(ori = rep(rownames(costs), n),
@@ -278,33 +281,33 @@ edges_sf</code></pre>
 ## 
 ## other attached packages:
 ##  [1] BAdatasetsSpatial_0.1.0 ROI.plugin.glpk_1.0-0   ompr.roi_1.0.2         
-##  [4] ompr_1.0.4              mapSpain_0.10.0         sf_1.0-20              
+##  [4] ompr_1.0.4              mapSpain_1.1.0          sf_1.0-20              
 ##  [7] lubridate_1.9.4         forcats_1.0.1           stringr_1.6.0          
 ## [10] dplyr_1.1.4             purrr_1.2.0             readr_2.1.5            
 ## [13] tidyr_1.3.1             tibble_3.3.0            ggplot2_4.0.0          
 ## [16] tidyverse_2.0.0        
 ## 
 ## loaded via a namespace (and not attached):
-##  [1] gtable_0.3.6        xfun_0.52           bslib_0.9.0        
-##  [4] lattice_0.22-9      numDeriv_2016.8-1.1 tzdb_0.5.0         
-##  [7] vctrs_0.6.5         tools_4.5.3         generics_0.1.3     
-## [10] proxy_0.4-27        pkgconfig_2.0.3     Matrix_1.7-4       
-## [13] KernSmooth_2.23-26  data.table_1.17.8   checkmate_2.3.2    
-## [16] RColorBrewer_1.1-3  S7_0.2.0            listcomp_0.4.1     
-## [19] lifecycle_1.0.4     compiler_4.5.3      farver_2.1.2       
-## [22] htmltools_0.5.8.1   class_7.3-23        sass_0.4.10        
-## [25] yaml_2.3.10         lazyeval_0.2.2      pillar_1.11.1      
-## [28] jquerylib_0.1.4     classInt_0.4-11     cachem_1.1.0       
-## [31] wk_0.9.4            tidyselect_1.2.1    digest_0.6.37      
-## [34] slam_0.1-50         stringi_1.8.7       bookdown_0.43      
-## [37] fastmap_1.2.0       grid_4.5.3          cli_3.6.4          
-## [40] magrittr_2.0.4      utf8_1.2.4          e1071_1.7-16       
-## [43] withr_3.0.2         rappdirs_0.3.3      scales_1.4.0       
-## [46] backports_1.5.0     registry_0.5-1      timechange_0.3.0   
-## [49] rmarkdown_2.29      blogdown_1.21       hms_1.1.4          
-## [52] ROI_1.0-1           evaluate_1.0.3      knitr_1.50         
-## [55] Rglpk_0.6-5.1       s2_1.1.7            rlang_1.1.6        
-## [58] Rcpp_1.1.0          glue_1.8.0          DBI_1.2.3          
-## [61] rstudioapi_0.17.1   jsonlite_2.0.0      R6_2.6.1           
-## [64] units_0.8-7</code></pre>
+##  [1] gtable_0.3.6        httr2_1.2.2         xfun_0.52          
+##  [4] bslib_0.9.0         lattice_0.22-9      numDeriv_2016.8-1.1
+##  [7] tzdb_0.5.0          vctrs_0.6.5         tools_4.5.3        
+## [10] generics_0.1.3      curl_7.0.0          proxy_0.4-27       
+## [13] pkgconfig_2.0.3     Matrix_1.7-5        KernSmooth_2.23-26 
+## [16] data.table_1.17.8   checkmate_2.3.2     RColorBrewer_1.1-3 
+## [19] S7_0.2.0            listcomp_0.4.1      lifecycle_1.0.4    
+## [22] compiler_4.5.3      farver_2.1.2        htmltools_0.5.8.1  
+## [25] class_7.3-23        sass_0.4.10         yaml_2.3.10        
+## [28] lazyeval_0.2.2      pillar_1.11.1       jquerylib_0.1.4    
+## [31] classInt_0.4-11     cachem_1.1.0        wk_0.9.4           
+## [34] tidyselect_1.2.1    digest_0.6.37       slam_0.1-50        
+## [37] stringi_1.8.7       bookdown_0.43       fastmap_1.2.0      
+## [40] grid_4.5.3          cli_3.6.4           magrittr_2.0.4     
+## [43] utf8_1.2.4          e1071_1.7-16        withr_3.0.2        
+## [46] rappdirs_0.3.3      scales_1.4.0        backports_1.5.0    
+## [49] registry_0.5-1      timechange_0.3.0    rmarkdown_2.29     
+## [52] blogdown_1.21       hms_1.1.4           ROI_1.0-1          
+## [55] evaluate_1.0.3      knitr_1.50          Rglpk_0.6-5.1      
+## [58] s2_1.1.7            rlang_1.1.6         Rcpp_1.1.0         
+## [61] glue_1.8.0          DBI_1.2.3           rstudioapi_0.17.1  
+## [64] jsonlite_2.0.0      R6_2.6.1            units_0.8-7</code></pre>
 </div>
