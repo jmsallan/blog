@@ -1,0 +1,724 @@
+---
+title: Evaluation of Heuristics with Fractional Factorial Design
+author: Jose M Sallan
+date: '2026-05-31'
+slug: evaluation-of-heuristics-with-fractional-factorial-design
+categories:
+  - R
+  - optimization
+tags:
+  - genetic algorithms
+  - optimization
+  - experimental design
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>In this post I will introduce the use of fractional factorial designs in the evaluation of metaheuristics for combinatorial optimization problems. As an example, I will evaluate a genetic algorithm for the travelling salesman problem (TSP). In addition to the tidyverse, I will load the combheuristics package to get some TSP instances, and the FrF2 package to build fractional factorial designs.</p>
+<pre class="r"><code>library(tidyverse)
+library(combheuristics)
+library(FrF2)</code></pre>
+<p>To evaluate the influence of algorithm parameters on performance, we usually use experiments designed with a <strong>full factorial design</strong>. Each of the parameters to evaluate is a factor, which usually takes two different values or levels. For k factors, the number of combinations is <span class="math inline">\(2^k\)</span>. This table presents a factorial design for <span class="math inline">\(k=3\)</span>.</p>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+A
+</th>
+<th style="text-align:right;">
+B
+</th>
+<th style="text-align:right;">
+C
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+</tbody>
+</table>
+<p>As the number of parameters increases, the number of different combinations of factors augments exponentially. Additionally, if the algorithm returns a random solution we need additional runs to account for variability. Then, the number of runs of an experiment can raise dramatically. A remedy for this are the <strong>fractional factorial designs</strong>. These designs are based in the principle than main effects will usually be more relevant than higher order interactions. For instance, we can generate a fractional factorial design for k=4 with the following defining relation:</p>
+<p><span class="math display">\[ I = ABCD \]</span></p>
+<p>This means that main effects are aliased with interactions of order three. For instance, <span class="math inline">\(D \equiv ABC\)</span>. Based on this we can create the following fractional design:</p>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+A
+</th>
+<th style="text-align:right;">
+B
+</th>
+<th style="text-align:right;">
+C
+</th>
+<th style="text-align:right;">
+D
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+<td style="text-align:right;">
+-1
+</td>
+</tr>
+<tr>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+</tbody>
+</table>
+<p>In this design, column <span class="math inline">\(D\)</span> has been obtained multiplying columns <span class="math inline">\(A\)</span>, <span class="math inline">\(B\)</span> and <span class="math inline">\(C\)</span>.</p>
+<p>This fractional design is said to have resolution IV, as the length of the defining relation is equal to four. In these designs, main factors are aliased with interactions of order three, and interactions of order two with other interactions of order two.</p>
+<div id="the-genetic-algorithm" class="section level2">
+<h2>The Genetic Algorithm</h2>
+<p>Let’s evaluate the performance of the genetic algorithm for the TSP presented in a previous post. We obtain the code for the algorithm from a Github Gist:</p>
+<pre class="r"><code>devtools::source_gist(&quot;https://gist.github.com/jmsallan/1d284ccc9734cc501c2400517d798cfd&quot;)</code></pre>
+<pre><code>## ℹ Sourcing gist &quot;1d284ccc9734cc501c2400517d798cfd&quot;
+## ℹ SHA-1 hash of file is &quot;84b6bae29aed049fef1da17b9b873ef75ee00533&quot;</code></pre>
+<p>Genetic algorithms can have a lot of parameters to tune. In this case, I am considering the following:</p>
+<pre class="r"><code>parameter &lt;- c(&quot;selection&quot;, &quot;crossover&quot;, &quot;mutation&quot;, &quot;pmut&quot;, &quot;pcross&quot;, &quot;elitist&quot;)
+levels &lt;- c(&quot;prob, tournament&quot;, &quot;pmx, ox&quot;, &quot;scramble, inv&quot;, &quot;0.8, 1&quot;, &quot;0.6, 0.3&quot;, &quot;TRUE, FALSE&quot;)
+t_grid &lt;- tibble(factors = parameter, levels = levels)
+t_grid |&gt;
+  kbl() |&gt;
+  kable_styling(full_width = FALSE)</code></pre>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+factors
+</th>
+<th style="text-align:left;">
+levels
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+selection
+</td>
+<td style="text-align:left;">
+prob, tournament
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+crossover
+</td>
+<td style="text-align:left;">
+pmx, ox
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+mutation
+</td>
+<td style="text-align:left;">
+scramble, inv
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+pmut
+</td>
+<td style="text-align:left;">
+0.8, 1
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+pcross
+</td>
+<td style="text-align:left;">
+0.6, 0.3
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+elitist
+</td>
+<td style="text-align:left;">
+TRUE, FALSE
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="the-fractional-design" class="section level2">
+<h2>The Fractional Design</h2>
+<p>If we make five runs for each combination of levels to account for solution variability we need <span class="math inline">\(2^6 \cdot 5 = 320\)</span> runs for each instance. This can take too long, so I have used the <code>FrF2::FrF2()</code> function to define a fractional design of resolution III.</p>
+<pre class="r"><code>grid_res3 &lt;- FrF2(factor.names = list(
+  selection = c(&quot;prob&quot;, &quot;tournament&quot;),
+  crossover = c(&quot;pmx&quot;, &quot;ox&quot;),
+  mutation = c(&quot;scramble&quot;, &quot;inv&quot;),
+  pcross = c(0.8, 1),
+  pmut = c(0.3, 0.6),
+  elitist = c(&quot;TRUE&quot;, &quot;FALSE&quot;)
+), resolution = 3, seed = 113)</code></pre>
+<p>The resulting table is:</p>
+<pre class="r"><code>grid_res3</code></pre>
+<pre><code>##    selection crossover mutation pcross pmut elitist
+## 1       prob       pmx      inv      1  0.3    TRUE
+## 2 tournament       pmx scramble    0.8  0.3   FALSE
+## 3 tournament        ox      inv      1  0.6   FALSE
+## 4       prob        ox      inv    0.8  0.3   FALSE
+## 5       prob        ox scramble    0.8  0.6    TRUE
+## 6       prob       pmx scramble      1  0.6   FALSE
+## 7 tournament       pmx      inv    0.8  0.6    TRUE
+## 8 tournament        ox scramble      1  0.3    TRUE
+## class=design, type= FrF2</code></pre>
+<p>We have reduced the number of combinations from <span class="math inline">\(2^6 = 64\)</span> to <span class="math inline">\(2^{\left(6-3\right)} = 8\)</span>.</p>
+<p>The package allows obtaining the aliases of the design:</p>
+<pre class="r"><code>aliasprint(grid_res3)</code></pre>
+<pre><code>## $legend
+## [1] A=selection B=crossover C=mutation  D=pcross    E=pmut      F=elitist  
+## 
+## $main
+## [1] A=BD=CE B=AD=CF C=AE=BF D=AB=EF E=AC=DF F=BC=DE
+## 
+## $fi2
+## [1] AF=BE=CD</code></pre>
+<p>As we can see, in this case each main factor is aliased with interactions of two factors.</p>
+<p>Now we need to set the correct type for each column and to replicate the table five times to have five runs for each combination.</p>
+<pre class="r"><code>grid_res3 &lt;- tibble(grid_res3) |&gt;
+  mutate(across(everything(), as.character)) |&gt;
+  mutate(across(pcross:pmut, as.numeric),
+         elitist = as.logical(elitist))
+
+grid &lt;- map_dfr(1:5, ~ grid_res3 |&gt; mutate(run = .))</code></pre>
+<p>The resulting grid is:</p>
+<pre class="r"><code>grid</code></pre>
+<pre><code>## # A tibble: 40 × 7
+##    selection  crossover mutation pcross  pmut elitist   run
+##    &lt;chr&gt;      &lt;chr&gt;     &lt;chr&gt;     &lt;dbl&gt; &lt;dbl&gt; &lt;lgl&gt;   &lt;int&gt;
+##  1 prob       pmx       inv         1     0.3 TRUE        1
+##  2 tournament pmx       scramble    0.8   0.3 FALSE       1
+##  3 tournament ox        inv         1     0.6 FALSE       1
+##  4 prob       ox        inv         0.8   0.3 FALSE       1
+##  5 prob       ox        scramble    0.8   0.6 TRUE        1
+##  6 prob       pmx       scramble    1     0.6 FALSE       1
+##  7 tournament pmx       inv         0.8   0.6 TRUE        1
+##  8 tournament ox        scramble    1     0.3 TRUE        1
+##  9 prob       pmx       inv         1     0.3 TRUE        2
+## 10 tournament pmx       scramble    0.8   0.3 FALSE       2
+## # ℹ 30 more rows</code></pre>
+</div>
+<div id="test-instances" class="section level2">
+<h2>Test Instances</h2>
+<p>In this experiment, I will use four benchmark instances from TSPLIB, stored in the combheuristics package.</p>
+<pre class="r"><code>gr24 &lt;- TSPLIB_sample$gr24
+gr48 &lt;- TSPLIB_sample$gr48
+eil76 &lt;- TSPLIB_sample$eil76
+eil101 &lt;- TSPLIB_sample$eil101</code></pre>
+</div>
+<div id="the-experimental-evaluation" class="section level2">
+<h2>The experimental Evaluation</h2>
+<p>Now we are ready to run the experiment. I am using the <code>purrr::pmap_dbl()</code> function to add the fit column to the table, assigning the values from the grid table to the algorithm.</p>
+<pre class="r"><code>set.seed(1313)
+exp_gr24 &lt;- grid |&gt;
+  mutate(fit = pmap_dbl(grid, ~ ga_tsp(gr24$D, npop = 200, max_iter = 300, selection = ..1, crossover = ..2, mutation = ..3, pcross = ..4, pmut = ..5, elitist = ..6)$fit))
+
+set.seed(1313)
+exp_gr48 &lt;- grid |&gt;
+  mutate(fit = pmap_dbl(grid, ~ ga_tsp(gr48$D, npop = 200, max_iter = 300, selection = ..1, crossover = ..2, mutation = ..3, pcross = ..4, pmut = ..5, elitist = ..6)$fit))
+
+set.seed(1313)
+exp_eil76 &lt;- grid |&gt;
+  mutate(fit = pmap_dbl(grid, ~ ga_tsp(eil76$D, npop = 400, max_iter = 600, selection = ..1, crossover = ..2, mutation = ..3, pcross = ..4, pmut = ..5, elitist = ..6)$fit))
+
+set.seed(1313)
+exp_eil101 &lt;- grid |&gt;
+  mutate(fit = pmap_dbl(grid, ~ ga_tsp(eil101$D, npop = 400, max_iter = 600, selection = ..1, crossover = ..2, mutation = ..3, pcross = ..4, pmut = ..5, elitist = ..6)$fit))</code></pre>
+<p>Let’s take a look at the best values of average fit for each instance:</p>
+<pre class="r"><code>map(list(exp_gr24, exp_gr48, exp_eil76, exp_eil101), ~ . |&gt; 
+      group_by(pick(selection:elitist)) |&gt;
+      summarise(fit = mean(fit), .groups = &quot;drop&quot;) |&gt;
+      arrange(fit))</code></pre>
+<pre><code>## [[1]]
+## # A tibble: 8 × 7
+##   selection  crossover mutation pcross  pmut elitist   fit
+##   &lt;chr&gt;      &lt;chr&gt;     &lt;chr&gt;     &lt;dbl&gt; &lt;dbl&gt; &lt;lgl&gt;   &lt;dbl&gt;
+## 1 tournament ox        inv         1     0.6 FALSE   1290.
+## 2 tournament pmx       inv         0.8   0.6 TRUE    1297.
+## 3 prob       ox        inv         0.8   0.3 FALSE   1391 
+## 4 tournament pmx       scramble    0.8   0.3 FALSE   1423.
+## 5 tournament ox        scramble    1     0.3 TRUE    1434.
+## 6 prob       pmx       inv         1     0.3 TRUE    1525 
+## 7 prob       ox        scramble    0.8   0.6 TRUE    1543.
+## 8 prob       pmx       scramble    1     0.6 FALSE   1553 
+## 
+## [[2]]
+## # A tibble: 8 × 7
+##   selection  crossover mutation pcross  pmut elitist   fit
+##   &lt;chr&gt;      &lt;chr&gt;     &lt;chr&gt;     &lt;dbl&gt; &lt;dbl&gt; &lt;lgl&gt;   &lt;dbl&gt;
+## 1 tournament pmx       inv         0.8   0.6 TRUE    5296.
+## 2 tournament ox        inv         1     0.6 FALSE   5453.
+## 3 tournament pmx       scramble    0.8   0.3 FALSE   5903.
+## 4 tournament ox        scramble    1     0.3 TRUE    5918 
+## 5 prob       ox        inv         0.8   0.3 FALSE   6072.
+## 6 prob       pmx       inv         1     0.3 TRUE    6089.
+## 7 prob       ox        scramble    0.8   0.6 TRUE    6098 
+## 8 prob       pmx       scramble    1     0.6 FALSE   6098 
+## 
+## [[3]]
+## # A tibble: 8 × 7
+##   selection  crossover mutation pcross  pmut elitist   fit
+##   &lt;chr&gt;      &lt;chr&gt;     &lt;chr&gt;     &lt;dbl&gt; &lt;dbl&gt; &lt;lgl&gt;   &lt;dbl&gt;
+## 1 tournament pmx       inv         0.8   0.6 TRUE     587.
+## 2 tournament ox        inv         1     0.6 FALSE    609.
+## 3 tournament pmx       scramble    0.8   0.3 FALSE    644.
+## 4 tournament ox        scramble    1     0.3 TRUE     650.
+## 5 prob       ox        inv         0.8   0.3 FALSE    679.
+## 6 prob       ox        scramble    0.8   0.6 TRUE     708.
+## 7 prob       pmx       inv         1     0.3 TRUE     712.
+## 8 prob       pmx       scramble    1     0.6 FALSE    712.
+## 
+## [[4]]
+## # A tibble: 8 × 7
+##   selection  crossover mutation pcross  pmut elitist   fit
+##   &lt;chr&gt;      &lt;chr&gt;     &lt;chr&gt;     &lt;dbl&gt; &lt;dbl&gt; &lt;lgl&gt;   &lt;dbl&gt;
+## 1 tournament pmx       inv         0.8   0.6 TRUE     702.
+## 2 tournament ox        inv         1     0.6 FALSE    755.
+## 3 tournament pmx       scramble    0.8   0.3 FALSE    791.
+## 4 tournament ox        scramble    1     0.3 TRUE     801.
+## 5 prob       ox        inv         0.8   0.3 FALSE    808.
+## 6 prob       pmx       scramble    1     0.6 FALSE    824.
+## 7 prob       ox        scramble    0.8   0.6 TRUE     825.
+## 8 prob       pmx       inv         1     0.3 TRUE     825.</code></pre>
+<p>We can see that we obtain the best values with <code>tournament = "selection"</code>, <code>mutation = "inv"</code> and high values of <code>pmut</code>, although analyses not presented here show that the algorithm diverges for large instances when higher values of <code>pmut</code> are used. The parameters pcross and elitism seem to have a lesser influence on performance.</p>
+</div>
+<div id="a-smaller-full-factorial-experiment" class="section level2">
+<h2>A Smaller Full Factorial Experiment</h2>
+<p>As the results of the fractional factorial are aliased with interactions of two factors, I have decided to run a full factorial experiment with the selection, crossover and mutation operators as factors. I have fixed the values of the probabilities of mutation and crossover and of elitism.</p>
+<p>The grid of a full factorial can be obtained with <code>tidyr::expand_grid()</code>:</p>
+<pre class="r"><code>small_grid &lt;- expand_grid(
+  selection = c(&quot;prob&quot;, &quot;tournament&quot;),
+  crossover = c(&quot;pmx&quot;, &quot;ox&quot;),
+  mutation = c(&quot;scramble&quot;, &quot;inv&quot;)
+)
+
+small_grid &lt;- map_dfr(1:5, ~ small_grid |&gt; mutate(run = .))
+small_grid</code></pre>
+<pre><code>## # A tibble: 40 × 4
+##    selection  crossover mutation   run
+##    &lt;chr&gt;      &lt;chr&gt;     &lt;chr&gt;    &lt;int&gt;
+##  1 prob       pmx       scramble     1
+##  2 prob       pmx       inv          1
+##  3 prob       ox        scramble     1
+##  4 prob       ox        inv          1
+##  5 tournament pmx       scramble     1
+##  6 tournament pmx       inv          1
+##  7 tournament ox        scramble     1
+##  8 tournament ox        inv          1
+##  9 prob       pmx       scramble     2
+## 10 prob       pmx       inv          2
+## # ℹ 30 more rows</code></pre>
+<p>This grid has also 40 runs for each instance, but is focused on three factors only.</p>
+<pre class="r"><code>set.seed(1313)
+expsg_gr24 &lt;- small_grid |&gt;
+  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(gr24$D, npop = 200, max_iter = 300, selection = ..1, crossover = ..2, mutation = ..3, pcross = 0.8, pmut = 0.6, elitist = FALSE)$fit))
+
+set.seed(1313)
+expsg_gr48 &lt;- small_grid |&gt;
+  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(gr48$D, npop = 200, max_iter = 300, selection = ..1, crossover = ..2, mutation = ..3, pcross = 0.8, pmut = 0.6, elitist = FALSE)$fit))
+
+set.seed(1313)
+expsg_eil76 &lt;- small_grid |&gt;
+  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(eil76$D, npop = 400, max_iter = 600, selection = ..1, crossover = ..2, mutation = ..3, pcross = 0.8, pmut = 0.6, elitist = FALSE)$fit))
+
+set.seed(1313)
+expsg_eil101 &lt;- small_grid |&gt;
+  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(eil101$D, npop = 400, max_iter = 600, selection = ..1, crossover = ..2, mutation = ..3, pcross = 0.8, pmut = 0.6, elitist = FALSE)$fit))</code></pre>
+<p>Let’s observe the results:</p>
+<pre class="r"><code>map(list(expsg_gr24, expsg_gr48, expsg_eil76, expsg_eil101), ~ . |&gt; 
+      group_by(pick(selection:mutation)) |&gt;
+      summarise(fit = mean(fit), .groups = &quot;drop&quot;) |&gt;
+      arrange(fit))</code></pre>
+<pre><code>## [[1]]
+## # A tibble: 8 × 4
+##   selection  crossover mutation   fit
+##   &lt;chr&gt;      &lt;chr&gt;     &lt;chr&gt;    &lt;dbl&gt;
+## 1 tournament ox        inv      1287.
+## 2 tournament pmx       inv      1327.
+## 3 tournament pmx       scramble 1422.
+## 4 tournament ox        scramble 1441.
+## 5 prob       ox        scramble 1533.
+## 6 prob       pmx       scramble 1535.
+## 7 prob       pmx       inv      1541.
+## 8 prob       ox        inv      1547.
+## 
+## [[2]]
+## # A tibble: 8 × 4
+##   selection  crossover mutation   fit
+##   &lt;chr&gt;      &lt;chr&gt;     &lt;chr&gt;    &lt;dbl&gt;
+## 1 tournament ox        inv      5267.
+## 2 tournament pmx       inv      5350.
+## 3 tournament pmx       scramble 5764.
+## 4 tournament ox        scramble 5952.
+## 5 prob       pmx       inv      6064.
+## 6 prob       pmx       scramble 6089.
+## 7 prob       ox        scramble 6096.
+## 8 prob       ox        inv      6098 
+## 
+## [[3]]
+## # A tibble: 8 × 4
+##   selection  crossover mutation   fit
+##   &lt;chr&gt;      &lt;chr&gt;     &lt;chr&gt;    &lt;dbl&gt;
+## 1 tournament ox        inv       584.
+## 2 tournament pmx       inv       588.
+## 3 tournament ox        scramble  627.
+## 4 tournament pmx       scramble  668.
+## 5 prob       ox        scramble  707.
+## 6 prob       ox        inv       712.
+## 7 prob       pmx       inv       712.
+## 8 prob       pmx       scramble  712.
+## 
+## [[4]]
+## # A tibble: 8 × 4
+##   selection  crossover mutation   fit
+##   &lt;chr&gt;      &lt;chr&gt;     &lt;chr&gt;    &lt;dbl&gt;
+## 1 tournament ox        inv       674.
+## 2 tournament pmx       inv       690.
+## 3 tournament pmx       scramble  767.
+## 4 tournament ox        scramble  786.
+## 5 prob       pmx       inv       823.
+## 6 prob       ox        inv       825.
+## 7 prob       pmx       scramble  825.
+## 8 prob       ox        scramble  825.</code></pre>
+<p>Now we see that the best combination of parameters is:</p>
+<ul>
+<li><code>selection = "tournament"</code>.</li>
+<li><code>crossover = "ox"</code>.</li>
+<li><code>mutation = "inv"</code>.</li>
+</ul>
+</div>
+<div id="scaling-of-results" class="section level2">
+<h2>Scaling of Results</h2>
+<p>In the previous post I presented with this code, I obtained good values for the <code>gr24</code> and <code>gr48</code> instances using these operators with <code>pmut=0.8</code>. When tested on larger instances, the algorithm diverged when using high values of <code>pmut</code>. That is why I have used 0.6 as highest value of <code>pmut</code>: higher values did not scaled well for larger instances.</p>
+<p>Let’s run the algorithm with <code>gr24</code>:</p>
+<pre class="r"><code>set.seed(11)
+ga_gr24_2 &lt;- ga_tsp(instance = gr24$D, selection = &quot;tournament&quot;, 
+                  crossover = &quot;ox&quot;, mutation = &quot;inv&quot;, npop = 120, 
+                  max_iter = 263, pcross = 0.8, pmut = 0.8, 
+                  elitist = TRUE, seed = TRUE)</code></pre>
+<p>The evolution of the fitness values shows how the algorithm helps finding the optimum:</p>
+<pre class="r"><code>ga_gr24_2$track |&gt;
+  pivot_longer(-step) |&gt;
+  ggplot(aes(step, value, color = name)) +
+  geom_line() +
+  theme_minimal() +
+  theme(legend.position = &quot;bottom&quot;) +
+  labs(x = NULL, y = NULL, title = &quot;gr24 with pmut = 0.8&quot;) +
+  scale_color_manual(name = &quot;fit&quot;, values = c(&quot;#0066CC&quot;, &quot;#3399FF&quot;, &quot;#99CCFF&quot; ))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-20-1.png" alt="" width="672" /></p>
+<p>When applied the same pattern to <code>eil101</code>, the algorithms diverges greatly. In fact, it returns the value of the solution obtained with nearest neighbor seeded in the first generation.</p>
+<pre class="r"><code>set.seed(11)
+ga_eil101_2 &lt;- ga_tsp(instance = eil101$D, selection = &quot;tournament&quot;, 
+                  crossover = &quot;ox&quot;, mutation = &quot;inv&quot;, npop = 120, 
+                  max_iter = 263, pcross = 0.8, pmut = 0.8, 
+                  elitist = TRUE, seed = TRUE)
+
+ga_eil101_2$track |&gt;
+  pivot_longer(-step) |&gt;
+  ggplot(aes(step, value, color = name)) +
+  geom_line() +
+  theme_minimal() +
+  theme(legend.position = &quot;bottom&quot;) +
+  labs(x = NULL, y = NULL, title = &quot;eil101 with pmut = 0.8&quot;) +
+  scale_color_manual(name = &quot;fit&quot;, values = c(&quot;#0066CC&quot;, &quot;#3399FF&quot;, &quot;#99CCFF&quot; ))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-21-1.png" alt="" width="672" style="display: block; margin: auto;" /></p>
+<p>With a smaller value of <code>pmut</code>, the algorithm works better:</p>
+<pre class="r"><code>set.seed(11)
+ga_eil101_3 &lt;- ga_tsp(instance = eil101$D, selection = &quot;tournament&quot;, 
+                  crossover = &quot;ox&quot;, mutation = &quot;inv&quot;, npop = 120, 
+                  max_iter = 263, pcross = 0.8, pmut = 0.6, 
+                  elitist = TRUE, seed = TRUE)
+
+ga_eil101_3$track |&gt;
+  pivot_longer(-step) |&gt;
+  ggplot(aes(step, value, color = name)) +
+  geom_line() +
+  theme_minimal() +
+  theme(legend.position = &quot;bottom&quot;) +
+  labs(x = NULL, y = NULL, title = &quot;eil101 with pmut = 0.6&quot;) +
+  scale_color_manual(name = &quot;fit&quot;, values = c(&quot;#0066CC&quot;, &quot;#3399FF&quot;, &quot;#99CCFF&quot; ))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-22-1.png" alt="" width="672" style="display: block; margin: auto;" /></p>
+<p>If we represent the later steps we can appreciate better how the algorithm is working.</p>
+<pre class="r"><code>ga_eil101_3$track |&gt;
+  pivot_longer(-step) |&gt;
+  filter(step &gt;= 10) |&gt;
+  ggplot(aes(step, value, color = name)) +
+  geom_line() +
+  theme_minimal() +
+  theme(legend.position = &quot;bottom&quot;) +
+  labs(x = NULL, y = NULL, title = &quot;eil101 with pmut = 0.6 from step 10&quot;) +
+  scale_color_manual(name = &quot;fit&quot;, values = c(&quot;#0066CC&quot;, &quot;#3399FF&quot;, &quot;#99CCFF&quot; ))</code></pre>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-23-1.png" alt="" width="672" style="display: block; margin: auto;" /></p>
+<p>Another effect of scaling is that for larger instances we need more evaluations of the objective function to obtain stable results. As each evaluation is more costly in larger instances, the running of the algorithm in larger instances consumes significantly more time.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Grömping, U. (2014). R package FrF2 for creating and analyzing fractional factorial 2-level designs. <em>Journal of Statistical Software</em>, 56, 1-56. <a href="https://doi.org/10.18637/jss.v056.i01" class="uri">https://doi.org/10.18637/jss.v056.i01</a>.</li>
+<li>combheuristics package: <a href="https://github.com/jmsallan/combheuristics" class="uri">https://github.com/jmsallan/combheuristics</a>.</li>
+<li>Genetic algorithms with permutative encoding: <a href="https://jmsallan.netlify.app/blog/genetic-algorithms-with-permutative-encoding/" class="uri">https://jmsallan.netlify.app/blog/genetic-algorithms-with-permutative-encoding/</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre class="r"><code>sessionInfo()</code></pre>
+<pre><code>## R version 4.6.0 (2026-04-24)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0  LAPACK version 3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] grid      stats     graphics  grDevices utils     datasets  methods  
+## [8] base     
+## 
+## other attached packages:
+##  [1] kableExtra_1.4.0     FrF2_2.3-5           DoE.base_1.2-5      
+##  [4] conf.design_2.0.0    combheuristics_0.1.0 lubridate_1.9.5     
+##  [7] forcats_1.0.1        stringr_1.6.0        dplyr_1.2.1         
+## [10] purrr_1.2.2          readr_2.2.0          tidyr_1.3.2         
+## [13] tibble_3.3.1         ggplot2_4.0.3        tidyverse_2.0.0     
+## 
+## loaded via a namespace (and not attached):
+##  [1] tidyselect_1.2.1     viridisLite_0.4.3    farver_2.1.2        
+##  [4] S7_0.2.2             fastmap_1.2.0        combinat_0.0-8      
+##  [7] gh_1.5.0             blogdown_1.23        numbers_0.9-2       
+## [10] digest_0.6.39        timechange_0.4.0     lifecycle_1.0.5     
+## [13] ellipsis_0.3.3       magrittr_2.0.5       compiler_4.6.0      
+## [16] rlang_1.2.0          sass_0.4.10          tools_4.6.0         
+## [19] igraph_2.3.1         utf8_1.2.6           yaml_2.3.12         
+## [22] knitr_1.51           labeling_0.4.3       pkgbuild_1.4.8      
+## [25] scatterplot3d_0.3-45 curl_7.1.0           xml2_1.5.2          
+## [28] RColorBrewer_1.1-3   pkgload_1.5.2        withr_3.0.2         
+## [31] partitions_1.10-9    colorspace_2.1-2     gitcreds_0.1.2      
+## [34] scales_1.4.0         MASS_7.3-65          cli_3.6.6           
+## [37] rmarkdown_2.31       generics_0.1.4       otel_0.2.0          
+## [40] rstudioapi_0.18.0    tzdb_0.5.0           sessioninfo_1.2.3   
+## [43] polynom_1.4-1        cachem_1.1.0         vctrs_0.7.3         
+## [46] devtools_2.5.2       jsonlite_2.0.0       bookdown_0.46       
+## [49] hms_1.1.4            systemfonts_1.3.2    vcd_1.4-13          
+## [52] jquerylib_0.1.4      glue_1.8.1           stringi_1.8.7       
+## [55] gtable_0.3.6         sfsmisc_1.1-24       lmtest_0.9-40       
+## [58] gmp_0.7-5.1          pillar_1.11.1        rappdirs_0.3.4      
+## [61] htmltools_0.5.9      R6_2.6.1             httr2_1.2.2         
+## [64] textshaping_1.0.5    Rdpack_2.6.6         evaluate_1.0.5      
+## [67] lattice_0.22-9       rbibutils_2.4.1      memoise_2.0.1       
+## [70] bslib_0.10.0         svglite_2.2.2        xfun_0.57           
+## [73] fs_2.1.0             zoo_1.8-15           usethis_3.2.1       
+## [76] pkgconfig_2.0.3</code></pre>
+</div>

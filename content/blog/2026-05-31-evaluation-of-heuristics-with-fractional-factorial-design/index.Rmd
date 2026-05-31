@@ -1,0 +1,326 @@
+---
+title: Evaluation of Heuristics with Fractional Factorial Design
+author: Jose M Sallan
+date: '2026-05-31'
+slug: evaluation-of-heuristics-with-fractional-factorial-design
+categories:
+  - R
+  - optimization
+tags:
+  - genetic algorithms
+  - optimization
+  - experimental design
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this post I will introduce the use of fractional factorial designs in the evaluation of metaheuristics for combinatorial optimization problems. As an example, I will evaluate a genetic algorithm for the travelling salesman problem (TSP). In addition to the tidyverse, I will load the combheuristics package to get some TSP instances, and the FrF2 package to build fractional factorial designs.
+
+```{r, message=FALSE}
+library(tidyverse)
+library(combheuristics)
+library(FrF2)
+```
+
+To evaluate the influence of algorithm parameters on performance, we usually use experiments designed with a **full factorial design**. Each of the parameters to evaluate is a factor, which usually takes two different values or levels. For k factors, the number of combinations is $2^k$. This table presents a factorial design for $k=3$.
+
+```{r, echo=FALSE, message=FALSE}
+library(kableExtra)
+A = c(rep(-1, 4), rep(1, 4))
+B = rep(c(rep(-1, 2), rep(1,2)), 2)
+C = rep(c(-1, 1), 4)
+full_tab = tibble(A = A, B = B, C = C)
+full_tab |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+As the number of parameters increases, the number of different combinations of factors augments exponentially. Additionally, if the algorithm returns a random solution we need additional runs to account for variability. Then, the number of runs of an experiment can raise dramatically. A remedy for this are the **fractional factorial designs**. These designs are based in the principle than main effects will usually be more relevant than higher order interactions. For instance, we can generate a fractional factorial design for k=4 with the following defining relation:
+
+$$ I = ABCD $$
+
+This means that main effects are aliased with interactions of order three. For instance, $D \equiv ABC$. Based on this we can create the following fractional design:
+
+```{r, echo=FALSE}
+A = c(rep(-1, 4), rep(1, 4))
+B = rep(c(rep(-1, 2), rep(1,2)), 2)
+C = rep(c(-1, 1), 4)
+D = A*B*C
+frac_tab = tibble(A = A, B = B, C = C, D = D)
+frac_tab |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+In this design, column $D$ has been obtained multiplying columns $A$, $B$ and $C$.
+
+This fractional design is said to have resolution IV, as the length of the defining relation is equal to four. In these designs, main factors are aliased with interactions of order three, and interactions of order two with other interactions of order two.
+
+## The Genetic Algorithm
+
+Let's evaluate the performance of the genetic algorithm for the TSP presented in a previous post. We obtain the code for the algorithm from a Github Gist:
+
+```{r}
+devtools::source_gist("https://gist.github.com/jmsallan/1d284ccc9734cc501c2400517d798cfd")
+```
+
+Genetic algorithms can have a lot of parameters to tune. In this case, I am considering the following:
+
+```{r}
+parameter <- c("selection", "crossover", "mutation", "pmut", "pcross", "elitist")
+levels <- c("prob, tournament", "pmx, ox", "scramble, inv", "0.8, 1", "0.6, 0.3", "TRUE, FALSE")
+t_grid <- tibble(factors = parameter, levels = levels)
+t_grid |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+## The Fractional Design
+
+If we make five runs for each combination of levels to account for solution variability we need $2^6 \cdot 5 = 320$ runs for each instance. This can take too long, so I have used the `FrF2::FrF2()` function to define a fractional design of resolution III.
+
+```{r}
+grid_res3 <- FrF2(factor.names = list(
+  selection = c("prob", "tournament"),
+  crossover = c("pmx", "ox"),
+  mutation = c("scramble", "inv"),
+  pcross = c(0.8, 1),
+  pmut = c(0.3, 0.6),
+  elitist = c("TRUE", "FALSE")
+), resolution = 3, seed = 113)
+```
+
+The resulting table is:
+
+```{r}
+grid_res3
+```
+
+We have reduced the number of combinations from $2^6 = 64$ to $2^{\left(6-3\right)} = 8$.
+
+The package allows obtaining the aliases of the design:
+
+```{r}
+aliasprint(grid_res3)
+```
+
+As we can see, in this case each main factor is aliased with interactions of two factors.
+
+Now we need to set the correct type for each column and to replicate the table five times to have five runs for each combination.
+
+```{r}
+grid_res3 <- tibble(grid_res3) |>
+  mutate(across(everything(), as.character)) |>
+  mutate(across(pcross:pmut, as.numeric),
+         elitist = as.logical(elitist))
+
+grid <- map_dfr(1:5, ~ grid_res3 |> mutate(run = .))
+```
+
+The resulting grid is:
+
+```{r}
+grid
+```
+
+## Test Instances
+
+In this experiment, I will use four benchmark instances from TSPLIB, stored in the combheuristics package.
+
+```{r}
+gr24 <- TSPLIB_sample$gr24
+gr48 <- TSPLIB_sample$gr48
+eil76 <- TSPLIB_sample$eil76
+eil101 <- TSPLIB_sample$eil101
+```
+
+## The experimental Evaluation
+
+Now we are ready to run the experiment. I am using the `purrr::pmap_dbl()` function to add the fit column to the table, assigning the values from the grid table to the algorithm.
+
+```{r, echo=FALSE}
+load("results_eval.RData")
+```
+
+```{r, eval=FALSE}
+set.seed(1313)
+exp_gr24 <- grid |>
+  mutate(fit = pmap_dbl(grid, ~ ga_tsp(gr24$D, npop = 200, max_iter = 300, selection = ..1, crossover = ..2, mutation = ..3, pcross = ..4, pmut = ..5, elitist = ..6)$fit))
+
+set.seed(1313)
+exp_gr48 <- grid |>
+  mutate(fit = pmap_dbl(grid, ~ ga_tsp(gr48$D, npop = 200, max_iter = 300, selection = ..1, crossover = ..2, mutation = ..3, pcross = ..4, pmut = ..5, elitist = ..6)$fit))
+
+set.seed(1313)
+exp_eil76 <- grid |>
+  mutate(fit = pmap_dbl(grid, ~ ga_tsp(eil76$D, npop = 400, max_iter = 600, selection = ..1, crossover = ..2, mutation = ..3, pcross = ..4, pmut = ..5, elitist = ..6)$fit))
+
+set.seed(1313)
+exp_eil101 <- grid |>
+  mutate(fit = pmap_dbl(grid, ~ ga_tsp(eil101$D, npop = 400, max_iter = 600, selection = ..1, crossover = ..2, mutation = ..3, pcross = ..4, pmut = ..5, elitist = ..6)$fit))
+```
+
+Let's take a look at the best values of average fit for each instance:
+
+```{r}
+map(list(exp_gr24, exp_gr48, exp_eil76, exp_eil101), ~ . |> 
+      group_by(pick(selection:elitist)) |>
+      summarise(fit = mean(fit), .groups = "drop") |>
+      arrange(fit))
+```
+
+We can see that we obtain the best values with `tournament = "selection"`, `mutation = "inv"` and high values of `pmut`, although analyses not presented here show that the algorithm diverges for large instances when higher values of `pmut` are used. The parameters pcross and elitism seem to have a lesser influence on performance.
+
+## A Smaller Full Factorial Experiment
+
+As the results of the fractional factorial are aliased with interactions of two factors, I have decided to run a full factorial experiment with the selection, crossover and mutation operators as factors. I have fixed the values of the probabilities of mutation and crossover and of elitism.
+
+The grid of a full factorial can be obtained with `tidyr::expand_grid()`:
+
+```{r}
+small_grid <- expand_grid(
+  selection = c("prob", "tournament"),
+  crossover = c("pmx", "ox"),
+  mutation = c("scramble", "inv")
+)
+
+small_grid <- map_dfr(1:5, ~ small_grid |> mutate(run = .))
+small_grid
+```
+
+This grid has also 40 runs for each instance, but is focused on three factors only.
+
+```{r, echo=FALSE}
+load("sgresults_eval.RData")
+```
+
+```{r, eval=FALSE}
+set.seed(1313)
+expsg_gr24 <- small_grid |>
+  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(gr24$D, npop = 200, max_iter = 300, selection = ..1, crossover = ..2, mutation = ..3, pcross = 0.8, pmut = 0.6, elitist = FALSE)$fit))
+
+set.seed(1313)
+expsg_gr48 <- small_grid |>
+  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(gr48$D, npop = 200, max_iter = 300, selection = ..1, crossover = ..2, mutation = ..3, pcross = 0.8, pmut = 0.6, elitist = FALSE)$fit))
+
+set.seed(1313)
+expsg_eil76 <- small_grid |>
+  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(eil76$D, npop = 400, max_iter = 600, selection = ..1, crossover = ..2, mutation = ..3, pcross = 0.8, pmut = 0.6, elitist = FALSE)$fit))
+
+set.seed(1313)
+expsg_eil101 <- small_grid |>
+  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(eil101$D, npop = 400, max_iter = 600, selection = ..1, crossover = ..2, mutation = ..3, pcross = 0.8, pmut = 0.6, elitist = FALSE)$fit))
+```
+
+Let's observe the results:
+
+```{r}
+map(list(expsg_gr24, expsg_gr48, expsg_eil76, expsg_eil101), ~ . |> 
+      group_by(pick(selection:mutation)) |>
+      summarise(fit = mean(fit), .groups = "drop") |>
+      arrange(fit))
+```
+
+Now we see that the best combination of parameters is:
+
+- `selection = "tournament"`.
+- `crossover = "ox"`.
+- `mutation = "inv"`.
+
+## Scaling of Results
+
+In the previous post I presented with this code, I obtained good values for the `gr24` and `gr48` instances using these operators with `pmut=0.8`. When tested on larger instances, the algorithm diverged when using high values of `pmut`. That is why I have used 0.6 as highest value of `pmut`: higher values did not scaled well for larger instances.
+
+Let's run the algorithm with `gr24`:
+
+```{r}
+set.seed(11)
+ga_gr24_2 <- ga_tsp(instance = gr24$D, selection = "tournament", 
+                  crossover = "ox", mutation = "inv", npop = 120, 
+                  max_iter = 263, pcross = 0.8, pmut = 0.8, 
+                  elitist = TRUE, seed = TRUE)
+```
+
+The evolution of the fitness values shows how the algorithm helps finding the optimum:
+
+```{r}
+ga_gr24_2$track |>
+  pivot_longer(-step) |>
+  ggplot(aes(step, value, color = name)) +
+  geom_line() +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(x = NULL, y = NULL, title = "gr24 with pmut = 0.8") +
+  scale_color_manual(name = "fit", values = c("#0066CC", "#3399FF", "#99CCFF" ))
+```
+
+When applied the same pattern to `eil101`, the algorithms diverges greatly. In fact, it returns the value of the solution obtained with nearest neighbor seeded in the first generation.
+
+```{r, fig.align='center'}
+set.seed(11)
+ga_eil101_2 <- ga_tsp(instance = eil101$D, selection = "tournament", 
+                  crossover = "ox", mutation = "inv", npop = 120, 
+                  max_iter = 263, pcross = 0.8, pmut = 0.8, 
+                  elitist = TRUE, seed = TRUE)
+
+ga_eil101_2$track |>
+  pivot_longer(-step) |>
+  ggplot(aes(step, value, color = name)) +
+  geom_line() +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(x = NULL, y = NULL, title = "eil101 with pmut = 0.8") +
+  scale_color_manual(name = "fit", values = c("#0066CC", "#3399FF", "#99CCFF" ))
+```
+
+With a smaller value of `pmut`, the algorithm works better:
+
+```{r, fig.align='center'}
+set.seed(11)
+ga_eil101_3 <- ga_tsp(instance = eil101$D, selection = "tournament", 
+                  crossover = "ox", mutation = "inv", npop = 120, 
+                  max_iter = 263, pcross = 0.8, pmut = 0.6, 
+                  elitist = TRUE, seed = TRUE)
+
+ga_eil101_3$track |>
+  pivot_longer(-step) |>
+  ggplot(aes(step, value, color = name)) +
+  geom_line() +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(x = NULL, y = NULL, title = "eil101 with pmut = 0.6") +
+  scale_color_manual(name = "fit", values = c("#0066CC", "#3399FF", "#99CCFF" ))
+```
+
+If we represent the later steps we can appreciate better how the algorithm is working.
+
+```{r, fig.align='center'}
+ga_eil101_3$track |>
+  pivot_longer(-step) |>
+  filter(step >= 10) |>
+  ggplot(aes(step, value, color = name)) +
+  geom_line() +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(x = NULL, y = NULL, title = "eil101 with pmut = 0.6 from step 10") +
+  scale_color_manual(name = "fit", values = c("#0066CC", "#3399FF", "#99CCFF" ))
+```
+
+Another effect of scaling is that for larger instances we need more evaluations of the objective function to obtain stable results. As each evaluation is more costly in larger instances, the running of the algorithm in larger instances consumes significantly more time.
+
+## References
+
+- Grömping, U. (2014). R package FrF2 for creating and analyzing fractional factorial 2-level designs. *Journal of Statistical Software*, 56, 1-56. <https://doi.org/10.18637/jss.v056.i01>.
+- combheuristics package: <https://github.com/jmsallan/combheuristics>.
+- Genetic algorithms with permutative encoding: <https://jmsallan.netlify.app/blog/genetic-algorithms-with-permutative-encoding/>
+
+## Session Info
+
+```{r, echo=TRUE}
+sessionInfo()
+```
+
