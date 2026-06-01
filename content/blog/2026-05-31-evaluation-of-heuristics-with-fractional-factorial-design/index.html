@@ -527,7 +527,9 @@ set.seed(1313)
 expsg_eil101 &lt;- small_grid |&gt;
   mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(eil101$D, npop = 400, max_iter = 600, selection = ..1, crossover = &quot;pmx&quot;, mutation = ..2, pcross = 0.8, pmut = ..3, elitist = FALSE)$fit))</code></pre>
 <p>To compare results between models, I have set a norm_fit value of normalized gap respect to the optimum.</p>
-<pre class="r"><code>expsg_gr24 &lt;- expsg_gr24 |&gt;
+<pre class="r"><code>opt_values &lt;- map_dbl(list(gr24, gr48, eil76, eil101), ~ tsp_dist(.$D, .$opt.tour))
+
+expsg_gr24 &lt;- expsg_gr24 |&gt;
   mutate(norm_fit = (fit - opt_values[1])/opt_values[1])
 expsg_gr48 &lt;- expsg_gr48 |&gt;
   mutate(norm_fit = (fit - opt_values[2])/opt_values[2])
@@ -537,44 +539,60 @@ expsg_eil101 &lt;- expsg_eil101 |&gt;
   mutate(norm_fit = (fit - opt_values[4])/opt_values[4])</code></pre>
 <p>Now we can take a look at the results:</p>
 <pre class="r"><code>map(list(expsg_gr24, expsg_gr48, expsg_eil76, expsg_eil101), ~ . |&gt; 
-      group_by(pick(selection:mutation)) |&gt;
-      summarise(fit = mean(fit), .groups = &quot;drop&quot;) |&gt;
+      group_by(pick(selection:pmut)) |&gt;
+      summarise(fit = mean(norm_fit), .groups = &quot;drop&quot;) |&gt;
       arrange(fit))</code></pre>
 <pre><code>## [[1]]
-## # A tibble: 4 × 3
-##   selection  mutation   fit
-##   &lt;chr&gt;      &lt;chr&gt;    &lt;dbl&gt;
-## 1 tournament inv      1296.
-## 2 tournament scramble 1417.
-## 3 prob       inv      1455.
-## 4 prob       scramble 1459.
+## # A tibble: 8 × 4
+##   selection  mutation  pmut    fit
+##   &lt;chr&gt;      &lt;chr&gt;    &lt;dbl&gt;  &lt;dbl&gt;
+## 1 tournament inv        0.6 0.0102
+## 2 tournament inv        0.3 0.0272
+## 3 prob       inv        0.3 0.100 
+## 4 prob       scramble   0.3 0.107 
+## 5 tournament scramble   0.6 0.110 
+## 6 tournament scramble   0.3 0.118 
+## 7 prob       scramble   0.6 0.186 
+## 8 prob       inv        0.6 0.188 
 ## 
 ## [[2]]
-## # A tibble: 4 × 3
-##   selection  mutation   fit
-##   &lt;chr&gt;      &lt;chr&gt;    &lt;dbl&gt;
-## 1 tournament inv      5282.
-## 2 tournament scramble 5940.
-## 3 prob       inv      6041.
-## 4 prob       scramble 6069.
+## # A tibble: 8 × 4
+##   selection  mutation  pmut    fit
+##   &lt;chr&gt;      &lt;chr&gt;    &lt;dbl&gt;  &lt;dbl&gt;
+## 1 tournament inv        0.3 0.0354
+## 2 tournament inv        0.6 0.0583
+## 3 tournament scramble   0.3 0.166 
+## 4 tournament scramble   0.6 0.188 
+## 5 prob       inv        0.3 0.189 
+## 6 prob       scramble   0.3 0.199 
+## 7 prob       inv        0.6 0.205 
+## 8 prob       scramble   0.6 0.207 
 ## 
 ## [[3]]
-## # A tibble: 4 × 3
-##   selection  mutation   fit
-##   &lt;chr&gt;      &lt;chr&gt;    &lt;dbl&gt;
-## 1 tournament inv       583.
-## 2 tournament scramble  666.
-## 3 prob       scramble  703.
-## 4 prob       inv       708.
+## # A tibble: 8 × 4
+##   selection  mutation  pmut    fit
+##   &lt;chr&gt;      &lt;chr&gt;    &lt;dbl&gt;  &lt;dbl&gt;
+## 1 tournament inv        0.3 0.0650
+## 2 tournament inv        0.6 0.0746
+## 3 tournament scramble   0.6 0.216 
+## 4 tournament scramble   0.3 0.227 
+## 5 prob       scramble   0.3 0.273 
+## 6 prob       inv        0.3 0.290 
+## 7 prob       scramble   0.6 0.305 
+## 8 prob       inv        0.6 0.305 
 ## 
 ## [[4]]
-## # A tibble: 4 × 3
-##   selection  mutation   fit
-##   &lt;chr&gt;      &lt;chr&gt;    &lt;dbl&gt;
-## 1 tournament inv       682.
-## 2 tournament scramble  785.
-## 3 prob       scramble  819.
-## 4 prob       inv       823.</code></pre>
+## # A tibble: 8 × 4
+##   selection  mutation  pmut    fit
+##   &lt;chr&gt;      &lt;chr&gt;    &lt;dbl&gt;  &lt;dbl&gt;
+## 1 tournament inv        0.3 0.0483
+## 2 tournament inv        0.6 0.0740
+## 3 tournament scramble   0.6 0.206 
+## 4 tournament scramble   0.3 0.239 
+## 5 prob       scramble   0.3 0.265 
+## 6 prob       inv        0.6 0.280 
+## 7 prob       inv        0.3 0.281 
+## 8 prob       scramble   0.6 0.284</code></pre>
 <p>Now we see that the best combination of parameters is <code>selection = "tournament"</code> together with <code>mutation = "inv"</code>. The best results are obtained with the two operators working at the same time.</p>
 </div>
 <div id="scaling-of-results" class="section level2">

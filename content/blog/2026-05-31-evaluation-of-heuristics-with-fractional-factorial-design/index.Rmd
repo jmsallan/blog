@@ -218,7 +218,9 @@ expsg_eil101 <- small_grid |>
 
 To compare results between models, I have set a norm_fit value of normalized gap respect to the optimum.
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
+opt_values <- map_dbl(list(gr24, gr48, eil76, eil101), ~ tsp_dist(.$D, .$opt.tour))
+
 expsg_gr24 <- expsg_gr24 |>
   mutate(norm_fit = (fit - opt_values[1])/opt_values[1])
 expsg_gr48 <- expsg_gr48 |>
@@ -234,8 +236,8 @@ Now we can take a look at the results:
 
 ```{r}
 map(list(expsg_gr24, expsg_gr48, expsg_eil76, expsg_eil101), ~ . |> 
-      group_by(pick(selection:mutation)) |>
-      summarise(fit = mean(fit), .groups = "drop") |>
+      group_by(pick(selection:pmut)) |>
+      summarise(fit = mean(norm_fit), .groups = "drop") |>
       arrange(fit))
 ```
 
