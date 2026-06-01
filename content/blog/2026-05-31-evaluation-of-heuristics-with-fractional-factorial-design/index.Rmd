@@ -177,15 +177,15 @@ We can see that we obtain the best values with `tournament = "selection"`, `muta
 
 ## A Smaller Full Factorial Experiment
 
-As the results of the fractional factorial are aliased with interactions of two factors, I have decided to run a full factorial experiment with the selection, crossover and mutation operators as factors. I have fixed the values of the probabilities of mutation and crossover and of elitism.
+As the results of the fractional factorial are aliased with interactions of two factors, I have decided to run a full factorial experiment with the selection and mutation operators and levels of pmut as factors. I have fixed the values of the crossover operator to `pmx`, probability of crossover to 0.8 and set elitism to `FALSE`.
 
 The grid of a full factorial can be obtained with `tidyr::expand_grid()`:
 
 ```{r}
 small_grid <- expand_grid(
   selection = c("prob", "tournament"),
-  crossover = c("pmx", "ox"),
-  mutation = c("scramble", "inv")
+  mutation = c("scramble", "inv"),
+  pmut = c(0.3, 0.6)
 )
 
 small_grid <- map_dfr(1:5, ~ small_grid |> mutate(run = .))
@@ -201,22 +201,36 @@ load("sgresults_eval.RData")
 ```{r, eval=FALSE}
 set.seed(1313)
 expsg_gr24 <- small_grid |>
-  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(gr24$D, npop = 200, max_iter = 300, selection = ..1, crossover = ..2, mutation = ..3, pcross = 0.8, pmut = 0.6, elitist = FALSE)$fit))
+  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(gr24$D, npop = 200, max_iter = 300, selection = ..1, crossover = "pmx", mutation = ..2, pcross = 0.8, pmut = ..3, elitist = FALSE)$fit))
 
 set.seed(1313)
 expsg_gr48 <- small_grid |>
-  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(gr48$D, npop = 200, max_iter = 300, selection = ..1, crossover = ..2, mutation = ..3, pcross = 0.8, pmut = 0.6, elitist = FALSE)$fit))
+  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(gr48$D, npop = 200, max_iter = 300, selection = ..1, crossover = "pmx", mutation = ..2, pcross = 0.8, pmut = ..3, elitist = FALSE)$fit))
 
 set.seed(1313)
 expsg_eil76 <- small_grid |>
-  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(eil76$D, npop = 400, max_iter = 600, selection = ..1, crossover = ..2, mutation = ..3, pcross = 0.8, pmut = 0.6, elitist = FALSE)$fit))
+  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(eil76$D, npop = 400, max_iter = 600, selection = ..1, crossover = "pmx", mutation = ..2, pcross = 0.8, pmut = ..3, elitist = FALSE)$fit))
 
 set.seed(1313)
 expsg_eil101 <- small_grid |>
-  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(eil101$D, npop = 400, max_iter = 600, selection = ..1, crossover = ..2, mutation = ..3, pcross = 0.8, pmut = 0.6, elitist = FALSE)$fit))
+  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(eil101$D, npop = 400, max_iter = 600, selection = ..1, crossover = "pmx", mutation = ..2, pcross = 0.8, pmut = ..3, elitist = FALSE)$fit))
 ```
 
-Let's observe the results:
+To compare results between models, I have set a norm_fit value of normalized gap respect to the optimum.
+
+```{r, eval=FALSE}
+expsg_gr24 <- expsg_gr24 |>
+  mutate(norm_fit = (fit - opt_values[1])/opt_values[1])
+expsg_gr48 <- expsg_gr48 |>
+  mutate(norm_fit = (fit - opt_values[2])/opt_values[2])
+expsg_eil76 <- expsg_eil76 |>
+  mutate(norm_fit = (fit - opt_values[3])/opt_values[3])
+expsg_eil101 <- expsg_eil101 |>
+  mutate(norm_fit = (fit - opt_values[4])/opt_values[4])
+```
+
+
+Now we can take a look at the results:
 
 ```{r}
 map(list(expsg_gr24, expsg_gr48, expsg_eil76, expsg_eil101), ~ . |> 
@@ -225,11 +239,7 @@ map(list(expsg_gr24, expsg_gr48, expsg_eil76, expsg_eil101), ~ . |>
       arrange(fit))
 ```
 
-Now we see that the best combination of parameters is:
-
-- `selection = "tournament"`.
-- `crossover = "ox"`.
-- `mutation = "inv"`.
+Now we see that the best combination of parameters is `selection = "tournament"` together with `mutation = "inv"`. The best results are obtained with the two operators working at the same time.
 
 ## Scaling of Results
 
@@ -320,7 +330,7 @@ Another effect of scaling is that for larger instances we need more evaluations 
 
 ## Session Info
 
-```{r, echo=TRUE}
+```{r, echo=FALSE}
 sessionInfo()
 ```
 

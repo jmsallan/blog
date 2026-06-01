@@ -486,108 +486,96 @@ exp_eil101 &lt;- grid |&gt;
 </div>
 <div id="a-smaller-full-factorial-experiment" class="section level2">
 <h2>A Smaller Full Factorial Experiment</h2>
-<p>As the results of the fractional factorial are aliased with interactions of two factors, I have decided to run a full factorial experiment with the selection, crossover and mutation operators as factors. I have fixed the values of the probabilities of mutation and crossover and of elitism.</p>
+<p>As the results of the fractional factorial are aliased with interactions of two factors, I have decided to run a full factorial experiment with the selection and mutation operators and levels of pmut as factors. I have fixed the values of the crossover operator to <code>pmx</code>, probability of crossover to 0.8 and set elitism to <code>FALSE</code>.</p>
 <p>The grid of a full factorial can be obtained with <code>tidyr::expand_grid()</code>:</p>
 <pre class="r"><code>small_grid &lt;- expand_grid(
   selection = c(&quot;prob&quot;, &quot;tournament&quot;),
-  crossover = c(&quot;pmx&quot;, &quot;ox&quot;),
-  mutation = c(&quot;scramble&quot;, &quot;inv&quot;)
+  mutation = c(&quot;scramble&quot;, &quot;inv&quot;),
+  pmut = c(0.3, 0.6)
 )
 
 small_grid &lt;- map_dfr(1:5, ~ small_grid |&gt; mutate(run = .))
 small_grid</code></pre>
 <pre><code>## # A tibble: 40 × 4
-##    selection  crossover mutation   run
-##    &lt;chr&gt;      &lt;chr&gt;     &lt;chr&gt;    &lt;int&gt;
-##  1 prob       pmx       scramble     1
-##  2 prob       pmx       inv          1
-##  3 prob       ox        scramble     1
-##  4 prob       ox        inv          1
-##  5 tournament pmx       scramble     1
-##  6 tournament pmx       inv          1
-##  7 tournament ox        scramble     1
-##  8 tournament ox        inv          1
-##  9 prob       pmx       scramble     2
-## 10 prob       pmx       inv          2
+##    selection  mutation  pmut   run
+##    &lt;chr&gt;      &lt;chr&gt;    &lt;dbl&gt; &lt;int&gt;
+##  1 prob       scramble   0.3     1
+##  2 prob       scramble   0.6     1
+##  3 prob       inv        0.3     1
+##  4 prob       inv        0.6     1
+##  5 tournament scramble   0.3     1
+##  6 tournament scramble   0.6     1
+##  7 tournament inv        0.3     1
+##  8 tournament inv        0.6     1
+##  9 prob       scramble   0.3     2
+## 10 prob       scramble   0.6     2
 ## # ℹ 30 more rows</code></pre>
 <p>This grid has also 40 runs for each instance, but is focused on three factors only.</p>
 <pre class="r"><code>set.seed(1313)
 expsg_gr24 &lt;- small_grid |&gt;
-  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(gr24$D, npop = 200, max_iter = 300, selection = ..1, crossover = ..2, mutation = ..3, pcross = 0.8, pmut = 0.6, elitist = FALSE)$fit))
+  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(gr24$D, npop = 200, max_iter = 300, selection = ..1, crossover = &quot;pmx&quot;, mutation = ..2, pcross = 0.8, pmut = ..3, elitist = FALSE)$fit))
 
 set.seed(1313)
 expsg_gr48 &lt;- small_grid |&gt;
-  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(gr48$D, npop = 200, max_iter = 300, selection = ..1, crossover = ..2, mutation = ..3, pcross = 0.8, pmut = 0.6, elitist = FALSE)$fit))
+  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(gr48$D, npop = 200, max_iter = 300, selection = ..1, crossover = &quot;pmx&quot;, mutation = ..2, pcross = 0.8, pmut = ..3, elitist = FALSE)$fit))
 
 set.seed(1313)
 expsg_eil76 &lt;- small_grid |&gt;
-  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(eil76$D, npop = 400, max_iter = 600, selection = ..1, crossover = ..2, mutation = ..3, pcross = 0.8, pmut = 0.6, elitist = FALSE)$fit))
+  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(eil76$D, npop = 400, max_iter = 600, selection = ..1, crossover = &quot;pmx&quot;, mutation = ..2, pcross = 0.8, pmut = ..3, elitist = FALSE)$fit))
 
 set.seed(1313)
 expsg_eil101 &lt;- small_grid |&gt;
-  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(eil101$D, npop = 400, max_iter = 600, selection = ..1, crossover = ..2, mutation = ..3, pcross = 0.8, pmut = 0.6, elitist = FALSE)$fit))</code></pre>
-<p>Let’s observe the results:</p>
+  mutate(fit = pmap_dbl(small_grid, ~ ga_tsp(eil101$D, npop = 400, max_iter = 600, selection = ..1, crossover = &quot;pmx&quot;, mutation = ..2, pcross = 0.8, pmut = ..3, elitist = FALSE)$fit))</code></pre>
+<p>To compare results between models, I have set a norm_fit value of normalized gap respect to the optimum.</p>
+<pre class="r"><code>expsg_gr24 &lt;- expsg_gr24 |&gt;
+  mutate(norm_fit = (fit - opt_values[1])/opt_values[1])
+expsg_gr48 &lt;- expsg_gr48 |&gt;
+  mutate(norm_fit = (fit - opt_values[2])/opt_values[2])
+expsg_eil76 &lt;- expsg_eil76 |&gt;
+  mutate(norm_fit = (fit - opt_values[3])/opt_values[3])
+expsg_eil101 &lt;- expsg_eil101 |&gt;
+  mutate(norm_fit = (fit - opt_values[4])/opt_values[4])</code></pre>
+<p>Now we can take a look at the results:</p>
 <pre class="r"><code>map(list(expsg_gr24, expsg_gr48, expsg_eil76, expsg_eil101), ~ . |&gt; 
       group_by(pick(selection:mutation)) |&gt;
       summarise(fit = mean(fit), .groups = &quot;drop&quot;) |&gt;
       arrange(fit))</code></pre>
 <pre><code>## [[1]]
-## # A tibble: 8 × 4
-##   selection  crossover mutation   fit
-##   &lt;chr&gt;      &lt;chr&gt;     &lt;chr&gt;    &lt;dbl&gt;
-## 1 tournament ox        inv      1287.
-## 2 tournament pmx       inv      1327.
-## 3 tournament pmx       scramble 1422.
-## 4 tournament ox        scramble 1441.
-## 5 prob       ox        scramble 1533.
-## 6 prob       pmx       scramble 1535.
-## 7 prob       pmx       inv      1541.
-## 8 prob       ox        inv      1547.
+## # A tibble: 4 × 3
+##   selection  mutation   fit
+##   &lt;chr&gt;      &lt;chr&gt;    &lt;dbl&gt;
+## 1 tournament inv      1296.
+## 2 tournament scramble 1417.
+## 3 prob       inv      1455.
+## 4 prob       scramble 1459.
 ## 
 ## [[2]]
-## # A tibble: 8 × 4
-##   selection  crossover mutation   fit
-##   &lt;chr&gt;      &lt;chr&gt;     &lt;chr&gt;    &lt;dbl&gt;
-## 1 tournament ox        inv      5267.
-## 2 tournament pmx       inv      5350.
-## 3 tournament pmx       scramble 5764.
-## 4 tournament ox        scramble 5952.
-## 5 prob       pmx       inv      6064.
-## 6 prob       pmx       scramble 6089.
-## 7 prob       ox        scramble 6096.
-## 8 prob       ox        inv      6098 
+## # A tibble: 4 × 3
+##   selection  mutation   fit
+##   &lt;chr&gt;      &lt;chr&gt;    &lt;dbl&gt;
+## 1 tournament inv      5282.
+## 2 tournament scramble 5940.
+## 3 prob       inv      6041.
+## 4 prob       scramble 6069.
 ## 
 ## [[3]]
-## # A tibble: 8 × 4
-##   selection  crossover mutation   fit
-##   &lt;chr&gt;      &lt;chr&gt;     &lt;chr&gt;    &lt;dbl&gt;
-## 1 tournament ox        inv       584.
-## 2 tournament pmx       inv       588.
-## 3 tournament ox        scramble  627.
-## 4 tournament pmx       scramble  668.
-## 5 prob       ox        scramble  707.
-## 6 prob       ox        inv       712.
-## 7 prob       pmx       inv       712.
-## 8 prob       pmx       scramble  712.
+## # A tibble: 4 × 3
+##   selection  mutation   fit
+##   &lt;chr&gt;      &lt;chr&gt;    &lt;dbl&gt;
+## 1 tournament inv       583.
+## 2 tournament scramble  666.
+## 3 prob       scramble  703.
+## 4 prob       inv       708.
 ## 
 ## [[4]]
-## # A tibble: 8 × 4
-##   selection  crossover mutation   fit
-##   &lt;chr&gt;      &lt;chr&gt;     &lt;chr&gt;    &lt;dbl&gt;
-## 1 tournament ox        inv       674.
-## 2 tournament pmx       inv       690.
-## 3 tournament pmx       scramble  767.
-## 4 tournament ox        scramble  786.
-## 5 prob       pmx       inv       823.
-## 6 prob       ox        inv       825.
-## 7 prob       pmx       scramble  825.
-## 8 prob       ox        scramble  825.</code></pre>
-<p>Now we see that the best combination of parameters is:</p>
-<ul>
-<li><code>selection = "tournament"</code>.</li>
-<li><code>crossover = "ox"</code>.</li>
-<li><code>mutation = "inv"</code>.</li>
-</ul>
+## # A tibble: 4 × 3
+##   selection  mutation   fit
+##   &lt;chr&gt;      &lt;chr&gt;    &lt;dbl&gt;
+## 1 tournament inv       682.
+## 2 tournament scramble  785.
+## 3 prob       scramble  819.
+## 4 prob       inv       823.</code></pre>
+<p>Now we see that the best combination of parameters is <code>selection = "tournament"</code> together with <code>mutation = "inv"</code>. The best results are obtained with the two operators working at the same time.</p>
 </div>
 <div id="scaling-of-results" class="section level2">
 <h2>Scaling of Results</h2>
@@ -607,7 +595,7 @@ ga_gr24_2 &lt;- ga_tsp(instance = gr24$D, selection = &quot;tournament&quot;,
   theme(legend.position = &quot;bottom&quot;) +
   labs(x = NULL, y = NULL, title = &quot;gr24 with pmut = 0.8&quot;) +
   scale_color_manual(name = &quot;fit&quot;, values = c(&quot;#0066CC&quot;, &quot;#3399FF&quot;, &quot;#99CCFF&quot; ))</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-20-1.png" alt="" width="672" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-21-1.png" alt="" width="672" /></p>
 <p>When applied the same pattern to <code>eil101</code>, the algorithms diverges greatly. In fact, it returns the value of the solution obtained with nearest neighbor seeded in the first generation.</p>
 <pre class="r"><code>set.seed(11)
 ga_eil101_2 &lt;- ga_tsp(instance = eil101$D, selection = &quot;tournament&quot;, 
@@ -623,7 +611,7 @@ ga_eil101_2$track |&gt;
   theme(legend.position = &quot;bottom&quot;) +
   labs(x = NULL, y = NULL, title = &quot;eil101 with pmut = 0.8&quot;) +
   scale_color_manual(name = &quot;fit&quot;, values = c(&quot;#0066CC&quot;, &quot;#3399FF&quot;, &quot;#99CCFF&quot; ))</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-21-1.png" alt="" width="672" style="display: block; margin: auto;" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-22-1.png" alt="" width="672" style="display: block; margin: auto;" /></p>
 <p>With a smaller value of <code>pmut</code>, the algorithm works better:</p>
 <pre class="r"><code>set.seed(11)
 ga_eil101_3 &lt;- ga_tsp(instance = eil101$D, selection = &quot;tournament&quot;, 
@@ -639,7 +627,7 @@ ga_eil101_3$track |&gt;
   theme(legend.position = &quot;bottom&quot;) +
   labs(x = NULL, y = NULL, title = &quot;eil101 with pmut = 0.6&quot;) +
   scale_color_manual(name = &quot;fit&quot;, values = c(&quot;#0066CC&quot;, &quot;#3399FF&quot;, &quot;#99CCFF&quot; ))</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-22-1.png" alt="" width="672" style="display: block; margin: auto;" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-23-1.png" alt="" width="672" style="display: block; margin: auto;" /></p>
 <p>If we represent the later steps we can appreciate better how the algorithm is working.</p>
 <pre class="r"><code>ga_eil101_3$track |&gt;
   pivot_longer(-step) |&gt;
@@ -650,7 +638,7 @@ ga_eil101_3$track |&gt;
   theme(legend.position = &quot;bottom&quot;) +
   labs(x = NULL, y = NULL, title = &quot;eil101 with pmut = 0.6 from step 10&quot;) +
   scale_color_manual(name = &quot;fit&quot;, values = c(&quot;#0066CC&quot;, &quot;#3399FF&quot;, &quot;#99CCFF&quot; ))</code></pre>
-<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-23-1.png" alt="" width="672" style="display: block; margin: auto;" /></p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-24-1.png" alt="" width="672" style="display: block; margin: auto;" /></p>
 <p>Another effect of scaling is that for larger instances we need more evaluations of the objective function to obtain stable results. As each evaluation is more costly in larger instances, the running of the algorithm in larger instances consumes significantly more time.</p>
 </div>
 <div id="references" class="section level2">
@@ -663,7 +651,6 @@ ga_eil101_3$track |&gt;
 </div>
 <div id="session-info" class="section level2">
 <h2>Session Info</h2>
-<pre class="r"><code>sessionInfo()</code></pre>
 <pre><code>## R version 4.6.0 (2026-04-24)
 ## Platform: x86_64-pc-linux-gnu
 ## Running under: Linux Mint 21.1
