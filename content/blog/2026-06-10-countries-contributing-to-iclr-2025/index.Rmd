@@ -1,0 +1,110 @@
+---
+title: Countries Contributing to ICLR 2025
+author: Jose M Sallan
+date: '2026-06-10'
+slug: countries-contributing-to-iclr-2025
+categories:
+  - using AI
+tags:
+  - academia
+  - IA
+meta_img: images/image.png
+description: Description for the page
+---
+
+It is likely that we are about to enter the age of artificial intelligence (AI). The release of ChatGPT by OpenAI by the end of 2022 popularized the use of Large Language Models (LLMs), offering an interface that most of us can use. In early 2024 Andrew Ng introduced the concept of agentic AI, referring to multi-step, AI-based autonomous workflows. The consequences of the introduction of AI in education, the production of goods and services and society at large are hard to predict as of June 2026, but it is likely that it could lead to a deep, systemic transformation of how we learn and work, and many other things.
+
+The development of the LLMs requires the bundling of expensive resources, including technical abilities of deep learning such as transformer architectures and reinforcement learning and expensive hardware infrastructure to train and deploy these models. In the near future, it is likely that real sovereignty will require that a country has the ability to deploy these resources autonomously.
+
+In a series of posts, I will focus on one of the forums where research on software technologies supporting LLMs is disseminated, the **International Conference of Learning Representations (ICLR)**. It is considered one of the world's premier artificial intelligence and machine learning conferences, focused on representation learning, the study of how computers can automatically learn meaningful and useful representations of data to solve complex tasks. That series is motivated by the work of Dmytro Lopushanskyy exploring affiliations of the 2026 edition of ICLR.
+
+Dmytro's approach consisted of retrieving all the PDFs of ICLR 2026 and obtaining affiliation of authors as appearing in the paper. This approach has the advantage of immediacy, but the countries of affiliations are hard to obtain as some affiliations were of the type *Department of Computer Science*, so many of them are labelled as Other.
+
+My approach profits of being able to access the Scopus records of the ICRL conference. As of June 2026, I could obtain only main conference papers from the 2025 edition. However, metadata in Scopus are stored more consistently than in Open Peer Review so I could locate data such as countries of institutions more precisely.
+
+In this post, I am exploring the countries of the affiliations of authors of 2025 ICLR. The participation of a country in this conference can be a proxy of the ability of its research system to develop and apply technologies leading to the development of LLMs. Therefore, a large number of contributions of a country to a conference to ICLR can be a proxy of country's ability to develop this technology autonomously. In the near future, this can be a requirement to hold real sovereignty.
+
+## Retrieving Country Affiliations
+
+I retrieved from Scopus the records of the 2025 ICLR conference. As Scopus has records of main conference papers, the dataset consisted fo 504 papers.
+
+I used the tidyverse to retrieve author's affiliations and store them as tidy data. In this tabular structure, each row included the ID of the paper and the affiliation of one of the authors, so each paper had as many rows as authors. As paper ID I have used its Scopus EID. The resulting table has 1,393 paper ID-affiliation pairs. From this table I have retrieved the distinct values of affiliations, obtaining 976 values.
+
+Records included the affiliations of all authors, but not the country where the institution is located. But unlike the Open Peer Review platform, many Scopus affiliations include the country of origin at the end. Taking advantage of this, I could obtain directly 938 country affiliations. I used Codex to look for the remaining 38 country affiliations. Countries were encoded with the IS 3166-1 alpha-3 encoding. Then, I went back to the original ID-affiliation table and add the ISO encoding of the country to each row. As a paper can have more than one author of the same country, I retrieved the unique paper ID-affiliation country pairs, resulting of a table of 780 rows.
+
+```{r, echo=FALSE, message=FALSE}
+library(tidyverse)
+library(kableExtra)
+iclr_countries <- read_csv("iclr_2025_countries.csv")
+iclr_countries |>
+  slice(1:10) |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+From this table, we learn that paper is Scopus EID `2-s2.0-85200551272` has authors from China, Hong Kong and USA.
+
+## Countries Contributing to ICLR
+
+A quite straightforward approach to see country's relevance in ICLR is just counting how many papers have been authored by researchers working at institutions located in each country.
+
+```{r, echo=FALSE}
+countries_iso <- WDI::WDI_data$country |>
+  filter(region != "Aggregates") |>
+  select(country, iso3c, iso2c)
+
+iclr_countries |>
+  left_join(countries_iso |> select(country, iso3c), by = "iso3c") |>
+  mutate(country = as.factor(country),
+         country = fct_lump_min(country, 10)) |>
+  group_by(country) |>
+  count(sort = "true") |>
+  ungroup() |>
+  mutate(country = fct_reorder(country, n),
+         country = fct_relevel(country, "Other")) |>
+  ggplot(aes(n, country)) +
+  geom_col(width = 0.8, fill = "#00CC66") +
+  geom_text(aes(n, country, label = n), nudge_x = 12) +
+  theme_minimal(base_size = 13) +
+  labs(title = "Countries contributing to ICLR 2025", x = NULL, y = NULL)
+```
+
+Unsurprisingly, USA is the country with more contributions to ICRL, followed by China. At a smaller scale, they are followed by the United Kingdom and Canada. The EU countries more active in this field are Germany and France. Switzerland is another European country with a remarkable contribution to the conference.
+
+## The World Researching on IA
+
+The results above show that most research on a key technology for the economy and society in the near future is carried out by a small number of countries. The map below shows which countries are included and excluded from the AI technological race.
+
+```{r, echo=FALSE,message=FALSE, out.width='100%'}
+library(spData)
+library(sf)
+iclr_iso3c <- iclr_countries |>
+  group_by(iso3c) |>
+  count() |>
+  ungroup()
+
+world_count <- world |>
+  select(iso_a2) |> 
+  left_join(countries_iso |> select(iso2c, iso3c), by = c("iso_a2" = "iso2c"))
+
+world_count <- world_count |>
+  left_join(iclr_iso3c, by = "iso3c")
+
+mollweide_world_count <- st_transform(world_count, 'ESRI:53009')
+
+mollweide_world_count |>
+  ggplot() +
+  geom_sf(aes(fill = n)) +
+  theme_void() +
+  scale_fill_gradient(low = "white", high = "#00CC66", na.value = "#E0E0E0") +
+  theme(legend.position = "none")
+```
+
+In this map, we can see how Africa and South America are excluded from the current AI race, and also large regions of Eastern Europe and Asia. The limitations of this study are clear: ICLR is not the only forum where this research is presented. A systematic literature review should be widening the number of conferences and time span. This more in-depth research could present a more accurate representation of the social structure of AI research.
+
+# References
+
+Dmytro Lopushanskyy (2026). *ICLR 2026 — Institutional Affiliations Dataset & Analysis.* <https://github.com/DmytroLopushanskyy/iclr2026-affiliations>.
+
+
+

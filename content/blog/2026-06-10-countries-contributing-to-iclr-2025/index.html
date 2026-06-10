@@ -1,0 +1,141 @@
+---
+title: Countries Contributing to ICLR 2025
+author: Jose M Sallan
+date: '2026-06-10'
+slug: countries-contributing-to-iclr-2025
+categories:
+  - using AI
+tags:
+  - academia
+  - IA
+meta_img: images/image.png
+description: Description for the page
+---
+
+<script src="{{< blogdown/postref >}}index_files/kePrint/kePrint.js"></script>
+<link href="{{< blogdown/postref >}}index_files/lightable/lightable.css" rel="stylesheet" />
+
+
+<p>It is likely that we are about to enter the age of artificial intelligence (AI). The release of ChatGPT by OpenAI by the end of 2022 popularized the use of Large Language Models (LLMs), offering an interface that most of us can use. In early 2024 Andrew Ng introduced the concept of agentic AI, referring to multi-step, AI-based autonomous workflows. The consequences of the introduction of AI in education, the production of goods and services and society at large are hard to predict as of June 2026, but it is likely that it could lead to a deep, systemic transformation of how we learn and work, and many other things.</p>
+<p>The development of the LLMs requires the bundling of expensive resources, including technical abilities of deep learning such as transformer architectures and reinforcement learning and expensive hardware infrastructure to train and deploy these models. In the near future, it is likely that real sovereignty will require that a country has the ability to deploy these resources autonomously.</p>
+<p>In a series of posts, I will focus on one of the forums where research on software technologies supporting LLMs is disseminated, the <strong>International Conference of Learning Representations (ICLR)</strong>. It is considered one of the world’s premier artificial intelligence and machine learning conferences, focused on representation learning, the study of how computers can automatically learn meaningful and useful representations of data to solve complex tasks. That series is motivated by the work of Dmytro Lopushanskyy exploring affiliations of the 2026 edition of ICLR.</p>
+<p>Dmytro’s approach consisted of retrieving all the PDFs of ICLR 2026 and obtaining affiliation of authors as appearing in the paper. This approach has the advantage of immediacy, but the countries of affiliations are hard to obtain as some affiliations were of the type <em>Department of Computer Science</em>, so many of them are labelled as Other.</p>
+<p>My approach profits of being able to access the Scopus records of the ICRL conference. As of June 2026, I could obtain only main conference papers from the 2025 edition. However, metadata in Scopus are stored more consistently than in Open Peer Review so I could locate data such as countries of institutions more precisely.</p>
+<p>In this post, I am exploring the countries of the affiliations of authors of 2025 ICLR. The participation of a country in this conference can be a proxy of the ability of its research system to develop and apply technologies leading to the development of LLMs. Therefore, a large number of contributions of a country to a conference to ICLR can be a proxy of country’s ability to develop this technology autonomously. In the near future, this can be a requirement to hold real sovereignty.</p>
+<div id="retrieving-country-affiliations" class="section level2">
+<h2>Retrieving Country Affiliations</h2>
+<p>I retrieved from Scopus the records of the 2025 ICLR conference. As Scopus has records of main conference papers, the dataset consisted fo 504 papers.</p>
+<p>I used the tidyverse to retrieve author’s affiliations and store them as tidy data. In this tabular structure, each row included the ID of the paper and the affiliation of one of the authors, so each paper had as many rows as authors. As paper ID I have used its Scopus EID. The resulting table has 1,393 paper ID-affiliation pairs. From this table I have retrieved the distinct values of affiliations, obtaining 976 values.</p>
+<p>Records included the affiliations of all authors, but not the country where the institution is located. But unlike the Open Peer Review platform, many Scopus affiliations include the country of origin at the end. Taking advantage of this, I could obtain directly 938 country affiliations. I used Codex to look for the remaining 38 country affiliations. Countries were encoded with the IS 3166-1 alpha-3 encoding. Then, I went back to the original ID-affiliation table and add the ISO encoding of the country to each row. As a paper can have more than one author of the same country, I retrieved the unique paper ID-affiliation country pairs, resulting of a table of 780 rows.</p>
+<table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+eid
+</th>
+<th style="text-align:left;">
+iso3c
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+2-s2.0-105010206394
+</td>
+<td style="text-align:left;">
+CHN
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2-s2.0-105010206394
+</td>
+<td style="text-align:left;">
+HKG
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2-s2.0-85143254100
+</td>
+<td style="text-align:left;">
+CHN
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2-s2.0-85199920132
+</td>
+<td style="text-align:left;">
+CHN
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2-s2.0-105010187547
+</td>
+<td style="text-align:left;">
+DEU
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2-s2.0-85200551272
+</td>
+<td style="text-align:left;">
+CHN
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2-s2.0-85200551272
+</td>
+<td style="text-align:left;">
+HKG
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2-s2.0-85200551272
+</td>
+<td style="text-align:left;">
+USA
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2-s2.0-105010222873
+</td>
+<td style="text-align:left;">
+CHE
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+2-s2.0-105010222873
+</td>
+<td style="text-align:left;">
+DEU
+</td>
+</tr>
+</tbody>
+</table>
+<p>From this table, we learn that paper is Scopus EID <code>2-s2.0-85200551272</code> has authors from China, Hong Kong and USA.</p>
+</div>
+<div id="countries-contributing-to-iclr" class="section level2">
+<h2>Countries Contributing to ICLR</h2>
+<p>A quite straightforward approach to see country’s relevance in ICLR is just counting how many papers have been authored by researchers working at institutions located in each country.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-2-1.png" alt="" width="672" /></p>
+<p>Unsurprisingly, USA is the country with more contributions to ICRL, followed by China. At a smaller scale, they are followed by the United Kingdom and Canada. The EU countries more active in this field are Germany and France. Switzerland is another European country with a remarkable contribution to the conference.</p>
+</div>
+<div id="the-world-researching-on-ia" class="section level2">
+<h2>The World Researching on IA</h2>
+<p>The results above show that most research on a key technology for the economy and society in the near future is carried out by a small number of countries. The map below shows which countries are included and excluded from the AI technological race.</p>
+<p><img src="{{< blogdown/postref >}}index_files/figure-html/unnamed-chunk-3-1.png" alt="" width="100%" /></p>
+<p>In this map, we can see how Africa and South America are excluded from the current AI race, and also large regions of Eastern Europe and Asia. The limitations of this study are clear: ICLR is not the only forum where this research is presented. A systematic literature review should be widening the number of conferences and time span. This more in-depth research could present a more accurate representation of the social structure of AI research.</p>
+</div>
+<div id="references" class="section level1">
+<h1>References</h1>
+<p>Dmytro Lopushanskyy (2026). <em>ICLR 2026 — Institutional Affiliations Dataset &amp; Analysis.</em> <a href="https://github.com/DmytroLopushanskyy/iclr2026-affiliations" class="uri">https://github.com/DmytroLopushanskyy/iclr2026-affiliations</a>.</p>
+</div>

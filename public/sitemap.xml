@@ -2,11 +2,29 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
+    <loc>https://jmsallan.netlify.app/tags/academia/</loc>
+    <lastmod>2026-06-10T00:00:00+00:00</lastmod>
+  </url><url>
     <loc>https://jmsallan.netlify.app/blog/</loc>
-    <lastmod>2026-05-31T00:00:00+00:00</lastmod>
+    <lastmod>2026-06-10T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://jmsallan.netlify.app/categories/</loc>
-    <lastmod>2026-05-31T00:00:00+00:00</lastmod>
+    <lastmod>2026-06-10T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>https://jmsallan.netlify.app/blog/countries-contributing-to-iclr-2025/</loc>
+    <lastmod>2026-06-10T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>https://jmsallan.netlify.app/tags/ia/</loc>
+    <lastmod>2026-06-10T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>https://jmsallan.netlify.app/</loc>
+    <lastmod>2026-06-10T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>https://jmsallan.netlify.app/tags/</loc>
+    <lastmod>2026-06-10T00:00:00+00:00</lastmod>
+  </url><url>
+    <loc>https://jmsallan.netlify.app/categories/using-ai/</loc>
+    <lastmod>2026-06-10T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://jmsallan.netlify.app/blog/evaluation-of-heuristics-with-fractional-factorial-design/</loc>
     <lastmod>2026-05-31T00:00:00+00:00</lastmod>
@@ -17,9 +35,6 @@
     <loc>https://jmsallan.netlify.app/tags/genetic-algorithms/</loc>
     <lastmod>2026-05-31T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>https://jmsallan.netlify.app/</loc>
-    <lastmod>2026-05-31T00:00:00+00:00</lastmod>
-  </url><url>
     <loc>https://jmsallan.netlify.app/tags/optimization/</loc>
     <lastmod>2026-05-31T00:00:00+00:00</lastmod>
   </url><url>
@@ -27,9 +42,6 @@
     <lastmod>2026-05-31T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://jmsallan.netlify.app/categories/r/</loc>
-    <lastmod>2026-05-31T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>https://jmsallan.netlify.app/tags/</loc>
     <lastmod>2026-05-31T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://jmsallan.netlify.app/blog/an-instance-of-a-capacitated-location-problem/</loc>
@@ -362,9 +374,6 @@
     <loc>https://jmsallan.netlify.app/blog/2023-02-03-prompting-chatgpt-to-build-a-tabu-search-algorithm/</loc>
     <lastmod>2023-02-03T00:00:00+00:00</lastmod>
   </url><url>
-    <loc>https://jmsallan.netlify.app/categories/using-ai/</loc>
-    <lastmod>2023-02-03T00:00:00+00:00</lastmod>
-  </url><url>
     <loc>https://jmsallan.netlify.app/blog/plotting-world-bank-data/</loc>
     <lastmod>2023-01-26T00:00:00+00:00</lastmod>
   </url><url>
@@ -565,9 +574,6 @@
   </url><url>
     <loc>https://jmsallan.netlify.app/blog/merging-with-data-table/</loc>
     <lastmod>2021-04-09T00:00:00+00:00</lastmod>
-  </url><url>
-    <loc>https://jmsallan.netlify.app/tags/academia/</loc>
-    <lastmod>2021-04-02T00:00:00+00:00</lastmod>
   </url><url>
     <loc>https://jmsallan.netlify.app/tags/reviews/</loc>
     <lastmod>2021-04-02T00:00:00+00:00</lastmod>
