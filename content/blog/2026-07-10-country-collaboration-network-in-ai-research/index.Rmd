@@ -141,7 +141,7 @@ china_usa <- values_null(1, 4)
 
 tibble(x = china_usa) |>
   ggplot(aes(x)) +
-  geom_histogram(bins = 20, color = "#A0A0A0") +
+  geom_histogram(bins = 20, fill = "#A0A0A0") +
   geom_segment(x = c_graph$matrix[1, 4], xend = c_graph$matrix[1, 4], y = 0, yend = Inf, color = "red", linetype = "dashed") +
   theme_minimal() +
   labs(x = NULL, y = NULL, title = "China-USA Edge Weight")
@@ -196,7 +196,7 @@ Here are the results for edges with observed weights equal or larger than five. 
 edges |>
   filter(obs_weight >= 5) |>
   arrange(-obs_weight) |>
-  kbl() |>
+  kbl(digits = 3) |>
   kable_styling(full_width = FALSE)
 ```
 
@@ -208,7 +208,7 @@ edges |>
          c_org == "USA" | c_dst == "USA",
          abs(z) >= 0.8) |>
   arrange(-obs_weight) |>
-  kbl() |>
+  kbl(digits = 3) |>
   kable_styling(full_width = FALSE)
 ```
 
@@ -220,7 +220,7 @@ edges |>
          c_org == "CHN" | c_dst == "CHN",
          abs(z) >= 0.8) |>
   arrange(-obs_weight) |>
-  kbl() |>
+  kbl(digits = 3) |>
   kable_styling(full_width = FALSE)
 ```
 
