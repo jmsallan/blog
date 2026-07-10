@@ -1,0 +1,1394 @@
+eid,affiliations,iso3c
+2-s2.0-105010206394,"National Key Laboratory for Novel Software Technology, Nanjing University, China",CHN
+2-s2.0-105010206394,"Shanghai Artificial Intelligence Laboratory, China",CHN
+2-s2.0-105010206394,"The Chinese University of Hong Kong, Hong Kong",HKG
+2-s2.0-85143254100,"BNRist, THUIBCS, KLISS, BLBCI, School of Software, Tsinghua University, China",CHN
+2-s2.0-85143254100,"Alibaba Group, China",CHN
+2-s2.0-85199920132,"AI Lab, Research Center for Industries of the Future, Westlake University, China",CHN
+2-s2.0-105010187547,"ISMLL, VWFS DARC, University of Hildesheim, Hildesheim, Germany",DEU
+2-s2.0-105010187547,"ISMLL, University of Hildesheim, Hildesheim, Germany",DEU
+2-s2.0-105010187547,"Institute of Mathematics, TU Berlin, Berlin, Germany",DEU
+2-s2.0-85200551272,"LISMARS, Hubei Luojia Laboratory, Wuhan University, China",CHN
+2-s2.0-85200551272,"The University of Hong Kong, Hong Kong",HKG
+2-s2.0-85200551272,"The Hong Kong Polytechnic University, Hong Kong",HKG
+2-s2.0-85200551272,"Texas A&M University, United States",USA
+2-s2.0-105010222873,"Universität Basel, Switzerland",CHE
+2-s2.0-105010222873,"Universität des Saarlandes, Germany",DEU
+2-s2.0-105010222873,"CISPA Helmholtz Center for Information Security, Germany",DEU
+2-s2.0-105010185122,"Department of Computer Science, Vanderbilt University, United States",USA
+2-s2.0-105010185122,"Department of Mathematics, Tufts University, United States",USA
+2-s2.0-105010185122,"Department of Mathematics, University of California, Irvine, United States",USA
+2-s2.0-105010184393,"Rice University, United States",USA
+2-s2.0-105010184393,"NVIDIA Inc., United States",USA
+2-s2.0-105010192905,"AI Centre, UCL, United Kingdom",GBR
+2-s2.0-105010192905,"Cohere, United States",USA
+2-s2.0-105010192905,"University of Toronto, Vector Institute, Canada",CAN
+2-s2.0-85150247028,"Mila, University of Montreal, Canada",CAN
+2-s2.0-85150247028,"Harvard University, United States",USA
+2-s2.0-85150247028,"MPI for Intelligent Systems, Tübingen, Germany",DEU
+2-s2.0-85150247028,"University of California, Berkeley, United States",USA
+2-s2.0-105010206162,"MIT, United States",USA
+2-s2.0-105010206162,"Microsoft Research, United States",USA
+2-s2.0-85198172106,"CAS, Key Laboratory of Technology in GIPAS, University of Science and Technology of China, China",CHN
+2-s2.0-85198172106,"MoE Key Laboratory of Brain-Inspired Intelligent Perception and Cognition, University of Science and Technology of China, China",CHN
+2-s2.0-85198172106,"Noah's Ark Lab, Huawei Technologies, China",CHN
+2-s2.0-105010209556,"School of Computer Science and Technology, University of Science and Technology of China, China",CHN
+2-s2.0-105010209556,"Department of Computer Science, City University of Hong Kong, Hong Kong",HKG
+2-s2.0-105010253396,"Stanford University, United States",USA
+2-s2.0-85147022536,"University of Illinois at Urbana-Champaign, Champaign, IL, United States",USA
+2-s2.0-85147022536,"University of Southern California, Los Angeles, CA, United States",USA
+2-s2.0-85147022536,"Shanghai Jiao Tong University, Shanghai, China",CHN
+2-s2.0-105010281720,"University of California, Santa Cruz, United States",USA
+2-s2.0-105010281720,"Stellar Cyber, Inc., United States",USA
+2-s2.0-105010281720,"Washington University, St. Louis, United States",USA
+2-s2.0-105010196394,"Department of Electrical and Computer Engineering, University of Michigan, United States",USA
+2-s2.0-85139552987,"Department of Physics, Stanford Neurosciences Institute, Stanford University, Stanford, 94305, CA, United States",USA
+2-s2.0-85139552987,"Department of Psychology, Stanford University, Stanford, 94305, CA, United States",USA
+2-s2.0-85139552987,"Departments of Psychology and Computer Science, Stanford Neurosciences Institute, Stanford University, Stanford, 94305, CA, United States",USA
+2-s2.0-85142827922,"Data61, CSIRO, Canberra, Australia",AUS
+2-s2.0-85142827922,"Space & Astronomy, CSIRO, Epping, Australia",AUS
+2-s2.0-85142827922,"Machine Learning & Artificial Intelligence, Future Science Platform",AUS
+2-s2.0-105010200500,"Harvard University, United States",USA
+2-s2.0-105010200500,"Harbin Institute of Technology, Shenzhen, China",CHN
+2-s2.0-105010185596,"Department of Computing, Imperial College London, United Kingdom",GBR
+2-s2.0-105010185596,"Microsoft Research Health Futures, Cambridge, United Kingdom",GBR
+2-s2.0-85199898470,"Meta AI, United States",USA
+2-s2.0-85199898470,"University of Cambridge, United Kingdom",GBR
+2-s2.0-85199898470,"University of Washington, United States",USA
+2-s2.0-85199898470,"Allen Institute for AI, United States",USA
+2-s2.0-85199898470,"Google Research, United States",USA
+2-s2.0-85199898470,"Cornell University, United States",USA
+2-s2.0-85199898470,"Stanford University, United States",USA
+2-s2.0-85199911770,"Georgia Institute of Technology, United States",USA
+2-s2.0-85192853121,"University of Tübingen, Germany",DEU
+2-s2.0-85192853121,"Tübingen AI Center, Germany",DEU
+2-s2.0-85192853121,"Max-Planck-Institute for Intelligent Systems, Tübingen, Germany",DEU
+2-s2.0-85192853121,"ELLIS Institute Tübingen, Germany",DEU
+2-s2.0-105010213819,"Pr(Ai)2R Group, United States",USA
+2-s2.0-105010213819,"Stanford University, United States",USA
+2-s2.0-105010213819,"Confirm Labs, United States",USA
+2-s2.0-105010213819,"Ghent University, Belgium",BEL
+2-s2.0-105010196037,"University of Toronto, Canada",CAN
+2-s2.0-105010196037,"Vector Institute, Canada",CAN
+2-s2.0-105010196037,"University of Oxford, United Kingdom",GBR
+2-s2.0-105010196037,"Mila - Quebec AI Institute, Canada",CAN
+2-s2.0-105010196037,"Université de Montréal, Canada",CAN
+2-s2.0-105010212968,"AI Lab, Research Center for Industries of the Future, Westlake University, China",CHN
+2-s2.0-105010212968,"DP Technology, China",CHN
+2-s2.0-105010212968,"Zhejiang University, China",CHN
+2-s2.0-105010268760,"Carney Institute for Brain Science, Brown University, Providence, RI, United States",USA
+2-s2.0-105010268760,"Department of Cognitive Sciences, University of California-Irvine, Irvine, CA, United States",USA
+2-s2.0-105010230285,"University of Oxford, Oxford, United Kingdom",GBR
+2-s2.0-105010230285,"The Hong Kong University of Science and Technology, Hong Kong",HKG
+2-s2.0-105010230285,"Queen Mary University of London, London, United Kingdom",GBR
+2-s2.0-105010230285,"Microsoft Research Asia, Beijing, China",CHN
+2-s2.0-105010230285,"Peking University, Beijing, China",CHN
+2-s2.0-105010230285,"University of Alberta, Edmonton, Canada",CAN
+2-s2.0-105010207022,"Helmholtz Munich, Germany",DEU
+2-s2.0-105010207022,"Technical University of Munich, Germany",DEU
+2-s2.0-105010207022,"Université de Montréal, Canada",CAN
+2-s2.0-105010207022,"Mila, Canada",CAN
+2-s2.0-105010207022,"MPI for Intelligent Systems, Tübingen, Germany",DEU
+2-s2.0-85200574019,"Department of Computer Science and Engineering, The Chinese University of Hong Kong, Hong Kong",HKG
+2-s2.0-85200574019,"Department of Electrical and Computer Engineering, The University of British Columbia, Canada",CAN
+2-s2.0-85177747991,"The University of Texas, Austin, United States",USA
+2-s2.0-105010232103,"University of California, Berkeley, United States",USA
+2-s2.0-105010232103,"Harvard University, United States",USA
+2-s2.0-105010232103,"ELLIS Institute, Max Planck Institute for Intelligent Systems, Tübingen AI Center, Germany",DEU
+2-s2.0-105010209564,"Tatta Bio, United States",USA
+2-s2.0-105010209564,"DOE Joint Genome Institute, Lawrence Berkeley National Laboratory, Berkeley, CA, United States",USA
+2-s2.0-105010209564,"European Molecular Biology Laboratory, European Bioinformatics Institute (EMBL-EBI), Wellcome Genome Campus, Hinxton, Cambridge, United Kingdom",GBR
+2-s2.0-105010209564,"School of Biological Sciences, Seoul National University, Seoul, South Korea",KOR
+2-s2.0-105010209564,"Department of Biology, Massachusetts Institute of Technology, Cambridge, MA, United States",USA
+2-s2.0-105010194062,"The University of Tokyo, Chiba, Japan",JPN
+2-s2.0-105010194062,"RIKEN, Tokyo, Japan",JPN
+2-s2.0-105010194062,"Southeast University, Nanjing, China",CHN
+2-s2.0-105010194062,"William & Mary, Williamsburg, VA, United States",USA
+2-s2.0-105010197692,"Department of Applied Mathematics and Statistics, Stony Brook University, United States",USA
+2-s2.0-105010197692,"Department of Computer Science, Stony Brook University, United States",USA
+2-s2.0-105010217191,"Tsinghua University, China",CHN
+2-s2.0-105010217191,"Nanyang Technological University, Singapore",SGP
+2-s2.0-105010217191,"AscendGrace Tech, China",CHN
+2-s2.0-105010217191,"Ant Group, China",CHN
+2-s2.0-85199897126,"OpenAI, United States",USA
+2-s2.0-85199897126,Multi Technologies,USA
+2-s2.0-85199897126,"École Polytechnique, France",FRA
+2-s2.0-85199897126,"University of Cambridge, United Kingdom",GBR
+2-s2.0-85199897126,"DeepMind, United Kingdom",GBR
+2-s2.0-85200567727,"Zuse Institute Berlin, Dida Datenschmiede GmbH, Germany",DEU
+2-s2.0-85200567727,"Caltech, United States",USA
+2-s2.0-105010188776,"University of Virginia, United States",USA
+2-s2.0-105010188776,"Virginia Tech, United States",USA
+2-s2.0-105010188776,"University of Maryland, College Park, United States",USA
+2-s2.0-105010188776,"Merck & Co., Inc., United States",USA
+2-s2.0-105010188776,"University of Georgia, United States",USA
+2-s2.0-85200548095,"RIKEN AIP, Japan",JPN
+2-s2.0-85200548095,"Shanghaitech University, China",CHN
+2-s2.0-85200548095,"The University of Tokyo, RIKEN AIP, Japan",JPN
+2-s2.0-85200587328,"School of Psychological and Cognitive Sciences, IDG/McGovern Institute for Brain Research, Bejing Key Laboratory of Behavior and Mental Health, Peking-Tsinghua Center for Life Sciences, Center of Quantitative Biology, Academy for Advanced Interdisciplinary Studies, Peking University, China",CHN
+2-s2.0-85200587328,"School of Software Engineering, Beijing Jiaotong University, China",CHN
+2-s2.0-85200587328,"Institute of Software, Chinese Academy of Sciences, China",CHN
+2-s2.0-105010184171,"University of Chicago, United States",USA
+2-s2.0-105010184171,"Google, United States",USA
+2-s2.0-85195870437,"NVIDIA Inc., United States",USA
+2-s2.0-85199896166,"UC Berkeley, United States",USA
+2-s2.0-85199896166,"Carnegie Mellon University, United States",USA
+2-s2.0-105010265467,"Carnegie Mellon University, United States",USA
+2-s2.0-105010197459,"AIRI, Moscow, Russian Federation",RUS
+2-s2.0-105010197459,"Skoltech, Moscow, Russian Federation",RUS
+2-s2.0-105010198667,"HKUST, Hong Kong",HKG
+2-s2.0-105010198667,"HKUST (GZ), China",CHN
+2-s2.0-105010198667,"Southeast University, China",CHN
+2-s2.0-85174351024,"University of Cambridge, United Kingdom",GBR
+2-s2.0-85174351024,"University of California, Los Angeles, United States",USA
+2-s2.0-85174351024,"University of Cambridge, Alan Turing Institute, United Kingdom",GBR
+2-s2.0-105010207034,"Mercedes-Benz AG, Sindelfingen, Germany",DEU
+2-s2.0-105010207034,"University of Tübingen, Tübingen, Germany",DEU
+2-s2.0-85200542550,"Washington University in St. Louis, St. Louis, 63130, MO, United States",USA
+2-s2.0-85200542550,"ENS, CNRS, PSL University, Paris, 75005, France",FRA
+2-s2.0-85200542550,"CNRS, Université Paris Cité, Paris, 75006, France",FRA
+2-s2.0-85150375106,"Univ. Bordeaux, Bordeaux INP, CNRS, IMB, UMR 5251, Talence, F-33400, France",FRA
+2-s2.0-105010276477,"Max Planck Institute for Software Systems, Germany",DEU
+2-s2.0-105010276477,"Aalborg University, Denmark",DNK
+2-s2.0-105010276477,United States,USA
+2-s2.0-105010218291,"Rochester Institute of Technology, Rochester, 14623, NY, United States",USA
+2-s2.0-105010218291,"Google Inc., Los Angeles, 90034, CA, United States",USA
+2-s2.0-105010218291,"ComboCurve Inc., Houston, 77005, TX, United States",USA
+2-s2.0-105010218291,"Amazon.com Inc., Seattle, 98109, WA, United States",USA
+2-s2.0-85167956753,"Tsinghua University, China",CHN
+2-s2.0-85167956753,"Hong Kong University of Science and Technology, Hong Kong",HKG
+2-s2.0-85190708798,"École Polytechnique Fédérale de Lausanne (EPFL), Switzerland",CHE
+2-s2.0-85190708798,"Max Planck Institute for Mathematics in the Sciences, Germany",DEU
+2-s2.0-85190708798,"AIDOS Lab, Institute of AI for Health, Helmholtz Munich, Germany",DEU
+2-s2.0-85190708798,"Technical University of Munich (TUM), Germany",DEU
+2-s2.0-105010221217,"School of Artificial Intelligence, Jilin University, China",CHN
+2-s2.0-105010221217,"CSIRO's Data61, Australia",AUS
+2-s2.0-105010221217,"University of Oxford, United Kingdom",GBR
+2-s2.0-105010221217,"The University of Texas, Austin, United States",USA
+2-s2.0-105010221217,"International Center of Future Science, Jilin University, China",CHN
+2-s2.0-105010221217,"Engineering Research Center of Knowledge-Driven Human-Machine Intelligence, MOE, China",CHN
+2-s2.0-85200573396,"University of Texas, Austin, United States",USA
+2-s2.0-85200573396,"Georgia Tech, United States",USA
+2-s2.0-85200573396,"University of Waterloo, Canada",CAN
+2-s2.0-85200573396,"Purdue University, United States",USA
+2-s2.0-105010218172,"Beijing University of Posts and Telecommunications, Beijing, 100876, China",CHN
+2-s2.0-105010218172,"Intellifusion, Shenzhen, China",CHN
+2-s2.0-105010265350,"University of Western Ontario, Canada",CAN
+2-s2.0-105010265350,"Université de Montréal, Canada",CAN
+2-s2.0-105010265350,"Mila, Canada",CAN
+2-s2.0-105010265350,"Noah's Ark Lab, Canada",CAN
+2-s2.0-105010265350,"Vector Institute, Canada",CAN
+2-s2.0-105010222302,"Seoul National University, Seoul, South Korea",KOR
+2-s2.0-85148543650,"Peking University, China",CHN
+2-s2.0-85148543650,"Southwest Jiaotong University, China",CHN
+2-s2.0-105010201979,"Carnegie Mellon University, United States",USA
+2-s2.0-85150226331,"University of Cambridge, United Kingdom",GBR
+2-s2.0-85150226331,"Google Cloud AI, Sunnyvale, United States",USA
+2-s2.0-85150226331,"University of Oxford, United Kingdom",GBR
+2-s2.0-85150226331,"The Alan Turing Institute, United Kingdom",GBR
+2-s2.0-85150226331,"Cambridge University Hospitals NHS Foundation Trust, United Kingdom",GBR
+2-s2.0-85150226331,"University of California, Los Angeles, United States",USA
+2-s2.0-105010245404,"Department of Cognitive Science, Johns Hopkins University, Baltimore, 21218, MD, United States",USA
+2-s2.0-105010245404,"Department of Biomedical Engineering, Johns Hopkins University, Baltimore, 21218, MD, United States",USA
+2-s2.0-105010222421,"University of British Columbia, Canada",CAN
+2-s2.0-105010206190,"National University of Defense Technology, China",CHN
+2-s2.0-105010206190,"Tsinghua University, China",CHN
+2-s2.0-105010206190,"Shanghai Artificial Intelligence Laboratory, China",CHN
+2-s2.0-105010206190,"Beijing Academy of Artificial Intelligence, China",CHN
+2-s2.0-85200553329,"Machine Discovery Ltd., United Kingdom",GBR
+2-s2.0-85200553329,"University of Oxford, United Kingdom",GBR
+2-s2.0-85146203855,"Stanford University, United States",USA
+2-s2.0-85146203855,Facebook AI Research,USA
+2-s2.0-85150381901,"Department of Engineering, University of Cambridge, Cambridge, United Kingdom",GBR
+2-s2.0-85150381901,"Gatsby Computational Neuroscience Unit, University College London, London, United Kingdom",GBR
+2-s2.0-105010215904,"Cornell University, United States",USA
+2-s2.0-105010215904,"Carnegie Mellon University, United States",USA
+2-s2.0-105010215904,"Harvard University, United States",USA
+2-s2.0-105010279571,"Massachusetts General Hospital, Harvard Medical School, United States",USA
+2-s2.0-105010279571,"Aalto University, Finland",FIN
+2-s2.0-105010279571,"Danish Research Centre for Magnetic Resonance, Copenhagen University Hospital, Denmark",DNK
+2-s2.0-105010279571,"Hawkes Institute, University College London, United Kingdom",GBR
+2-s2.0-105010279571,"Computer Science and AI Laboratory, Massachusetts Institute of Technology, United States",USA
+2-s2.0-105010195491,"ISIR, Sorbonne Université, France",FRA
+2-s2.0-105010195491,"LTCI, Télécom Paris, Institut Polytechnique de Paris, France",FRA
+2-s2.0-105010195491,"Technical University of Munich, Germany",DEU
+2-s2.0-105010195491,"Helmholtz Munich, Germany",DEU
+2-s2.0-105010195491,"Munich Center for Machine Learning (MCML), Germany",DEU
+2-s2.0-105010280449,"University of Tübingen, Tübingen, Germany",DEU
+2-s2.0-105010280449,"Kyushu University, Fukuoka, Japan",JPN
+2-s2.0-105010280449,"The Institute of Statistical Mathematics, Tokyo, Japan",JPN
+2-s2.0-105010280449,"University of Tübingen & MPI-IS Tübingen, Tübingen, Germany",DEU
+2-s2.0-85150334704,"Department of Computer Science, University of Copenhagen, Denmark",DNK
+2-s2.0-105010224619,"Public Health School, Fujian Medical University, China",CHN
+2-s2.0-105010224619,"School of Mathematics and Statistics, Fuzhou University, China",CHN
+2-s2.0-105010224619,"Center for Applied Mathematics of Fujian Province, China",CHN
+2-s2.0-105010224619,"Department of Mathematics, SUSTech, China",CHN
+2-s2.0-105010224619,"National Center for Applied Mathematics Shenzhen, SUSTech, China",CHN
+2-s2.0-105010224619,"School of Science, BUPT, China",CHN
+2-s2.0-105010224619,"CETC Key Laboratory of Smart City Modeling Simulation and Intelligent Technology, The Smart City Research Institute of CETC, China",CHN
+2-s2.0-105010202951,"IBM Research, United States",USA
+2-s2.0-105010202951,"The Hebrew University of Jerusalem, Israel",ISR
+2-s2.0-105010202951,"Bar-Ilan University, Israel",ISR
+2-s2.0-85083950774,"University of Queensland, Australia",AUS
+2-s2.0-85083950774,"Monash University, Australia",AUS
+2-s2.0-85083950774,"EPFL, Switzerland",CHE
+2-s2.0-105010230061,"School of Artificial Intelligence, Jilin University, China",CHN
+2-s2.0-105010230061,"CSIRO's Data61, Australia",AUS
+2-s2.0-105010230061,"International Center of Future Science, Jilin University, China",CHN
+2-s2.0-105010230061,"Engineering Research Center of Knowledge-Driven Human-Machine Intelligence, MOE, China",CHN
+2-s2.0-105010222559,"Gaoling School of Artificial Intelligence, Renmin University of China, Beijing, China",CHN
+2-s2.0-105010222559,"School of Information Science and Technology, University of Science and Technology of China, Hefei, China",CHN
+2-s2.0-105010222559,"Institute of Computing Technology, Chinese Academy of Sciences, Beijing, China",CHN
+2-s2.0-105010222559,"NExT++ Research Center, National University of Singapore, Singapore",SGP
+2-s2.0-85199890710,"University of Texas at Austin, United States",USA
+2-s2.0-85199890710,"Georgia Tech, United States",USA
+2-s2.0-85199890710,"University of Waterloo, Canada",CAN
+2-s2.0-85199890710,"Purdue University, United States",USA
+2-s2.0-105010202836,"Georgia Institute of Technology, United States",USA
+2-s2.0-105010182053,"University of Electronic Science and Technology of China, China",CHN
+2-s2.0-105010182053,"Northumbria University, United Kingdom",GBR
+2-s2.0-105010182053,"Liaoning Technical University, China",CHN
+2-s2.0-105010267343,"University of Minnesota, United States",USA
+2-s2.0-105010267343,"IBM Research, United States",USA
+2-s2.0-105010267347,"Econometric Institute, Erasmus University Rotterdam, Netherlands",NLD
+2-s2.0-85192856680,"NVIDIA, United States",USA
+2-s2.0-85150343414,DeepMind,GBR
+2-s2.0-85150343414,"University of Edinburgh, United Kingdom",GBR
+2-s2.0-85150343414,Intrinsic LLC,USA
+2-s2.0-105010235503,"NVIDIA, United States",USA
+2-s2.0-105010235503,"University of California, Irvine, United States",USA
+2-s2.0-105010196472,"Zhejiang University, China",CHN
+2-s2.0-105010196472,"Southern University of Science and Technology, China",CHN
+2-s2.0-105010196472,"Northwestern University, United States",USA
+2-s2.0-105010208268,"Ant Group, China",CHN
+2-s2.0-105010208268,"Alibaba Group, China",CHN
+2-s2.0-105010281769,"University of California, Berkeley, United States",USA
+2-s2.0-105010281769,"Boston University, United States",USA
+2-s2.0-105010281769,"Google DeepMind, United Kingdom",GBR
+2-s2.0-105010281769,"Toyota Technological Institute, Chicago, United States",USA
+2-s2.0-105010283827,"UC Berkeley, United States",USA
+2-s2.0-105010283827,"UPenn, United States",USA
+2-s2.0-105010283827,"UMich, United States",USA
+2-s2.0-105010283827,THU,CHN
+2-s2.0-105010283827,"TranscEngram, China",CHN
+2-s2.0-105010283827,"Tsinghua SIGS, China",CHN
+2-s2.0-105010283827,"HKU, Hong Kong",HKG
+2-s2.0-105010283827,"JHU, China",CHN
+2-s2.0-85181800953,"University of Edinburgh, United Kingdom",GBR
+2-s2.0-85181800953,"Karlsruhe Institute of Technology, Germany",DEU
+2-s2.0-85181800953,"Heidelberg Institute for Theoretical Studies, Germany",DEU
+2-s2.0-85181800953,"Samsung AI Research Centre, Cambridge, United Kingdom",GBR
+2-s2.0-85199920286,"Ghent University - imec, Belgium",BEL
+2-s2.0-85199920286,ServiceNow Research,CAN
+2-s2.0-85190892756,"FAIR, Meta, United States",USA
+2-s2.0-85190892756,"Laboratoire des Systèmes Perceptifs, École Normale Supérieure, PSL University, France",FRA
+2-s2.0-105010219156,"Stanford University, United States",USA
+2-s2.0-105010222687,"Google DeepMind, United Kingdom",GBR
+2-s2.0-105010189946,"Chinese Institute for Brain Research, Beijing, China",CHN
+2-s2.0-105010189946,"Chinese Academy of Medical Sciences, Peking Union Medical College, China",CHN
+2-s2.0-105010189946,"China Agricultural University, China",CHN
+2-s2.0-105010220027,"University of Southern California, United States",USA
+2-s2.0-105010220027,"Vrije Universiteit, Amsterdam, Netherlands",NLD
+2-s2.0-85150306013,"Department of Computer Science and AI, University of Granada, Spain",ESP
+2-s2.0-85150306013,"Department of Computer Science, Universidad Autónoma de Madrid, Spain",ESP
+2-s2.0-85150306013,"Department of Engineering, University of Cambridge, UK Alan Turing Institute, London, United Kingdom",GBR
+2-s2.0-105010232359,"Zhejiang University, China",CHN
+2-s2.0-105010232359,"Shanghai Jiaotong University, China",CHN
+2-s2.0-105010232359,"FinVolution Group, China",CHN
+2-s2.0-85199861259,"Stanford University, United States",USA
+2-s2.0-85199861259,"University of Padova, Italy",ITA
+2-s2.0-85199861259,"Imperial College London, United Kingdom",GBR
+2-s2.0-105010208030,"MIT EECS, United States",USA
+2-s2.0-105010208030,"MIT-IBM Watson AI Lab, United States",USA
+2-s2.0-105010208030,"IBM Research, United States",USA
+2-s2.0-85196126587,"Fondazione Bruno Kessler, Italy",ITA
+2-s2.0-85196126587,"University of Oxford, United Kingdom",GBR
+2-s2.0-85196126587,"University of Venice, Italy",ITA
+2-s2.0-85171368830,"Simon Fraser University, Canada",CAN
+2-s2.0-85171368830,"Borealis AI, Canada",CAN
+2-s2.0-85108785302,"Department of Electrical and Computer Engineering, The Ohio State University, Columbus, 43210, OH, United States",USA
+2-s2.0-85169784721,"Department of Computer Science and Operations Research, Universit de Montral, Montral, H3C3J7, QC, Canada",CAN
+2-s2.0-105010187768,"Université de Montréal, Canada",CAN
+2-s2.0-105010187768,"Université de Montréal, Canada",CAN
+2-s2.0-105010187768,"Université de Montréal, Canada",CAN
+2-s2.0-105010187768,"University of Oregon, United States",USA
+2-s2.0-105010187889,"Department of Computer Science, Emory University, United States",USA
+2-s2.0-105010219172,"University of Freiburg, Germany",DEU
+2-s2.0-105010219172,"University of Vienna, Austria",AUT
+2-s2.0-105010219172,"RNA Forecast e.U., Vienna, Austria",AUT
+2-s2.0-105010219172,"ELLIS Institute Tübingen, Germany",DEU
+2-s2.0-85199615659,"Dept. of Mechanical & Industrial Engineering, Northeastern University, United States",USA
+2-s2.0-85199615659,"Alibaba Group, China",CHN
+2-s2.0-105010224630,"Rutgers University, United States",USA
+2-s2.0-105010224630,"Eric and Wendy Schmidt Center, Broad Institute of MIT and Harvard, United States",USA
+2-s2.0-105010224630,"Ant Group, China",CHN
+2-s2.0-105010224630,"Dian Diagnostics Group Co., China",CHN
+2-s2.0-105010224630,"University of Illinois Urbana-Champaign, United States",USA
+2-s2.0-105010224630,"University of Technology Sydney, Australia",AUS
+2-s2.0-105010193059,"School of Computation, Information and Technology, Technical University of Munich, Boltzmannstr. 3, Garching, 85748, Germany",DEU
+2-s2.0-85040130246,"UC Berkeley, Department of Electrical Engineering and Computer Science, United States",USA
+2-s2.0-85040130246,International Computer Science Institute,USA
+2-s2.0-85040130246,"OpenAI, United States",USA
+2-s2.0-105010194267,"MBZUAI, United Arab Emirates",ARE
+2-s2.0-105010194267,"Innopolis University, Russian Federation",RUS
+2-s2.0-105010194267,"Johns Hopkins University, United States",USA
+2-s2.0-105010194267,"KAUST, Saudi Arabia",SAU
+2-s2.0-85196886121,"Department of Automation, Tsinghua University, Beijing, China",CHN
+2-s2.0-85196886121,"Tsinghua Shenzhen International Graduate School, Tsinghua University, Shenzhen, China",CHN
+2-s2.0-85196886121,"College of Computer and Cyber Security, Fujian Normal University, Fuzhou, China",CHN
+2-s2.0-85196886121,"LSBDPA Beijing Key Laboratory, Beijing, China",CHN
+2-s2.0-105010211327,"Mila, Université de Montréal, Quebec, Canada",CAN
+2-s2.0-105010211327,"Hydro-Québec Research Center, Quebec, Canada",CAN
+2-s2.0-105010211327,"Standford University, United States",USA
+2-s2.0-105019952420,"HDC LABS, Seoul, South Korea",KOR
+2-s2.0-105010233466,"Stanford University, United States",USA
+2-s2.0-105010233466,"SUSTech, China",CHN
+2-s2.0-105010233466,"KTH, Sweden",SWE
+2-s2.0-85142387433,"EPFL, Switzerland",CHE
+2-s2.0-85142387433,"UC Berkeley, United States",USA
+2-s2.0-105010257897,"Academy of Mathematics and Systems Science, Chinese Academy of Sciences, University of Chinese Academy of Sciences, China",CHN
+2-s2.0-105010257897,"Academy of Mathematics and Systems Science, Chinese Academy of Sciences, China",CHN
+2-s2.0-85117098001,"Cornell University, United States",USA
+2-s2.0-85117098001,Google,USA
+2-s2.0-85117098001,Salesforce Research,USA
+2-s2.0-105010202743,"Department of Statistics and Data Science, University of Augsburg, Germany",DEU
+2-s2.0-105010200447,"University of Copenhagen, Denmark",DNK
+2-s2.0-105010200447,"University of Maryland, College Park, United States",USA
+2-s2.0-105010200447,"Shenzhen Campus of Sun Yat-sen University, China",CHN
+2-s2.0-105010200447,"Hofstra University, United States",USA
+2-s2.0-105010200447,"University at Buffalo, United States",USA
+2-s2.0-105010200447,"Nanyang Technological University, Singapore",SGP
+2-s2.0-105010185335,"University of Florida, FL, United States",USA
+2-s2.0-105010185335,"National Renewable Energy Laboratory, CO, United States",USA
+2-s2.0-105010185335,"Saudi Electronic University, Saudi Arabia",SAU
+2-s2.0-105010185335,"Gachon University, South Korea",KOR
+2-s2.0-105010222109,"Research Center for Industries of the Future, Westlake University, China",CHN
+2-s2.0-105010222109,"School of Engineering, Westlake University, China",CHN
+2-s2.0-105010222109,"Zhejiang University, China",CHN
+2-s2.0-105010222109,"William&Mary, United States",USA
+2-s2.0-105010222109,"University College London, United Kingdom",GBR
+2-s2.0-105010184001,"Google, DeepMind, United Kingdom",GBR
+2-s2.0-105010270850,"Department of Electrical Engineering and Automation, Aalto University, Finland",FIN
+2-s2.0-105010270850,"Department of Computer Science, Aalto University, Finland",FIN
+2-s2.0-105010270850,"Center for Machine Vision and Signal Analysis, University of Oulu, Finland",FIN
+2-s2.0-85140192187,"ETH Zürich, Switzerland",CHE
+2-s2.0-85140192187,"Politecnico di Milano, Italy",ITA
+2-s2.0-85140192187,"CADS, Human Technopole",ITA
+2-s2.0-85140192187,"University Hospital Basel, Switzerland",CHE
+2-s2.0-85140192187,"University Children's Hospital Basel, Switzerland",CHE
+2-s2.0-85140192187,"University of Zürich, Switzerland",CHE
+2-s2.0-85140192187,"St. Gallen Cantonal Hospital, Switzerland",CHE
+2-s2.0-85175681368,"Universidad Autónoma de Madrid, Spain",ESP
+2-s2.0-85175681368,"ICMAT-CSIC, Spain",ESP
+2-s2.0-105010205340,"Institute for AI Industry Research (AIR), Tsinghua University, China",CHN
+2-s2.0-105010205340,"Department of Pharmaceutical Science, Peking University, China",CHN
+2-s2.0-105010205340,"Department of Computer Science and Technology, Tsinghua University, China",CHN
+2-s2.0-105010205340,"Beijing Academy of Artificial Intelligence (BAAI), China",CHN
+2-s2.0-105010197631,"University of Bristol, United Kingdom",GBR
+2-s2.0-105010197631,"The University of Melbourne, Australia",AUS
+2-s2.0-105010197631,"School of Mathematics, Maxwell Institute for Mathematical Sciences, University of Edinburgh, United Kingdom",GBR
+2-s2.0-105010264677,"Xidian University, Xi'an, 710071, China",CHN
+2-s2.0-105010205584,"EPFL, Switzerland",CHE
+2-s2.0-105010205584,"University of Copenhagen, Denmark",DNK
+2-s2.0-105010228467,"University of Science and Technology of China, China",CHN
+2-s2.0-105010228467,"The Hong Kong University of Science and Technology, Hong Kong",HKG
+2-s2.0-105010242403,"Max Planck Institute for Mathematics in the Sciences, Leipzig, Germany",DEU
+2-s2.0-105010242403,"UCLA, CA, United States",USA
+2-s2.0-105010242403,"Center for Scalable Data Analytics and Artificial Intelligence, Leipzig, Germany",DEU
+2-s2.0-105010242403,"University of Oxford, Oxford, United Kingdom",GBR
+2-s2.0-105010220615,"MIT, United States",USA
+2-s2.0-105010220615,"IAIFI, United States",USA
+2-s2.0-105010183227,"ByteDance Research, China",CHN
+2-s2.0-85199908763,"VITA Group, University of Texas, Austin, United States",USA
+2-s2.0-105010207525,"Meituan Inc., China",CHN
+2-s2.0-105010220614,"University of British Columbia, Canada",CAN
+2-s2.0-105010220614,"Vector Institute, Canada",CAN
+2-s2.0-85132263880,"KAIST AI, South Korea",KOR
+2-s2.0-85132263880,"Univ. of Wisconsin-Madison CS, United States",USA
+2-s2.0-85132263880,"MIT, EECS",USA
+2-s2.0-85134537286,"Department of Computer Science, Purdue University, United States",USA
+2-s2.0-105010216598,"Dept. of Electrical and Computer Engineering, University of Southern California, United States",USA
+2-s2.0-105010216598,"Dept. of Radiology and Imaging Sciences, University of Utah, United States",USA
+2-s2.0-85150336374,"Princeton University, United States",USA
+2-s2.0-85150336374,"Caltech, United States",USA
+2-s2.0-85150336374,"Purdue University, United States",USA
+2-s2.0-105010194128,"DFKI GmbH, SAIROL, Germany",DEU
+2-s2.0-105010194128,"Department of Computer Science, TU Darmstadt, Germany",DEU
+2-s2.0-105010194128,"Hessian.ai, TU Darmstadt, Germany",DEU
+2-s2.0-105010194128,"Center for AI and Data Science, University of Würzburg, Germany",DEU
+2-s2.0-105010254514,"Computer Science Program, CEMSE Division, King Abdullah University of Science and Technology (KAUST), Thuwal, 23955-6900, Saudi Arabia",SAU
+2-s2.0-105010254514,"SDAIA-KAUST Center of Excellence in Data Science and Artificial Intelligence (SDAIA-KAUST AI), Saudi Arabia",SAU
+2-s2.0-105010193157,"Ming Hsieh Department of Electrical and Computer Engineering, Viterbi School of Engineering, University of Southern California, Los Angeles, CA, United States",USA
+2-s2.0-105010193157,"Ming Hsieh Department of Electrical and Computer Engineering, Thomas Lord Department of Computer Science, Alfred E. Mann Department of Biomedical Engineering, Viterbi School of Engineering, University of Southern California, Los Angeles, CA, United States",USA
+2-s2.0-105010231877,"LIX, Ecole Polytechnique, IPP Paris, Paris, France",FRA
+2-s2.0-105010231877,"Mines Paris, PSL Research University, CBIO, Paris, France",FRA
+2-s2.0-105010231877,"Institut Curie, PSL Research University, Paris, France",FRA
+2-s2.0-105010231877,"INSERM, U900, Paris, France",FRA
+2-s2.0-105010231877,"Institute of Bioengineering, École Polytechnique Fédérale de Lausanne, Lausanne, Switzerland",CHE
+2-s2.0-85046996557,"University of Montreal, Canada",CAN
+2-s2.0-85046996557,"University of Oxford, United Kingdom",GBR
+2-s2.0-85046996557,"Politecnico di Milano, Italy",ITA
+2-s2.0-105010195576,"Michigan State University, United States",USA
+2-s2.0-105010195576,"Amazon, United States",USA
+2-s2.0-105010194374,"University of Cambridge, United Kingdom",GBR
+2-s2.0-105010194374,"Harvard University, United States",USA
+2-s2.0-105010286458,"New York University, United States",USA
+2-s2.0-105010286458,"ETH Zurich, Switzerland",CHE
+2-s2.0-105010286458,"University of Copenhagen, Denmark",DNK
+2-s2.0-105010229784,"Huawei Noah's Ark Lab, Canada",CAN
+2-s2.0-105010229784,"Tsinghua University, China",CHN
+2-s2.0-105010232831,"School of Data Science, The Chinese University of Hong Kong, Hong Kong",HKG
+2-s2.0-105010232831,"ChemLex Technology Co., Ltd., China",CHN
+2-s2.0-85199872012,Inverted AI,CAN
+2-s2.0-85199872012,"University of British Columbia, Canada",CAN
+2-s2.0-85199872012,"Mila, Canada",CAN
+2-s2.0-105010241668,"KAUST, Saudi Arabia",SAU
+2-s2.0-105010241668,"Queen Mary University of London, United Kingdom",GBR
+2-s2.0-105010239584,"Beihang Univerisity, China",CHN
+2-s2.0-105010239584,"Guangxi Normal University, China",CHN
+2-s2.0-105010239584,"University of Illinois, Chicago, United States",USA
+2-s2.0-105010184300,"University of Southern California, United States",USA
+2-s2.0-105010184300,"Amazon AI, United States",USA
+2-s2.0-105010184300,"Google, DeepMind, United Kingdom",GBR
+2-s2.0-105010184300,"University of Minnesota, United States",USA
+2-s2.0-105010184300,"Google Research, United States",USA
+2-s2.0-105010240694,"School of Computer Science and Technology, Anhui University, China",CHN
+2-s2.0-105010240694,"Information Materials and Intelligent Sensing Laboratory of Anhui Province, Anhui University, China",CHN
+2-s2.0-105010240694,"Anhui Provincial Key Laboratory of Security Artificial Intelligence, Anhui University, China",CHN
+2-s2.0-105010214189,"Institute of Image Communication and Information Processing, Shanghai Jiao Tong University, China",CHN
+2-s2.0-105010214189,"School of Humanities, Shanghai Jiao Tong University, China",CHN
+2-s2.0-105010284394,"School of Science and Engineering, The Chinese University of Hong Kong, Shenzhen, China",CHN
+2-s2.0-105010284394,"Shenzhen International Center for Industrial and Applied Mathematics, Shenzhen Research Institute of Big Data, China",CHN
+2-s2.0-105010284394,"School of Data Science, The Chinese University of Hong Kong, Shenzhen, China",CHN
+2-s2.0-105010284394,"School of Artificial Intelligence, The Chinese University of Hong Kong, Shenzhen, China",CHN
+2-s2.0-105010284394,"School of Software Engineering, Tongji University, Shanghai, China",CHN
+2-s2.0-105010200907,"Zhejiang University, China",CHN
+2-s2.0-105010200907,"Hangzhou Dianzi University, China",CHN
+2-s2.0-105010200907,"Ant Group, China",CHN
+2-s2.0-85200586521,"University of Oslo, Oslo, Norway",NOR
+2-s2.0-85200586521,"University of Agder, Kristiansand, Norway",NOR
+2-s2.0-85200586521,"Oslo Metropolitan University, Oslo, Norway",NOR
+2-s2.0-105031772238,"Department of Computer Science and Engineering, University of California, Merced, Merced, CA, United States",USA
+2-s2.0-105010195465,"Stanford University, United States",USA
+2-s2.0-105010195465,"Princeton Language & Intelligence, Princeton University, United States",USA
+2-s2.0-105010195465,"Cornell University, United States",USA
+2-s2.0-105010195465,"Tübingen AI Center, University of Tübingen, Germany",DEU
+2-s2.0-105010195465,"Meta AI, United States",USA
+2-s2.0-85200539539,"Institute for Artificial Intelligence, Tsinghua University (THUAI), Beijing National Research Center for Information Science and Technology (BNRist), Department of Automation, Tsinghua University, Beijing, China",CHN
+2-s2.0-85200539539,"Department of Population Health Sciences, Weill Cornell Medical College, Cornell University, New York, United States",USA
+2-s2.0-85200539539,"DataCanvas Technology Co., Ltd., China",CHN
+2-s2.0-105010196677,"Zhejiang University, China",CHN
+2-s2.0-105010196677,"University of Edinburgh, United Kingdom",GBR
+2-s2.0-105010229450,"CV:HCI Lab, Karlsruhe Institute of Technology, Germany",DEU
+2-s2.0-105010205362,"Google Research, United States",USA
+2-s2.0-105010205362,"Google DeepMind, United Kingdom",GBR
+2-s2.0-105010205362,"Google, United States",USA
+2-s2.0-105010209602,"Oxford-Man Institute for Quantitative Finance, Department of Mathematics, University of Oxford, United Kingdom",GBR
+2-s2.0-105010209602,"Department of Computer Science, University of Toronto, Canada",CAN
+2-s2.0-105010209602,"Department of Mathematics, McMaster University, Canada",CAN
+2-s2.0-105010209602,"Vector Institute, Canada",CAN
+2-s2.0-105010209602,"Faculty of Computer Science, Dalhousie University, Canada",CAN
+2-s2.0-105010209602,"Department of Mathematics, ETH Zürich, Switzerland",CHE
+2-s2.0-85149168275,"Department of Applied Econometrics, Karlsruhe Institute of Technology, Germany",DEU
+2-s2.0-85149168275,"Department of Analytics and Statistics, Karlsruhe Institute of Technology, Germany",DEU
+2-s2.0-85149168275,"Department of Computational Linguistics and Digital Humanities, Trier University, Germany",DEU
+2-s2.0-105010262115,"Tau Team, INRIA-Saclay, A&O Team, LISN, Université Paris-Saclay, Gif-sur-Yvette, 91190, France",FRA
+2-s2.0-105010232742,"Department of Computer and Information Science and Engineering, University of Florida, Gainesville, 32611, FL, United States",USA
+2-s2.0-105010241698,"School of Mathematics and Statistics, The University of Melbourne, VIC, Australia",AUS
+2-s2.0-105010241698,"ZOZO Research, ZOZO Next, Inc., Chiba, Japan",JPN
+2-s2.0-105010241698,"Institute of Statistical Mathematics, RIKEN AIP, Tokyo, Japan",JPN
+2-s2.0-85188640245,"Stanford University, United States",USA
+2-s2.0-85188640245,"Amazon, United States",USA
+2-s2.0-105010245934,"Institute of AI Industry Research (AIR), Tsinghua University, China",CHN
+2-s2.0-105010245934,"School of Pharmaceutical Sciences, Tsinghua University, China",CHN
+2-s2.0-85190514492,"Stanford University, United States",USA
+2-s2.0-85134995965,"Tsinghua University, China",CHN
+2-s2.0-85134995965,"Stanford University, United States",USA
+2-s2.0-85200562549,"Inria, Département d'Informatique de l'École Normale Supérieure, PSL Research University, École des Ponts, Marne-la-Vallée, France",FRA
+2-s2.0-105010231777,"Department of Statistical and Actuarial Sciences, University of Western Ontario, Canada",CAN
+2-s2.0-105010231777,"Department of Computer Science, University of Western Ontario, Canada",CAN
+2-s2.0-105010231777,"Vector Institute, Canada",CAN
+2-s2.0-85146905167,"BNRIST, Tsinghua University, Beijing, 100084, China",CHN
+2-s2.0-85146905167,"Department of Computer Science and Technology, Tsinghua University, Beijing, 100084, China",CHN
+2-s2.0-85146905167,"Department of Computer Science and Engineering, UCR, 92521, CA, United States",USA
+2-s2.0-85196580685,"Sea AI Lab, China",CHN
+2-s2.0-85196580685,"National University of Singapore, Singapore",SGP
+2-s2.0-85200608529,"UW-Madison, United States",USA
+2-s2.0-105010229562,"Carnegie Mellon University, United States",USA
+2-s2.0-105010229562,Telefonica Research,ESP
+2-s2.0-105010229562,"University of Helsinki, Finland",FIN
+2-s2.0-85189648193,"Mathematical Institute for Data Science, Johns Hopkins University, United States",USA
+2-s2.0-85189648193,"Toyota Technological Institute, Chicago, United States",USA
+2-s2.0-105010209855,"Sun Yat-sen University, China",CHN
+2-s2.0-105010209855,"The Chinese University of Hong Kong, Shenzhen, China",CHN
+2-s2.0-105010209855,"Guangzhou Meteorological Observatory, China",CHN
+2-s2.0-105010206225,"University of Texas, Austin, United States",USA
+2-s2.0-105010252443,"ByteDance Research, China",CHN
+2-s2.0-105010187837,"School of Computer Science, Shanghai Key Lab of Intelligent Information Processing, Shanghai Collaborative Innovation Center of Intelligent Visual Computing, Fudan University, China",CHN
+2-s2.0-105010187837,"Tongji University, China",CHN
+2-s2.0-105010187837,"University College London, United Kingdom",GBR
+2-s2.0-105010187837,"Huawei Noah's Ark Lab, Canada",CAN
+2-s2.0-105010187837,"Shanghai Key Laboratory of Mental Health and Psychological Crisis Intervention, China",CHN
+2-s2.0-105010187837,"Deakin University, Australia",AUS
+2-s2.0-105010187837,"Westlake University, China",CHN
+2-s2.0-105010187837,"Westlake Institute for Advanced Study, China",CHN
+2-s2.0-105010250387,"School of Computer Science, National University of Singapore, Singapore",SGP
+2-s2.0-105010250387,"AI Singapore, Singapore",SGP
+2-s2.0-105010250387,"College of Computing and Data Science, Nanyang Technological University, Singapore",SGP
+2-s2.0-105010185415,"Department of Electrical Engineering, Stanford University, United States",USA
+2-s2.0-105010185415,"Department of Computer Science, Stanford University, United States",USA
+2-s2.0-105010183353,"Westlake University, China",CHN
+2-s2.0-105010183353,"DP Technology, China",CHN
+2-s2.0-105010199807,"Department of Computer Science, Vanderbilt University, Nashville, 37240, TN, United States",USA
+2-s2.0-105010199807,"Department of Mathematics, Tufts University, Medford, 02155, MA, United States",USA
+2-s2.0-105010199807,"Department of Electrical and Computer Engineering, Vanderbilt University, Nashville, 37240, TN, United States",USA
+2-s2.0-85188704673,"Hasso Plattner Institute, University of Potsdam, Germany",DEU
+2-s2.0-85188704673,"Amsterdam UMC, Vrije Universiteit, Amsterdam, Netherlands",NLD
+2-s2.0-85188704673,"Lab for AI in Medicine, Charité - Universitätsmedizin Berlin, Germany",DEU
+2-s2.0-105010230558,"East China Normal University, Shanghai, China",CHN
+2-s2.0-105010230558,"University of Pennsylvania, Philadelphia, PA, United States",USA
+2-s2.0-105010265873,"UC Irvine, United States",USA
+2-s2.0-105010265873,"UC Berkeley, United States",USA
+2-s2.0-105010265873,"LBNL, United States",USA
+2-s2.0-105010234917,"University of Science and Technology of China, China",CHN
+2-s2.0-105010234917,"City University of Hong Kong, Hong Kong",HKG
+2-s2.0-105010234917,"Cornell University, United States",USA
+2-s2.0-85196127178,"Research Center for Industries of the Future, Westlake University, China",CHN
+2-s2.0-85196127178,"EPFL, Switzerland",CHE
+2-s2.0-85200549350,"University of Western Ontario, Canada",CAN
+2-s2.0-85200549350,"Vector Institute, Canada",CAN
+2-s2.0-85200549350,"University of Toronto, Canada",CAN
+2-s2.0-85200549350,"Noah's Ark Lab, Canada",CAN
+2-s2.0-105010206353,"School of Physics and Astronomy, Shanghai Jiao Tong University, China",CHN
+2-s2.0-105010206353,"School of Information Science and Engineering, East China University of Science and Technology, China",CHN
+2-s2.0-105010206353,"Shanghai Matwings Technology Co., Ltd., China",CHN
+2-s2.0-105010205022,"Imperial College London, United Kingdom",GBR
+2-s2.0-105010205022,"University of St. Gallen, Switzerland",CHE
+2-s2.0-85200541950,"Imperial College London, United Kingdom",GBR
+2-s2.0-85200541950,"Institute of Science and Technology, Austria",AUT
+2-s2.0-105010257823,"National University of Singapore, Singapore",SGP
+2-s2.0-105010191053,"University of Southern California, United States",USA
+2-s2.0-105010191053,"University of Chicago, United States",USA
+2-s2.0-105010191053,"Carnegie Mellon University, United States",USA
+2-s2.0-105010205023,"Yonsei University, South Korea",KOR
+2-s2.0-85122658562,"DeepMind, London, United Kingdom",GBR
+2-s2.0-85122658562,"X, the Moonshot Factory, Mountain View, CA, United States",USA
+2-s2.0-85122658562,"DeepMind, Mountain View, CA, United States",USA
+2-s2.0-85122658562,"Florida State University, Tallahassee, FL, United States",USA
+2-s2.0-85188664794,"Massachusetts Institute of Technology, United States",USA
+2-s2.0-85188664794,"Allen Institute for Artificial Intelligence, United States",USA
+2-s2.0-85188664794,"University of Washington, United States",USA
+2-s2.0-85188664794,"University of Southern California, United States",USA
+2-s2.0-85150232361,"The University of Tokyo, Japan",JPN
+2-s2.0-85150232361,"RIKEN Center for AIP, Japan",JPN
+2-s2.0-85083954296,"Carnegie Mellon University, United States",USA
+2-s2.0-85083954296,"Petuum Inc., United States",USA
+2-s2.0-85180086408,"Georgia Institute of Technology, United States",USA
+2-s2.0-85180086408,"Purdue University, United States",USA
+2-s2.0-105010219545,"Faculty of Engineering, Bar Ilan University, Ramat Gan, 5290002, Israel",ISR
+2-s2.0-105010278528,"ETH Zurich, Switzerland",CHE
+2-s2.0-85150380166,"University of Electronic Science and Technology of China, China",CHN
+2-s2.0-85150380166,"Shenzhen Institute for Advanced Study, UESTC, China",CHN
+2-s2.0-85150380166,"Yale University, United States",USA
+2-s2.0-85150380166,"Peking University, China",CHN
+2-s2.0-85150380166,"Peng Cheng Laboratory, China",CHN
+2-s2.0-105010265563,"Alma Mater Studiorum, University of Bologna, Fondazione Istituto Italiano di Tecnologia, Italy",ITA
+2-s2.0-105010265563,"UiT the Arctic University of Norway, NORCE Norwegian Research Centre AS, Norway",NOR
+2-s2.0-85142758691,"The University of Texas, Austin, United States",USA
+2-s2.0-85142758691,"Texas A&M University, United States",USA
+2-s2.0-105010206243,"Department of Computer Science, University of Virginia, Charlottesville, 22904, VA, United States",USA
+2-s2.0-105010206243,"Department of Statistics, University of Chicago, Chicago, 60637, IL, United States",USA
+2-s2.0-105010206243,"Northwestern University, United States",USA
+2-s2.0-105010206243,"Department of Computer Science, University of Chicago, United States",USA
+2-s2.0-85197093538,"Washington University in St. Louis, St. Louis, MO, United States",USA
+2-s2.0-85143115284,"McGill University, Canada",CAN
+2-s2.0-85143115284,"Université de Montréal, Canada",CAN
+2-s2.0-85143115284,Mila,CAN
+2-s2.0-105010211951,"Zhejiang University, China",CHN
+2-s2.0-105010211951,"MIT, United States",USA
+2-s2.0-105010211951,"Yale University, United States",USA
+2-s2.0-105010211951,"Shanghai AI Lab, China",CHN
+2-s2.0-105010211951,"Ant Group, China",CHN
+2-s2.0-105010211951,"Zhejiang University of Technology, China",CHN
+2-s2.0-105010186808,"University of Oxford, United Kingdom",GBR
+2-s2.0-105010186808,"AITHYRA, Austria",AUT
+2-s2.0-105010186808,"TU Wien, Austria",AUT
+2-s2.0-85200574504,"Department of Software Technology, Delft University of Technology, Netherlands",NLD
+2-s2.0-105010229105,"Dept. of Artificial Intelligence, Hanyang University, South Korea",KOR
+2-s2.0-105010229105,"Dept. of Data Science, Hanyang University, South Korea",KOR
+2-s2.0-85200564942,"Technion - Israel Institute of Technology, Israel",ISR
+2-s2.0-85200564942,"Ariel University, Israel",ISR
+2-s2.0-105010278512,"Ruhr-Universität Bochum, Germany",DEU
+2-s2.0-105010278512,"Technische Universität Berlin, Germany",DEU
+2-s2.0-105010278512,"University of Technology, Nuremberg, Germany",DEU
+2-s2.0-105010222845,"Department of Computer Science, Bioengineering, Robotics and Systems, University of Genoa, Italy",ITA
+2-s2.0-105010222845,"Department of Electrical and Electronic Engineering, University of Cagliari, Italy",ITA
+2-s2.0-105010222845,"CISPA Helmholtz Center for Information Security, Germany",DEU
+2-s2.0-105010222845,"Department of Environmental Sciences, Informatics and Statistics, Ca' Foscari University of Venice, Italy",ITA
+2-s2.0-105010209878,"Peking University, Beijing, China",CHN
+2-s2.0-105010209878,"Nanjing University, Nanjing, China",CHN
+2-s2.0-105010209878,"AI for Science Institute, Beijing, China",CHN
+2-s2.0-85200536471,"Washington University, St. Louis, United States",USA
+2-s2.0-85200536471,"Google Research, United States",USA
+2-s2.0-105010267871,"Department of Computer Science and Technology, Tsinghua University, China",CHN
+2-s2.0-105010267871,"Shanghai Artificial Intelligence Laboratory, China",CHN
+2-s2.0-105010220540,"University of Oxford, United Kingdom",GBR
+2-s2.0-105010220540,"École Polytechnique, France",FRA
+2-s2.0-85140192920,"Caltech, United States",USA
+2-s2.0-85140192920,"UC Berkeley, United States",USA
+2-s2.0-85196942366,"ETH Zürich, Switzerland",CHE
+2-s2.0-85196942366,"National University of Singapore, Singapore",SGP
+2-s2.0-85196942366,"University of Pennsylvania, United States",USA
+2-s2.0-105010210866,"Korea Advanced Institute of Science and Technology (KAIST), South Korea",KOR
+2-s2.0-105010210866,"Agency for Defense Development (ADD), South Korea",KOR
+2-s2.0-105010210866,"Yonsei University, South Korea",KOR
+2-s2.0-105010232541,"Department of Control Science and Engineering, Zhejiang University, China",CHN
+2-s2.0-105010232541,"School of Automation, Central South University, China",CHN
+2-s2.0-105010232541,"Department of Computer Science and Engineering, Shanghai Jiao Tong University, China",CHN
+2-s2.0-105010232541,"Trust and Safety Team, TikTok Sydney, ByteDance Inc., China",CHN
+2-s2.0-105010232541,"Center for Data Science, Peking University, China",CHN
+2-s2.0-105010232541,"Generative AI Lab, College of Computing and Data Science, Nanyang Technological University, Singapore",SGP
+2-s2.0-105010231693,"Georgia Institute of Technology, United States",USA
+2-s2.0-105010231693,"UC San Diego, United States",USA
+2-s2.0-85200592002,"MIT CSAIL, United States",USA
+2-s2.0-85200592002,"University of Maryland, College Park, United States",USA
+2-s2.0-85200592002,"Stanford, United States",USA
+2-s2.0-105010192241,"University of Warsaw, Poland",POL
+2-s2.0-105010192241,"Warsaw University of Technology, Poland",POL
+2-s2.0-105010192241,"Harvard Medical School, United States",USA
+2-s2.0-105010192241,"University of Warsaw, Warsaw University of Technology, Poland",POL
+2-s2.0-85146592697,"Boston University, Boston, MA, United States",USA
+2-s2.0-85146592697,"Arm ML Research Lab, Boston, MA, United States",USA
+2-s2.0-105010208795,"State Key Laboratory of Brain-machine Intelligence, Zhejiang University, China",CHN
+2-s2.0-105010208795,"College of Computer Science and Technology, Zhejiang University, China",CHN
+2-s2.0-105010208795,"Department of Neurobiology, Affiliated Mental Health Center, Hangzhou Seventh People's Hospital, Zhejiang University School of Medicine, China",CHN
+2-s2.0-105010208795,"MOE Frontier Science Center for Brain Science and Brain-machine Integration, Zhejiang University, China",CHN
+2-s2.0-85188667603,"Jagiellonian University, Poland",POL
+2-s2.0-85188667603,"KU Leuven, ESAT-PSI, Belgium",BEL
+2-s2.0-105010276443,"Université de Toulouse, INP, IRIT, 2, rue Camichel, BP 7122, Toulouse, 31071 Cedex 7, France",FRA
+2-s2.0-105010187803,"School of Electrical and Electronic Engineering, Nanyang Technological University, Singapore",SGP
+2-s2.0-105010187803,"School of Internet of Things Engineering, Jiangnan University, Wuxi, China",CHN
+2-s2.0-105010220314,"School of Computer Science, Nanjing University, China",CHN
+2-s2.0-105010220314,"ByteDance Research, China",CHN
+2-s2.0-105010187921,"Tel-Aviv University, Israel",ISR
+2-s2.0-105010187921,"Google Research, Hebrew University, Israel",ISR
+2-s2.0-105010187921,"Google Research, Tel-Aviv University, Israel",ISR
+2-s2.0-105010222858,"Department of Computer Science, University of Southern California, Los Angeles, CA, United States",USA
+2-s2.0-105010245730,"Università della Svizzera italiana, Switzerland",CHE
+2-s2.0-105010245730,"IBM Research, United States",USA
+2-s2.0-105010245730,"Scuola Normale Superiore, Italy",ITA
+2-s2.0-105010245730,"KU Leuven, Belgium",BEL
+2-s2.0-85198433619,"Western University, Canada",CAN
+2-s2.0-85198433619,"Microsoft Research Asia, China",CHN
+2-s2.0-105010242464,"UT Austin, United States",USA
+2-s2.0-105010242464,"MThreads AI, United States",USA
+2-s2.0-85131517464,"Univ. Côte d'Azur, Inria, Maasai, CNRS, LJAD, France",FRA
+2-s2.0-85131517464,"IP Paris, CMAP, UMR 7641, France",FRA
+2-s2.0-85131517464,MSI,USA
+2-s2.0-85131517464,"Univ. Lyon, Inria, CNRS, ENS de Lyon, LIP UMR 5668, France",FRA
+2-s2.0-85131517464,"Univ. Bretagne-Suf, CNRS, IRISA, France",FRA
+2-s2.0-105010193211,"UC Berkeley, United States",USA
+2-s2.0-105010193211,"UC Davis, United States",USA
+2-s2.0-105010193211,"New York University, United States",USA
+2-s2.0-105010193211,"FAIR, Meta, United States",USA
+2-s2.0-105010205172,"City University of Hong Kong, Hong Kong",HKG
+2-s2.0-105010205172,"Nanyang Technological University, Singapore",SGP
+2-s2.0-105010205172,"Australian National University, Australia",AUS
+2-s2.0-105010205172,"Zhejiang University, China",CHN
+2-s2.0-85150393233,"Department of ECE, Purdue University, United States",USA
+2-s2.0-105010207593,"Purdue University, West Lafayette, IN, United States",USA
+2-s2.0-105010207593,"Yonsei University, Seoul, South Korea",KOR
+2-s2.0-85162174705,"University of Bologna, Italy",ITA
+2-s2.0-105010220208,"The University of Adelaide, Australia",AUS
+2-s2.0-105010220208,"Zhejiang University, China",CHN
+2-s2.0-105010208328,"Université Grenoble Alpes, CNRS, Grenoble INP, LIG, Grenoble, 38000, France",FRA
+2-s2.0-105010272198,"Mila, Quebec AI Institute, Canada",CAN
+2-s2.0-105010272198,"ServiceNow Research, United States",USA
+2-s2.0-105010272198,"Université de Montréal, Canada",CAN
+2-s2.0-105010272198,"University of Pennsylvania, United States",USA
+2-s2.0-105010272198,"University of Waterloo, Canada",CAN
+2-s2.0-105010272198,"HKUST, Hong Kong",HKG
+2-s2.0-85200558023,"School of Electrical Engineering and Computer Science, Oregon State University, Corvallis, 97331, OR, United States",USA
+2-s2.0-105010201938,"School of Artificial Intelligence, UCAS, China",CHN
+2-s2.0-105010201938,"State Key Laboratory of Multimodal Artificial Intelligence Systems, CASIA, China",CHN
+2-s2.0-105010201938,"Centre for Artificial Intelligence and Robotics, HKISI-CAS, China",CHN
+2-s2.0-105010201938,"Huawei Inc., China",CHN
+2-s2.0-105010245601,"University of Missouri, Kansas City, United States",USA
+2-s2.0-105010245601,"Rochester Institute of Technology, United States",USA
+2-s2.0-105010245601,"U.S. Naval Research Laboratory, United States",USA
+2-s2.0-105010245601,"Rutgers University, United States",USA
+2-s2.0-105010245601,"U.S. DEVCOM Army Research Laboratory, United States",USA
+2-s2.0-105010245601,"University of California, Davis, United States",USA
+2-s2.0-105010245601,"Meta AI, United States",USA
+2-s2.0-105010241485,"University of British Columbia, Canada",CAN
+2-s2.0-105010241485,"Vector Institute, Canada",CAN
+2-s2.0-105010244997,"Mila - Quebec AI Institute, Canada",CAN
+2-s2.0-105010244997,"School of Mathematical Sciences, The Queensland University of Technology, Australia",AUS
+2-s2.0-85175682852,"University of Science and Technology of China, China",CHN
+2-s2.0-85175682852,"Microsoft Research Asia, China",CHN
+2-s2.0-105010244631,"California Institute of Technology, United States",USA
+2-s2.0-105010244631,"Johns Hopkins University, United States",USA
+2-s2.0-105010244631,"NVIDIA, United States",USA
+2-s2.0-105010286473,"Delft University of Technology, Netherlands",NLD
+2-s2.0-105010194316,"OriginAI, Israel",ISR
+2-s2.0-105010194316,"The Hebrew University of Jerusalem, Israel",ISR
+2-s2.0-105010229490,"CMAP, CNRS, École Polytechnique, Institut Polytechnique de Paris, Palaiseau, 91120, France",FRA
+2-s2.0-105010263373,"Department of Computer Science, Purdue University, United States",USA
+2-s2.0-105010286357,"School of Information University of Michigan, Ann Arbor, United States",USA
+2-s2.0-105010286357,"School of Computer Science Peking University, Beijing, China",CHN
+2-s2.0-105010233867,"University of Cambridge, United Kingdom",GBR
+2-s2.0-105010233867,Flower Labs,DEU
+2-s2.0-105010233867,"Beijing University of Posts and Telecommunications, China",CHN
+2-s2.0-105010192138,"Institute for Artificial Intelligence, Peking University, China",CHN
+2-s2.0-105010192138,"The University of Hong Kong, Hong Kong",HKG
+2-s2.0-105010192138,"School of Artificial Intelligence, Beijing Normal University, China",CHN
+2-s2.0-105010192138,"Academy for Advanced Interdisciplinary Studies, Peking University, China",CHN
+2-s2.0-105010192138,"State Key Laboratory of General Artificial Intelligence, BIGAI, China",CHN
+2-s2.0-105010192138,"Center on Frontiers of Computing Studies, School of Computer Science, Nat'l Eng. Research Center of Visual Technology, Peking University, China",CHN
+2-s2.0-85192550795,"Texas A&M University, College Station, 77843, TX, United States",USA
+2-s2.0-105010285024,"School of Artificial Intelligence, Beijing Normal University, Beijing, 100875, China",CHN
+2-s2.0-105010285024,"Department of Physics, The University of Western Australia, Perth, 6009, WA, Australia",AUS
+2-s2.0-105010285024,"Shenzhen Institute for Quantum Science and Engineering, Southern University of Science and Technology, Shenzhen, 518055, China",CHN
+2-s2.0-105010285024,"International Quantum Academy, Shenzhen, 518048, China",CHN
+2-s2.0-105010285024,"Dahlem Center for Complex Quantum Systems, Freie Universität Berlin, Berlin, 14195, Germany",DEU
+2-s2.0-105010285024,"Center on Frontiers of Computing Studies, Peking University, Beijing, 100871, China",CHN
+2-s2.0-105010285024,"China Academy of Information and Communications Technology, Beijing, 100191, China",CHN
+2-s2.0-105010257818,"University of California, Berkeley, United States",USA
+2-s2.0-105010259127,"Apple, United States",USA
+2-s2.0-85200593113,"Department of Computer Science, Indian Institute of Technology, Bombay, India",IND
+2-s2.0-105010239879,"UKP Lab, TU Darmstadt, Germany",DEU
+2-s2.0-105010239879,"AIML Lab, TU Darmstadt, Germany",DEU
+2-s2.0-105010239879,"CAIDAS, JMU Würzburg, Germany",DEU
+2-s2.0-105010238665,"University of California, Berkeley, United States",USA
+2-s2.0-85101949699,"Washington University, St. Louis, United States",USA
+2-s2.0-85101949699,"Los Alamos National Laboratory, United States",USA
+2-s2.0-105010203202,"Department of Computer Science, University of Maryland, College Park, MD, United States",USA
+2-s2.0-105010203202,"Adobe Research, San Jose, CA, United States",USA
+2-s2.0-105010203202,"Manning College of Information & Computer Sciences, University of Massachusetts, Amherst, MA, United States",USA
+2-s2.0-105010203202,"Department of Electrical and Computer Engineering, University of Maryland, College Park, MD, United States",USA
+2-s2.0-105010233091,"Nanjing University of Science and Technology, China",CHN
+2-s2.0-105010233091,"Zhejiang University, China",CHN
+2-s2.0-105010233091,"National Key Laboratory of Human-Machine Hybrid Augmented Intelligence, Xi'an Jiaotong University, China",CHN
+2-s2.0-105010205985,"Tsinghua University, China",CHN
+2-s2.0-105010205985,"Ant Group, China",CHN
+2-s2.0-105010203326,"University of Maryland, United States",USA
+2-s2.0-105010203326,"George Washington University, United States",USA
+2-s2.0-105010204778,"University of Nebraska-Lincoln, United States",USA
+2-s2.0-105010204778,"Lehigh University, United States",USA
+2-s2.0-85150280635,"Facebook Reality Labs, Pittsburgh, United States",USA
+2-s2.0-105010270045,"Center for AI and Data Science for Integrated Diagnostics, University of Pennsylvania, United States",USA
+2-s2.0-105010270045,"Department of Bioengineering, University of Pennsylvania, United States",USA
+2-s2.0-105010270045,"Department of Biostatistics, Epidemiology and Informatics, University of Pennsylvania, United States",USA
+2-s2.0-105010274404,"ENS de Lyon, Inria, CNRS, Université Claude Bernard Lyon 1, LIP, UMR 5668, Lyon, 69342 Cedex 07, France",FRA
+2-s2.0-105010215422,"UC San Diego, United States",USA
+2-s2.0-85198303576,"Department of Computer Science, University of California, Los Angeles, United States",USA
+2-s2.0-105010194888,"Northwestern University, United States",USA
+2-s2.0-105010194888,"Google Research, United States",USA
+2-s2.0-105010194888,"Carnegie Mellon University, United States",USA
+2-s2.0-105010268074,"Australian Institute for Machine Learning, University of Adelaide, Australia",AUS
+2-s2.0-105010268074,"Idiap Research Institute, Switzerland",CHE
+2-s2.0-105010268074,"The University of Tokyo, Japan",JPN
+2-s2.0-105010195972,"Stanford University, United States",USA
+2-s2.0-105010195972,"UT Austin, United States",USA
+2-s2.0-105010195972,"MIT CSAIL, United States",USA
+2-s2.0-105010195972,"IFML, United States",USA
+2-s2.0-105010195972,"UC Berkeley, United States",USA
+2-s2.0-105010195972,"Bespoke Labs, United States",USA
+2-s2.0-85175562981,"Arizona State University, United States",USA
+2-s2.0-85175562981,"Shanghai Jiao Tong University, China",CHN
+2-s2.0-85175562981,"NVIDIA, United States",USA
+2-s2.0-105010204780,"LMU Munich, Munich Center for Machine Learning (MCML), Germany",DEU
+2-s2.0-85193029883,"OnePlanet Research Center, Imec, Donders Institute for Brain, Cognition and Behaviour, Netherlands",NLD
+2-s2.0-85193029883,"UvA-Bosch Delta Lab, United States",USA
+2-s2.0-85193029883,"Donders Institute for Brain, Cognition and Behaviour, Radboud University, Netherlands",NLD
+2-s2.0-105010181317,"Department of Computer Science and Engineering, The Chinese University of Hong Kong, Hong Kong",HKG
+2-s2.0-105010181317,"College of Pharmaceutical Sciences, Zhejiang University, China",CHN
+2-s2.0-105010274750,"Ningbo Key Laboratory of Spatial Intelligence and Digital Derivative, Institute of Digital Twin, Eastern Institute of Technology, Ningbo, China",CHN
+2-s2.0-105010274750,"Meituan Inc., China",CHN
+2-s2.0-105010274750,"Salesforce Research, China",CHN
+2-s2.0-105010274750,"School of Software Engineering, Huazhong University of Science and Technology, China",CHN
+2-s2.0-105010274750,"Engineering Research Center of Chiplet Design and Manufacturing of Zhejiang Province, China",CHN
+2-s2.0-105010229823,"Cornell University, United States",USA
+2-s2.0-105010229823,"University of California, San Diego, United States",USA
+2-s2.0-105010238770,"NAIST, Japan",JPN
+2-s2.0-105010238770,"Tohoku University, Japan",JPN
+2-s2.0-105010238770,"Kyoto University, Japan",JPN
+2-s2.0-105010238770,"University of Notre Dame, United States",USA
+2-s2.0-105010238770,"NINJAL, Japan",JPN
+2-s2.0-105010238770,"RIKEN, Japan",JPN
+2-s2.0-105010231908,"Department of Biostatistics, University of North Carolina, Chapel Hill, United States",USA
+2-s2.0-85196569214,"Department of Computer Science, Princeton University, United States",USA
+2-s2.0-85196569214,"Department of Computer Science, Stanford University, United States",USA
+2-s2.0-85177491649,"AI Lab, Research Center for Industries of The Future, Westlake University, China",CHN
+2-s2.0-85177491649,"University of California, Irvine, United States",USA
+2-s2.0-105010273425,"Center for Applied Mathematics, Cornell University, Ithaca, 14853, NY, United States",USA
+2-s2.0-105010273425,"Data Science Institute, University of Chicago, Chicago, 60637, IL, United States",USA
+2-s2.0-105010273425,"Department of Mathematics, KTH Royal Institute of Technology, Stockholm, Sweden",SWE
+2-s2.0-105010273425,"Nordita, KTH Royal Institute of Technology, Stockholm University, Stockholm, Sweden",SWE
+2-s2.0-105010273425,"Lawrence Berkeley National Laboratory, Berkeley, 94720, CA, United States",USA
+2-s2.0-105010273425,"International Computer Science Institute, Berkeley, 94704, CA, United States",USA
+2-s2.0-105010273425,"Department of Statistics, University of California at Berkeley, Berkeley, 94720, CA, United States",USA
+2-s2.0-105010216768,"Princeton University, United States",USA
+2-s2.0-105010216768,"University of Pennsylvania, United States",USA
+2-s2.0-105010216768,"Stevens Institute of Technology, United States",USA
+2-s2.0-105010216768,"University of Minnesota, United States",USA
+2-s2.0-105010216768,"Carnegie Mellon University, United States",USA
+2-s2.0-105010216768,"Cornell University, United States",USA
+2-s2.0-105010283457,"University of Basel, Switzerland",CHE
+2-s2.0-105010283457,"University of Oslo, Norway",NOR
+2-s2.0-105010283457,"Max Planck Institute for Intelligent Systems, Germany",DEU
+2-s2.0-105010283457,"ELLIS Institute, Tübingen, Germany",DEU
+2-s2.0-105010283457,"Tübingen AI Center, Germany",DEU
+2-s2.0-105010282244,"StepFun, Megvii Technology, China",CHN
+2-s2.0-105010238562,"University of Twente, Netherlands",NLD
+2-s2.0-105010238562,"University of Technology Nuremberg, Germany",DEU
+2-s2.0-105010238562,"University of Sheffield, United Kingdom",GBR
+2-s2.0-105010238562,"Harbin Institute of Technology, China",CHN
+2-s2.0-105010238562,"University of Mannheim, Germany",DEU
+2-s2.0-105010238562,"Technische Universität Dresden, Germany",DEU
+2-s2.0-105010184854,"Zhejiang University, China",CHN
+2-s2.0-105010183520,"Northwestern University, United States",USA
+2-s2.0-105010236380,"Snap Inc., United States",USA
+2-s2.0-105010236380,"The Chinese University of Hong Kong, Hong Kong",HKG
+2-s2.0-85196596734,"Gatsby Unit, UCL, United Kingdom",GBR
+2-s2.0-85196596734,"UCL, Oxford, United Kingdom",GBR
+2-s2.0-85196596734,"Oxford, Stanford, United States",USA
+2-s2.0-105010227307,"Allen Institute for AI, United States",USA
+2-s2.0-105010227307,"Carnegie Mellon University, United States",USA
+2-s2.0-85187352910,"Technion - Israel Institute of Technology, Israel",ISR
+2-s2.0-85150254208,"Department of Computer Science, University of Oxford, Oxford, United Kingdom",GBR
+2-s2.0-85150254208,"The Alan Turing Institute, London, United Kingdom",GBR
+2-s2.0-85150254208,"Department of Engineering Science, University of Oxford, Oxford, United Kingdom",GBR
+2-s2.0-85150254208,Five AI Limited,GBR
+2-s2.0-85144245815,"KU Leuven, INRIA, University of Paris-Saclay, France",FRA
+2-s2.0-85144245815,"University of Toronto, Canada",CAN
+2-s2.0-105010230962,"School of Computer Science, Peking University, China",CHN
+2-s2.0-105010230962,"National Key Laboratory for Multimedia Information Processing, Peking University, China",CHN
+2-s2.0-105010230962,"Peking University-Anker Embodied AI Lab, Peking University, China",CHN
+2-s2.0-105010230962,"International Digital Economy Academy (IDEA), Shenzhen, China",CHN
+2-s2.0-105010230962,"College of Computer Science, Sichuan University, Chengdu, China",CHN
+2-s2.0-105010230962,"Computer Science and Engineering Department, University of Washington, United States",USA
+2-s2.0-105010196923,"The Hong Kong University of Science and Technology, Guangzhou, China",CHN
+2-s2.0-105010196923,"Institute of High Performance Computing (IHPC), Agency for Science, Technology and Research (A*STAR), Singapore",SGP
+2-s2.0-105010196923,"Harbin Institute of Technology, China",CHN
+2-s2.0-105010196923,"Pengcheng Laboratory, China",CHN
+2-s2.0-105010196923,"Mohamed bin Zayed University of Artificial Intelligence (MBZUAI), United Arab Emirates",ARE
+2-s2.0-105010196923,"Australian National University, Australia",AUS
+2-s2.0-105010196923,"The Hong Kong University of Science and Technology, China",CHN
+2-s2.0-105010188092,"Forecasting Research Institute, Federal Reserve Bank of Chicago, United States",USA
+2-s2.0-105010188092,"Forecasting Research Institute, United States",USA
+2-s2.0-105010188092,"New York University, United States",USA
+2-s2.0-105010188092,"University of California, Berkeley, United States",USA
+2-s2.0-105010188092,"Forecasting Research Institute, University of Pennsylvania, United States",USA
+2-s2.0-85150302622,"Google Research, Brain Team",USA
+2-s2.0-105010193775,"Rochester Institute of Technology, 1 Lomb Memorial Dr, Rochester, 14623, NY, United States",USA
+2-s2.0-85198284633,"OpenAI, United States",USA
+2-s2.0-85198284633,"UC Berkeley (EECS), United States",USA
+2-s2.0-85198284633,"University of Oxford (CS), United Kingdom",GBR
+2-s2.0-85198284633,"Mila, Canada",CAN
+2-s2.0-105010261318,"Stanford University, United States",USA
+2-s2.0-105010261318,"Yale University, United States",USA
+2-s2.0-105010261318,"Northwestern University, United States",USA
+2-s2.0-105010261318,"Princeton University, United States",USA
+2-s2.0-105010189160,"Gatsby Computational Neuroscience Unit, University College London, United Kingdom",GBR
+2-s2.0-105010189160,"Machine Learning and Data Science Unit, Okinawa Institute of Science and Technology, Japan",JPN
+2-s2.0-105010239645,"Department of Electrical and Computer Engineering, University of Toronto, Canada",CAN
+2-s2.0-105010239645,"CISPA Helmholtz Center for Information Security, Germany",DEU
+2-s2.0-85200205601,"Harvard Ophthalmology AI Lab, Harvard University, United States",USA
+2-s2.0-105010212185,"The University of Chicago, United States",USA
+2-s2.0-105010212185,"Amazon Web Services, United States",USA
+2-s2.0-105010212185,"Amazon, United States",USA
+2-s2.0-105010183635,"Shenzhen International Graduate School, Tsinghua University, China",CHN
+2-s2.0-105010183635,"Department of Electronic Engineering, BNRist, Tsinghua University, China",CHN
+2-s2.0-105010204203,"UC Berkeley, United States",USA
+2-s2.0-105010204203,"MIT, United States",USA
+2-s2.0-105010204203,"Google DeepMind, United Kingdom",GBR
+2-s2.0-105010204203,"Virgina Tech, United States",USA
+2-s2.0-85199885704,"Department of Physics, Institute for AI and Fundamental Interactions, MIT, United States",USA
+2-s2.0-85139544555,"Sorbonne Université, Paris, France",FRA
+2-s2.0-85139544555,"Valeo.ai, Paris, France",FRA
+2-s2.0-105010193664,"Foster School of Business, University of Washington, United States",USA
+2-s2.0-105010193664,"Paul G. Allen School of Computer Science and Engineering, University of Washington, United States",USA
+2-s2.0-105010193664,"Google Deepmind, United Kingdom",GBR
+2-s2.0-85200355719,"University of Cambridge, United Kingdom",GBR
+2-s2.0-85198044612,"MIT CSAIL, United States",USA
+2-s2.0-85198044612,"Meta AI, United States",USA
+2-s2.0-105010194999,"Stony Brook University, United States",USA
+2-s2.0-105010194999,"Pennsylvania State University, United States",USA
+2-s2.0-85147965137,"Michigan State University, United States",USA
+2-s2.0-85147965137,JD AI Research,CHN
+2-s2.0-85147965137,"University of Minnesota, United States",USA
+2-s2.0-85147965137,"UC Santa Barbara, United States",USA
+2-s2.0-85083953366,"University of Edinburgh, United Kingdom",GBR
+2-s2.0-85083953366,"FiveAI, United Kingdom",GBR
+2-s2.0-105010203124,"Carnegie Mellon University, United States",USA
+2-s2.0-105010203124,"Apple, United States",USA
+2-s2.0-105010275533,"University of Wisconsin-Madison, United States",USA
+2-s2.0-105010275533,"UIUC, United States",USA
+2-s2.0-105010275533,"NVIDIA, United States",USA
+2-s2.0-105010212073,"Department of Computer Science, Vanderbilt University, Nashville, 37235, TN, United States",USA
+2-s2.0-105010212073,"Department of Mathematics, Tufts University, Medford, 02155, MA, United States",USA
+2-s2.0-105010212073,"Department of Statistics, University of Warwick, Coventry, CV4 7AL, United Kingdom",GBR
+2-s2.0-105010212073,"Department of Mathematics, Vanderbilt University, Nashville, 37235, TN, United States",USA
+2-s2.0-105010271056,"Queen Mary University of London, United Kingdom",GBR
+2-s2.0-85167959574,"Carnegie Mellon University, United States",USA
+2-s2.0-85167959574,"Massachusetts Institute of Technology, United States",USA
+2-s2.0-85167959574,"Columbia University, United States",USA
+2-s2.0-85167959574,"Mohamed bin Zayed University of Artificial Intelligence, Petuum Inc., United Arab Emirates",ARE
+2-s2.0-105010249119,"Computer Vision Group, Jena Friedrich Schiller, University Jena, Thuringia, Jena, 07743, Germany",DEU
+2-s2.0-105010192428,"MIT, EECS, CSAIL, United States",USA
+2-s2.0-105010192428,"TUM, CIT, MCML, MDSI, Germany",DEU
+2-s2.0-105010193999,"Department of Artificial Intelligence, School of Engineering, Westlake University, China",CHN
+2-s2.0-105010193999,"Academy of Mathematics and Systems Science, Chinese Academy of Sciences, China",CHN
+2-s2.0-105010193999,"Fudan University, China",CHN
+2-s2.0-105010193999,"South China University of Technology, China",CHN
+2-s2.0-105010193999,"Microsoft AI4Science, China",CHN
+2-s2.0-85148741798,"Stanford University, United States",USA
+2-s2.0-85148741798,"Caltech, United States",USA
+2-s2.0-85148741798,INRAE,FRA
+2-s2.0-85148741798,"University of Saskatchewan, Canada",CAN
+2-s2.0-85148741798,"University of Tokyo, Japan",JPN
+2-s2.0-85148741798,"Boston University, United States",USA
+2-s2.0-85148741798,"University of California, Berkeley, United States",USA
+2-s2.0-85197596446,"University of Trento, Italy",ITA
+2-s2.0-85197596446,"University of Louisville, United States",USA
+2-s2.0-105010216558,"CEITEC, Brno University of Technology, Czech Republic",CZE
+2-s2.0-105010216558,"Tel Aviv University, Israel",ISR
+2-s2.0-105010216558,"Mila, University of Montreal, Canada",CAN
+2-s2.0-85198320712,"School of Mathematical Sciences, Peking University, China",CHN
+2-s2.0-85198320712,"National Key Lab of General Artificial Intelligence, School of Intelligence Science and Technology, Peking University, China",CHN
+2-s2.0-85198320712,"Institute for Artificial Intelligence, Peking University, China",CHN
+2-s2.0-85198320712,"Peng Cheng Laboratory, China",CHN
+2-s2.0-105010193511,"The Hong Kong University of Science and Technology (Guangzhou), China",CHN
+2-s2.0-105010193511,"Institute of High Performance Computing (IHPC), Agency for Science, Technology and Research (A*STAR), Singapore",SGP
+2-s2.0-105010193511,"Harbin Institute of Technology, China",CHN
+2-s2.0-105010193511,"Pengcheng Laboratory, China",CHN
+2-s2.0-105010193511,"The Hong Kong University of Science and Technology, China",CHN
+2-s2.0-105010236158,"Tel Aviv University, Israel",ISR
+2-s2.0-105010236158,"Ariel University, Israel",ISR
+2-s2.0-105010236158,"LMU, Germany",DEU
+2-s2.0-105010236158,"Cornell University, United States",USA
+2-s2.0-85200569318,"Department of Computer Science & Engineering, Washington University in St. Louis, United States",USA
+2-s2.0-85200569318,"Institute for Artificial Intelligence, Peking University, China",CHN
+2-s2.0-85200569318,"Institute for Informatics, Data Science, and Biostatistics, Washington University School of Medicine, United States",USA
+2-s2.0-85200569318,"Department of Genetics, Washington University School of Medicine, United States",USA
+2-s2.0-85200569318,"Department of Psychiatry, Washington University School of Medicine, United States",USA
+2-s2.0-85200569318,"Department of Radiation Oncology, Washington University School of Medicine, United States",USA
+2-s2.0-85200569318,"Department of Pediatrics, Washington University School of Medicine, United States",USA
+2-s2.0-105010285449,"Max Planck Institute for Intelligent Systems, Tübingen, Germany",DEU
+2-s2.0-105010285449,"ETH Zürich, Switzerland",CHE
+2-s2.0-105010285449,"University of Toronto, Canada",CAN
+2-s2.0-105010285449,"University of Washington, United States",USA
+2-s2.0-105010285449,"Allen Institute for AI (AI2), United States",USA
+2-s2.0-105010285449,"Carnegie Mellon University, United States",USA
+2-s2.0-105010285449,"University of Trieste, Italy",ITA
+2-s2.0-105010285449,"University of Michigan, United States",USA
+2-s2.0-105010272251,"Seoul National University, South Korea",KOR
+2-s2.0-105010272251,"Yonsei University, South Korea",KOR
+2-s2.0-105010272251,"Chung-Ang University, South Korea",KOR
+2-s2.0-105010272251,"Korea Institute for Advanced Study, South Korea",KOR
+2-s2.0-105010202169,"National Engineering Research Center for Big Data Technology and System, China",CHN
+2-s2.0-105010202169,"Services Computing Technology and System Lab, China",CHN
+2-s2.0-105010202169,"Cluster and Grid Computing Lab, China",CHN
+2-s2.0-105010202169,"Hubei Engineering Research Center on Big Data Security, China",CHN
+2-s2.0-105010202169,"Hubei Key Laboratory of Distributed System Security, China",CHN
+2-s2.0-105010202169,"Beihang University, China",CHN
+2-s2.0-105010202169,"School of Cyber Science and Engineering, Huazhong University of Science and Technology, China",CHN
+2-s2.0-105010202169,"School of Software Engineering, Huazhong University of Science and Technology, China",CHN
+2-s2.0-105010202169,"School of Computer Science and Technology, Huazhong University of Science and Technology, China",CHN
+2-s2.0-105010202169,"School of Information and Communication Technology, Griffith University, Australia",AUS
+2-s2.0-105010228658,"The University of Hong Kong, Hong Kong",HKG
+2-s2.0-105010228658,"Stanford University, United States",USA
+2-s2.0-105010228658,"Shenyang Institute of Automation, Chinese Academy of Sciences, China",CHN
+2-s2.0-105010228658,"Materials Innovation Institute for Life Sciences and Energy (MILES), HKU-SIRI, Hong Kong",HKG
+2-s2.0-85192990403,"ETH Zurich, Switzerland",CHE
+2-s2.0-85192990403,"Microsoft, United States",USA
+2-s2.0-85192990403,"ROCS, University Hospital Balgrist, University of Zürich, Switzerland",CHE
+2-s2.0-105010214261,"University of Virginia, United States",USA
+2-s2.0-105010217531,"EPFL, Switzerland",CHE
+2-s2.0-105010192551,"School of Computer Science and Engineering, University of New South Wales, Australia",AUS
+2-s2.0-105010192551,"Australian Institute for Machine Learning, The University of Adelaide, Australia",AUS
+2-s2.0-105010247166,"Westlake University, China",CHN
+2-s2.0-105010247166,"Zhejiang University, China",CHN
+2-s2.0-105010247166,"University of Southern California, United States",USA
+2-s2.0-105010247166,"National University of Singapore, Singapore",SGP
+2-s2.0-105010247166,"Hunan University, China",CHN
+2-s2.0-85194472748,"Carnegie Mellon University, United States",USA
+2-s2.0-85194472748,"Massachusetts Institute of Technology, United States",USA
+2-s2.0-85194472748,"Stanford University, United States",USA
+2-s2.0-85194472748,"Brown University, United States",USA
+2-s2.0-85194472748,Bosch AI,DEU
+2-s2.0-85194472748,OpenAI,USA
+2-s2.0-105010285200,"Language Technologies Institute, Carnegie Mellon University, United States",USA
+2-s2.0-105010285200,"Apple, United States",USA
+2-s2.0-105010286773,"Skolkovo Institute of Science and Technology, Russian Federation",RUS
+2-s2.0-105010286773,"Moscow Institute of Physics and Technology, Russian Federation",RUS
+2-s2.0-105010286773,Artificial Intelligence Research Institute,RUS
+2-s2.0-105010207500,"Department of Computer Science and Engineering, IIT Bombay, India",IND
+2-s2.0-105010238481,"Max Planck Institute for Intelligent Systems, Tübingen, Germany",DEU
+2-s2.0-105010238481,"LIONS, EPFL, Switzerland",CHE
+2-s2.0-105010238481,"AGI Foundations, Amazon, United States",USA
+2-s2.0-105010182631,"Bytedance Inc., China",CHN
+2-s2.0-105010182631,"ReLER Lab, AAII, UTS",AUS
+2-s2.0-105010182631,"Department of Computer Vision, MBZUAI, United Arab Emirates",ARE
+2-s2.0-105010182631,"University of Science and Technology of China, China",CHN
+2-s2.0-105010182631,"Data61, CSIRO, Australia",AUS
+2-s2.0-85083950197,"University of Illinois at Urbana-Champaign, United States",USA
+2-s2.0-105010216691,"Tsinghua Shenzhen International Graduate School, Tsinghua University, China",CHN
+2-s2.0-105010216691,"Shanghai Artificial Intelligence Laboratory, China",CHN
+2-s2.0-105010242620,"Manning College of Information and Computer Sciences, University of Massachusetts, Amherst, 01002, MA, United States",USA
+2-s2.0-105010226254,"Jilin University, China",CHN
+2-s2.0-105010226254,"Griffith University, Australia",AUS
+2-s2.0-105010226254,"Northwestern University, United States",USA
+2-s2.0-105010286885,"Massachusetts Institute of Technology, United States",USA
+2-s2.0-105010286885,"California Institute of Technology, United States",USA
+2-s2.0-105010286885,"Northeastern University, China",CHN
+2-s2.0-105010286885,"The NSF Institute for Artificial Intelligence and Fundamental Interactions, United States",USA
+2-s2.0-105010286641,"University of Cambridge, United Kingdom",GBR
+2-s2.0-105010286641,"The University of Hong Kong, Hong Kong",HKG
+2-s2.0-105010243942,"The Chinese University of Hong Kong, Hong Kong",HKG
+2-s2.0-105010243942,"The Hong Kong University of Science and Technology, Hong Kong",HKG
+2-s2.0-105010243942,"East China Normal University, China",CHN
+2-s2.0-105010243942,"Washington State University, United States",USA
+2-s2.0-105010207755,"Nara Institute of Science and Technology (NAIST), Nara, Japan",JPN
+2-s2.0-105010207755,"Department of Dynamic Brain Imaging, ATR, Kyoto, Japan",JPN
+2-s2.0-105010207755,"Center for Advanced Intelligence Project, RIKEN, Tokyo, Japan",JPN
+2-s2.0-105010241647,"Zhejiang University, Hangzhou, China",CHN
+2-s2.0-105010241647,"Xi'an Jiaotong University, China",CHN
+2-s2.0-105010241647,"AI Lab, Research Center for Industries of the Future, Westlake University, Hangzhou, China",CHN
+2-s2.0-105010251436,"Georgia Institute of Technology, United States",USA
+2-s2.0-105010187075,"School of Computer Science and Engineering, Southeast University, Nanjing, 210096, China",CHN
+2-s2.0-105010187075,"Key Laboratory of New Generation Artificial Intelligence Technology and Its Interdisciplinary Applications, Southeast University, Ministry of Education, China",CHN
+2-s2.0-105010215014,"Department of Mathematical Informatics, University of Tokyo, Japan",JPN
+2-s2.0-105010215014,"Center for Advanced Intelligence Project, RIKEN, Japan",JPN
+2-s2.0-105010215014,"Department of ECCS, UC Berkeley, United States",USA
+2-s2.0-105010215014,"CFAR and IHPC, Agency for Science, Technology and Research (A*STAR), Singapore",SGP
+2-s2.0-105010215014,"College of Computing and Data Science, Nanyang Technological University, Singapore",SGP
+2-s2.0-85196977065,"Institute for AI Industry Research, Tsinghua University, Beijing, China",CHN
+2-s2.0-85196977065,"Weiyang College, Tsinghua University, Beijing, China",CHN
+2-s2.0-85196977065,"School of Computer Science, Fudan University, Shanghai, China",CHN
+2-s2.0-85196977065,"College of Arts and Sciences, The University of Tokyo, Tokyo, Japan",JPN
+2-s2.0-85196977065,"Shanghai Artificial Intelligence Laboratory, China",CHN
+2-s2.0-105010224086,"Department of Computer Science, Columbia University, United States",USA
+2-s2.0-105010224086,"Department of Statistics & Data Science, Wu Tsai Institute, Yale University, United States",USA
+2-s2.0-105010224086,"Department of Mathematics and Computer Science, Irving Institute for Cancer Dynamics, Columbia University, United States",USA
+2-s2.0-85200572947,"The Hong Kong University of Science and Technology, Hong Kong",HKG
+2-s2.0-85200572947,"Ant Group, China",CHN
+2-s2.0-85200572947,"Rutgers University, United States",USA
+2-s2.0-85200572947,"Tsinghua University, China",CHN
+2-s2.0-85200572947,"Chinese University of Hong Kong, Hong Kong",HKG
+2-s2.0-85200572947,"MIT CSAIL, United States",USA
+2-s2.0-85200572947,"Boston College, United States",USA
+2-s2.0-105010227350,"Carnegie Mellon University, United States",USA
+2-s2.0-105010227350,"MIT, United States",USA
+2-s2.0-105010227350,"Visa Research, United States",USA
+2-s2.0-105010283242,"School of Computer Science and Technology, University of Science and Technology of China, China",CHN
+2-s2.0-105010192653,"Shanghai Jiao Tong University, China",CHN
+2-s2.0-105010192653,"University of California San Diego, United States",USA
+2-s2.0-105010192653,"Mohamed bin Zayed University of Artificial Intelligence, United Arab Emirates",ARE
+2-s2.0-85196961242,"U2IS Lab, ENSTA Paris, Palaiseau, France",FRA
+2-s2.0-85196961242,"SafranTech, Chateaufort, 78117, France",FRA
+2-s2.0-105010233012,"University of Antwerp, Belgium",BEL
+2-s2.0-105010233012,"University of Antwerp, sqIRL/IDLab, Belgium",BEL
+2-s2.0-105010233012,"Apollo Research, United States",USA
+2-s2.0-85200597799,"Department of Computer Science, ETH Zurich, Switzerland",CHE
+2-s2.0-85200567106,"Mila, Québec AI Institute, Université de Montréal, Montreal, QC, Canada",CAN
+2-s2.0-85200567106,"CIFAR AI, Canada",CAN
+2-s2.0-85197058060,"School of Computer Science, Peking University, China",CHN
+2-s2.0-85197058060,"Institute for Artificial Intelligence, Peking University, China",CHN
+2-s2.0-85199922157,"University of Oxford, United Kingdom",GBR
+2-s2.0-85199922157,"DeepMind, United Kingdom",GBR
+2-s2.0-105010284845,"UT Austin, United States",USA
+2-s2.0-105010284845,"UC Berkeley, United States",USA
+2-s2.0-105010284845,"Harvard SEAS, United States",USA
+2-s2.0-85150609295,DeepMind,GBR
+2-s2.0-85150609295,"Stanford University, United States",USA
+2-s2.0-85150609295,"University of Cambridge, United Kingdom",GBR
+2-s2.0-105010183900,"Concordia University, Canada",CAN
+2-s2.0-105010183900,"IPSA Toulouse, France",FRA
+2-s2.0-105010183900,"Université de Montréal, Mila, Canada",CAN
+2-s2.0-105010183900,"Concordia University, Mila, Canada",CAN
+2-s2.0-105010248628,"Institute of Microelectronics, Chinese Academy of Sciences, Beijing, China",CHN
+2-s2.0-105010248628,"University of Chinese Academy of Sciences, Beijing, China",CHN
+2-s2.0-105010248628,"Tencent AI Lab, Shenzhen, China",CHN
+2-s2.0-85197264994,"Department of Electronic Engineering, Tsinghua University, China",CHN
+2-s2.0-85197264994,"Biren Tech, China",CHN
+2-s2.0-105010191770,"Department of Computer Science, Hanyang University, South Korea",KOR
+2-s2.0-105010191770,"Department of Economics, Columbia University, United States",USA
+2-s2.0-105010236528,"Department of Computing Imperial College, London, United Kingdom",GBR
+2-s2.0-85192367183,"ESAT - STADIUS, KU Leuven, Belgium",BEL
+2-s2.0-85196574082,"AI Initiative KAUST, Saudi Arabia",SAU
+2-s2.0-105010182808,"Purdue University, IN, United States",USA
+2-s2.0-105010283508,"Department of Statistics, LMU Munich, Munich, Germany",DEU
+2-s2.0-105010283508,"Munich Center for Machine Learning (MCML), Munich, Germany",DEU
+2-s2.0-105010233482,"ETIS, UMR 8051, CY Cergy Paris University, ENSEA, CNRS, France",FRA
+2-s2.0-85148892726,"University of Cambridge, United Kingdom",GBR
+2-s2.0-85148892726,MPI for Intelligent Systems,DEU
+2-s2.0-85148892726,"Stanford University, United States",USA
+2-s2.0-85148892726,Google Research,USA
+2-s2.0-85148892726,"The Alan Turing Institute, United Kingdom",GBR
+2-s2.0-85148892726,"University of Toronto, Canada",CAN
+2-s2.0-85198237586,"The HongKong Polytechnic University, Hong Kong",HKG
+2-s2.0-85198237586,"Shanghai AI Laboratory, China",CHN
+2-s2.0-85198237586,"Shanghai Jiao Tong University, China",CHN
+2-s2.0-85198237586,"University of Macau, Macao",MAC
+2-s2.0-85198237586,"Shenzhen Institute of Advanced Technology, CAS, China",CHN
+2-s2.0-105010225636,"EPFL, Switzerland",CHE
+2-s2.0-105010187375,Earth Species Project,USA
+2-s2.0-105010194935,"MIT CSAIL, United States",USA
+2-s2.0-105010194935,"Harvard University, United States",USA
+2-s2.0-105010194935,"MIT CSAIL, BCS, CBMM, United States",USA
+2-s2.0-105010194935,"Stanford University, United States",USA
+2-s2.0-105010194935,"UC Berkeley, United States",USA
+2-s2.0-105010222363,"Xiaomi Corp., Beijing, China",CHN
+2-s2.0-85200581513,"University of Tübingen, Germany",DEU
+2-s2.0-85200581513,"Max Planck Institute for Intelligent Systems, Tübingen, Germany",DEU
+2-s2.0-85200581513,"Mila, Quebec AI Institute, Canada",CAN
+2-s2.0-85200581513,"Max Planck Institute for Biological Cybernetics, Tübingen, Germany",DEU
+2-s2.0-85146811777,"College of Computing, Georgia Institute of Technology, United States",USA
+2-s2.0-105010194812,"School of Artificial Intelligence and Data Science, University of Science and Technology of China, China",CHN
+2-s2.0-105010194812,"School of Computer Science and Technology, University of Science and Technology of China, China",CHN
+2-s2.0-85189343679,"Apple, United States",USA
+2-s2.0-85189343679,"Carnegie Mellon University, United States",USA
+2-s2.0-105010257322,"Department of Computer Science, University of Illinois Urbana-Champaign, Champaign, 61820, IL, United States",USA
+2-s2.0-105010233277,"MIPT, Russian Federation",RUS
+2-s2.0-105010233277,"Research Center for Artificial Intelligence, Innopolis University, Innopolis, Russian Federation",RUS
+2-s2.0-105010233277,"Skoltech, Russian Federation",RUS
+2-s2.0-105010233277,Yandex Research,RUS
+2-s2.0-105010234128,"Department of Computer Science, University of Virginia, United States",USA
+2-s2.0-105010234128,"College of Engineering and Applied Science, University of Colorado Boulder, United States",USA
+2-s2.0-105010197296,"Universitat Pompeu Fabra, Spain",ESP
+2-s2.0-105010197296,"Leonardo S.p.A., Italy",ITA
+2-s2.0-105010197296,"University of Oxford, United Kingdom",GBR
+2-s2.0-105010197296,"University of Copenhagen, Denmark",DNK
+2-s2.0-85200534440,"Institute of Science and Technology for Brain-Inspired Intelligence, Fudan University, China",CHN
+2-s2.0-85200534440,"School of Data Science, Fudan University, China",CHN
+2-s2.0-85200534440,"Zhangjiang Fudan International Innovation Center, China",CHN
+2-s2.0-85200534440,"Key Laboratory of Computational Neuroscience and Brain-Inspired Intelligence, Fudan University, China",CHN
+2-s2.0-85200534440,"MOE Frontiers Center for Brain Science, Fudan University, China",CHN
+2-s2.0-85200534440,"Shanghai Engineering Research Center of AI & Robotics, Fudan University, China",CHN
+2-s2.0-85200534440,"Engineering Research Center of AI & Robotics, Ministry of Education, Fudan University, China",CHN
+2-s2.0-85150652939,"TU Dortmund University, Dortmund, Germany",DEU
+2-s2.0-85150652939,"NNAISENSE, Lugano, Switzerland",CHE
+2-s2.0-105010226859,"University of Maryland, College Park, United States",USA
+2-s2.0-105010226859,"Clemson University, United States",USA
+2-s2.0-85200145185,"Sydney AI Centre, The University of Sydney, Australia",AUS
+2-s2.0-85200145185,"University of Maryland, College Park, United States",USA
+2-s2.0-85200145185,JD Explore Academy,CHN
+2-s2.0-85200145185,"Carnegie Mellon University, United States",USA
+2-s2.0-85200145185,"Mohamed bin Zayed University of Artificial Intelligence, United Arab Emirates",ARE
+2-s2.0-85200145185,"Huazhong University of Science and Technology, China",CHN
+2-s2.0-85200145185,"The University of Melbourne, Australia",AUS
+2-s2.0-85196256819,"Department of Computer Science and Engineering, Shanghai Jiao Tong University, China",CHN
+2-s2.0-85196256819,"Huawei Noah's Ark Lab, Canada",CAN
+2-s2.0-105010287097,"Czech Institute of Informatics, Robotics and Cybernetics, Czech Technical University, Czech Republic",CZE
+2-s2.0-105010287097,"Loschmidt Laboratories, Department of Experimental Biology, RECETOX, Masaryk University, Czech Republic",CZE
+2-s2.0-105010287097,"International Clinical Research Centre, St. Anne's University Hospital, Brno, Czech Republic",CZE
+2-s2.0-85128996390,Tencent AI Lab,CHN
+2-s2.0-85128996390,"UC Los Angeles, United States",USA
+2-s2.0-85128996390,"Tsinghua University, China",CHN
+2-s2.0-85128996390,"Xiamen University, China",CHN
+2-s2.0-105010222255,"Purdue University, United States",USA
+2-s2.0-105010222255,"Yonsei University, South Korea",KOR
+2-s2.0-105010222255,"University at Buffalo-SUNY, United States",USA
+2-s2.0-85090866588,"Princeton University, United States",USA
+2-s2.0-85090866588,Google Brain,USA
+2-s2.0-105010224792,"Software Engineering Institute, East China Normal University, China",CHN
+2-s2.0-105010224792,"School of Communication and Electronic Engineering, East China Normal University, China",CHN
+2-s2.0-105010224792,"School of Geospatial Information, Information Engineering University, China",CHN
+2-s2.0-105010224792,"School of Computer Science and Technology, Tongji University, China",CHN
+2-s2.0-105010186191,"Center of Excellence for Generative AI, KAUST, Saudi Arabia",SAU
+2-s2.0-105010186191,"School of Informatics, University of Edinburgh, United Kingdom",GBR
+2-s2.0-105010186191,"The Swiss AI Lab, IDSIA, USI, SUPSI, Switzerland",CHE
+2-s2.0-105010267360,"The Hong Kong University of Science and Technology, Hong Kong",HKG
+2-s2.0-105010220190,"Department of Computing and Mathematical Sciences, California Institute of Technology, Pasadena, 91125, CA, United States",USA
+2-s2.0-85174782750,"Department of Electrical and Computer Engineering, Rice University, United States",USA
+2-s2.0-85174782750,"Department of Computer Science, Boston College, United States",USA
+2-s2.0-105010281784,"Intelligent Systems Program, University of Pittsburgh, Pittsburgh, 15213, PA, United States",USA
+2-s2.0-105010281784,"Intelligent Systems Program, Department of Radiology, Department of Biomedical Informatics, Department of Bioengineering, University of Pittsburgh, Pittsburgh, 15213, PA, United States",USA
+2-s2.0-105010281784,"Center for Research in Computer Vision, University of Central Florida, Orlando, 32816, FL, United States",USA
+2-s2.0-105010234598,"Virginia Tech, United States",USA
+2-s2.0-105010234598,"Oak Ridge National Lab, United States",USA
+2-s2.0-105010234598,"UNC at Chapel Hill, United States",USA
+2-s2.0-105010199360,"Tencent Youtu Lab, China",CHN
+2-s2.0-105010199360,"Fudan University, China",CHN
+2-s2.0-105010204964,"School of Biomedical Engineering, Department of Pathology, Laboratory Medicine, The University of British Columbia, Canada",CAN
+2-s2.0-85150388144,"DeepMind, London, United Kingdom",GBR
+2-s2.0-85133550818,"Stanford University, United States",USA
+2-s2.0-85133550818,"University of Pennsylvania, United States",USA
+2-s2.0-85200559826,"Technion - Israel Institute of Technology, Israel",ISR
+2-s2.0-85105543852,"The University of Texas, Austin, United States",USA
+2-s2.0-85105543852,Google Research,USA
+2-s2.0-85197612303,"Cornell University, United States",USA
+2-s2.0-85197612303,"University of Edinburgh, United Kingdom",GBR
+2-s2.0-85197612303,"xAI, United States",USA
+2-s2.0-85197612303,"Google Research, United States",USA
+2-s2.0-85088228652,"Center for Neural Science, New York University, New York, 10003, NY, United States",USA
+2-s2.0-85088228652,"Image Processing Laboratory, Universitat de València, Paterna, 46980, Spain",ESP
+2-s2.0-85088228652,"Center for Neural Science, Courant Institute of Mathematical Sciences, New York University, New York, 10003, NY, United States",USA
+2-s2.0-105010281499,"School of Electrical Engineering and Computer Science, The Pennsylvania State University, University Park, 16802, PA, United States",USA
+2-s2.0-105010210177,"Cornell University, United States",USA
+2-s2.0-105010210177,"Shanghai Jiao Tong University, China",CHN
+2-s2.0-85199901138,"Max Planck Institute for Intelligent Systems, Germany",DEU
+2-s2.0-85199901138,"Harvard University, United States",USA
+2-s2.0-85199901138,"KTH Stockholm, Sweden",SWE
+2-s2.0-105010238624,"School of Computer Science and Technology, Huazhong University of Science and Technology, Wuhan, China",CHN
+2-s2.0-85150263666,"University of Texas, Austin, United States",USA
+2-s2.0-85150263666,VMware Research,USA
+2-s2.0-105010274960,"Zhejiang University, China",CHN
+2-s2.0-105010274960,"Hangzhou High-Tech Zone (Binjiang), Institute of Blockchain and Data Security, China",CHN
+2-s2.0-85198667390,"Shanghai Jiao Tong University, China",CHN
+2-s2.0-85198667390,"Tsinghua Shenzhen International Graduate School, Tsinghua University, China",CHN
+2-s2.0-105010273519,"Singapore Management University, Singapore",SGP
+2-s2.0-105010273519,"Singapore Institute of Manufacturing Technology (SIMTech), Agency of Science, Technology and Research (A*STAR), Singapore",SGP
+2-s2.0-85180808970,"LG AI Research, South Korea",KOR
+2-s2.0-85180808970,"KAIST, South Korea",KOR
+2-s2.0-85180808970,"Korea University, South Korea",KOR
+2-s2.0-85150238576,"The Swiss AI Lab IDSIA, USI, SUPSI, Switzerland",CHE
+2-s2.0-85150238576,Microsoft Research,USA
+2-s2.0-105010203896,"The Chinese University of Hong Kong, Hong Kong",HKG
+2-s2.0-105010203896,"National Technology Innovation Center for EDA, Hong Kong",HKG
+2-s2.0-85139811675,"Department of Computer Science, The University of Iowa, Iowa City, 52242, IA, United States",USA
+2-s2.0-85139811675,"Department of Mathematics and Statistics, SUNY at Albany, Albany, 12222, NY, United States",USA
+2-s2.0-105010279047,"Department of Electronic Engineering, BNRist, Tsinghua University, Beijing, China",CHN
+2-s2.0-105010279047,"Computer Science Department, University of Southern California, Los Angeles, CA, United States",USA
+2-s2.0-105010202449,"University of Southern California, CA, United States",USA
+2-s2.0-105010202449,"University of California, Riverside, CA, United States",USA
+2-s2.0-105010252947,"Graduate School of Information Science and Technology, The University of Tokyo, Japan",JPN
+2-s2.0-105010252947,"Center for Advanced Intelligence Project, RIKEN, Japan",JPN
+2-s2.0-85162839015,"McGill University, Mila-Quebec AI Institute, Montréal, QC, Canada",CAN
+2-s2.0-85162839015,"University of Washington, Seattle, WA, United States",USA
+2-s2.0-85162839015,"Mila-Quebec AI Institute, Montréal, QC, Canada",CAN
+2-s2.0-85162839015,"Unversite de Montréal, Mila-Quebec AI Institute, Montréal, QC, Canada",CAN
+2-s2.0-85162839015,"McGill University, Mila-Quebec AI Institute, Montreal Neurological Institute, Montréal, QC, Canada",CAN
+2-s2.0-85162839015,"University of Pennsylvania, Philadelphia, PA, United States",USA
+2-s2.0-85162839015,"CIFAR Learning in Machines & Brains, Toronto, ON, Canada",CAN
+2-s2.0-105010252703,"Institute of Image Processing and Pattern Recognition, Shanghai Jiao Tong University, China",CHN
+2-s2.0-105010271685,"Genentech, United States",USA
+2-s2.0-105010271685,"Prescient Design, United States",USA
+2-s2.0-105010271685,"University of California San Diego, United States",USA
+2-s2.0-105010271685,"Guide Labs, United States",USA
+2-s2.0-105010271685,"Department of Computer Science, New York University, United States",USA
+2-s2.0-105010271685,"Center for Data Science, New York University, United States",USA
+2-s2.0-85200598582,"NAVER LABS Europe, France",FRA
+2-s2.0-105010271327,"Feedzai, United States",USA
+2-s2.0-105010247689,"Department of Electrical Engineering and Computer Science, Massachusetts Institute of Technology, Cambridge, MA, United States",USA
+2-s2.0-85150595152,"University of Tübingen, Germany",DEU
+2-s2.0-85150614552,"National Laboratory of Radar Signal Processing, Xidian University, Xian, China",CHN
+2-s2.0-85150614552,"McCombs School of Business, The University of Texas at Austin, Austin, 78712, TX, United States",USA
+2-s2.0-105010226882,"Mila Quebec AI Institute, Canada",CAN
+2-s2.0-105010226882,"ServiceNow Research, Canada",CAN
+2-s2.0-105010226882,"Département de Géographie, Université de Montréal, Canada",CAN
+2-s2.0-105010226882,"Mila Quebec AI Institute, Polytechnique Montréal, Canada",CAN
+2-s2.0-105010225794,"Department of Computer Science and Technology, Institute for AI, BNRist, Tsinghua University, Beijing, 100084, China",CHN
+2-s2.0-105010225794,"Tsinghua Laboratory of Brain and Intelligence (THBI), IDG/McGovern Institute for Brain Research, Tsinghua University, Beijing, 100084, China",CHN
+2-s2.0-105010225794,"Chinese Institute for Brain Research (CIBR), Beijing, 100010, China",CHN
+2-s2.0-85143581937,"Department of Electrical and Computer Engineering, Carnegie Mellon University, Pittsburgh, PA, United States",USA
+2-s2.0-85143581937,"Department of Electrical and Computer Engineering, University of Illinois at Urbana-Champaign, Champaign, IL, United States",USA
+2-s2.0-85143581937,"Allen School of Computer Science and Engineering, University of Washington, Seattle, WA, United States",USA
+2-s2.0-105010281360,"NVIDIA, United States",USA
+2-s2.0-105010281360,"Mila - Québec AI Institute, Canada",CAN
+2-s2.0-105010281360,"Université de Montréal, Canada",CAN
+2-s2.0-105010281360,"Massachusetts Institute of Technology, United States",USA
+2-s2.0-105010281121,"MoE Key Laboratory of Brain-inspired Intelligent Perception and Cognition, University of Science and Technology of China, China",CHN
+2-s2.0-105010281121,"Noah's Ark Lab, Huawei Technologies, China",CHN
+2-s2.0-105010281121,"Tianjin University, China",CHN
+2-s2.0-105010281121,"Shanghai Jiao Tong University, China",CHN
+2-s2.0-105010281000,"MIPT, AIRI, Moscow, Russian Federation",RUS
+2-s2.0-85199867996,"Department of Electrical Engineering and Computer Sciences, University of California, Berkeley, United States",USA
+2-s2.0-85199867996,"Department of Statistics, University of California, Berkeley, United States",USA
+2-s2.0-105010282328,"School of Artificial Intelligence, University of Chinese Academy of Sciences, China",CHN
+2-s2.0-105010282328,"Institute of Automation, Chinese Academy of Sciences, China",CHN
+2-s2.0-105010282328,"Beijing Academy of Artificial Intelligence, China",CHN
+2-s2.0-105010282328,"University of Oxford, United Kingdom",GBR
+2-s2.0-105010282328,"Peking University, China",CHN
+2-s2.0-105010262953,"Institute of Science and Technology, Austria",AUT
+2-s2.0-105010204870,"Meta FAIR, United States",USA
+2-s2.0-105010204870,"Concordia University, Canada",CAN
+2-s2.0-105010204870,"Mila, Canada",CAN
+2-s2.0-105010204870,"NYU, United States",USA
+2-s2.0-105010204870,"UCLA, United States",USA
+2-s2.0-85200596166,"State Key Laboratory for Novel Software Technology, Nanjing University, Nanjing, China",CHN
+2-s2.0-85200596166,"Applied Sciences Group, Microsoft Corporation, Redmond, United States",USA
+2-s2.0-105010189992,"JPMorgan AI Research, United States",USA
+2-s2.0-105010189992,"University of Maryland, College Park, United States",USA
+2-s2.0-105010189992,"Princeton University, United States",USA
+2-s2.0-85128563073,"Seoul National University, South Korea",KOR
+2-s2.0-85179079888,"Mila, Quebec AI institute, Canada",CAN
+2-s2.0-85179079888,"BITS, Pilani, India",IND
+2-s2.0-85179079888,"TU Delft, Netherlands",NLD
+2-s2.0-85179079888,"MIT, United States",USA
+2-s2.0-85179079888,"Google Research, Brain Team, United States",USA
+2-s2.0-85179079888,"Deepmind, United Kingdom",GBR
+2-s2.0-85179079888,"CIFAR, Canada",CAN
+2-s2.0-105010272763,"George Mason University, United States",USA
+2-s2.0-105010272763,"Tencent AI Lab, Bellevue, United States",USA
+2-s2.0-85192857599,"Department of Electrical and Computer Engineering, Georgia Institute of Technology, Atlanta, 30332, GA, United States",USA
+2-s2.0-85194253641,"Microsoft Research NYC, United States",USA
+2-s2.0-85194253641,Immunai,USA
+2-s2.0-105010225566,"University of Southampton, United Kingdom",GBR
+2-s2.0-105010222055,"Purdue University, United States",USA
+2-s2.0-105010222055,"Yonsei University, South Korea",KOR
+2-s2.0-105010222055,"MIT, United States",USA
+2-s2.0-105010222055,"University at Buffalo (SUNY), United States",USA
+2-s2.0-105010250853,"School of Computer Science and Engineering, University of Electronic Science and Technology of China, China",CHN
+2-s2.0-105010269229,"Mila - Québec AI Institute, Canada",CAN
+2-s2.0-105010269229,"Université de Montréal, Canada",CAN
+2-s2.0-105010269229,"McGill University, Canada",CAN
+2-s2.0-105010269229,"University of Ottawa, Canada",CAN
+2-s2.0-105010269229,"National Research Council Canada, Canada",CAN
+2-s2.0-105010269229,"CIFAR AI, Canada",CAN
+2-s2.0-105010269229,"HEC Montréal, Canada",CAN
+2-s2.0-85150378553,"Korea Aerospace University, South Korea",KOR
+2-s2.0-85150378553,Sandia National Laboratories,USA
+2-s2.0-85153762653,"Department of Electrical and Computer Engineering, Georgia Institute of Technology, United States",USA
+2-s2.0-85196876046,"The University of Tokyo, Japan",JPN
+2-s2.0-85196876046,"Chiba University, Japan",JPN
+2-s2.0-85185697956,"UIUC, United States",USA
+2-s2.0-85185697956,"Stanford, United States",USA
+2-s2.0-85150302707,Google Research,USA
+2-s2.0-85150302707,DeepMind,GBR
+2-s2.0-85150302707,"University of Toronto, Canada",CAN
+2-s2.0-105010237424,"Shenzhen International Center for Industrial and Applied Mathematics, Shenzhen Research Institute of Big Data, China",CHN
+2-s2.0-105010237424,"Peking University, China",CHN
+2-s2.0-105010237424,"CRRC Zhuzhou Institute, Tengen Intelligence Institute, China",CHN
+2-s2.0-105010237424,"Tongji University, China",CHN
+2-s2.0-105010237424,"School of Data Science, The Chinese University of Hong Kong, Shenzhen, China",CHN
+2-s2.0-85199890889,"Meta (FAIR), United States",USA
+2-s2.0-85199890889,"Amazon, United States",USA
+2-s2.0-85199890889,"Meta (CTRL), United States",USA
+2-s2.0-105010229921,"AI Centre, University College London, United Kingdom",GBR
+2-s2.0-105010229921,"IDEAS NCBR, Poland",POL
+2-s2.0-105010229921,"University of Oxford, United Kingdom",GBR
+2-s2.0-105010229921,"New York University, United States",USA
+2-s2.0-105010229921,"Anthropic, United States",USA
+2-s2.0-105010229921,"University of Warsaw, Poland",POL
+2-s2.0-105010229921,"Institute of Mathematics, Polish Academy of Sciences, Poland",POL
+2-s2.0-105010236210,"Zhejiang University, China",CHN
+2-s2.0-85192602137,"City University of Hong Kong, Hong Kong",HKG
+2-s2.0-85192602137,"The University of Tokyo, Japan",JPN
+2-s2.0-85192602137,"University of Alberta, Canada",CAN
+2-s2.0-85185871773,"University of Turin, LTCI, Telécom Paris, IP Paris, France",FRA
+2-s2.0-85185871773,"LTCI, Télécom Paris, IP Paris, France",FRA
+2-s2.0-85185871773,"University of Turin, Italy",ITA
+2-s2.0-105010193903,"Department of Computer Science and Engineering, Indian Institute of Technology, Delhi, India",IND
+2-s2.0-105010187354,"Shanghai Jiao Tong University, China",CHN
+2-s2.0-105010187354,"Tencent, China",CHN
+2-s2.0-105010187354,"University of Edinburgh, United Kingdom",GBR
+2-s2.0-105010192811,"Zhejiang University, China",CHN
+2-s2.0-105010192811,"School of Engineering, Westlake University, China",CHN
+2-s2.0-105010192811,"University College London, United Kingdom",GBR
+2-s2.0-85150612234,"Department of Computer Science, ETH Zürich, Switzerland",CHE
+2-s2.0-85150612234,"Computer Science and Artificial Intelligence Laboratory, Massachusetts Institute of Technology, United States",USA
+2-s2.0-85150357861,MIT,USA
+2-s2.0-85083953343,"Google Inc, United States",USA
+2-s2.0-85083953343,"New York University, United States",USA
+2-s2.0-85083953343,"University of Montreal, Canada",CAN
+2-s2.0-85083953343,"New York University, Facebook Inc, United States",USA
+2-s2.0-85083951767,"New York University, United States",USA
+2-s2.0-85083951767,"City College of New York, United States",USA
+2-s2.0-85083954099,"Department of Computer Science and Engineering, University of California, San Diego, 92093, CA, United States",USA
+2-s2.0-85083954099,"Department of Computer Science, University of Southern California, Los Angeles, 90089, CA, United States",USA
+2-s2.0-85083954099,"Leland K. Whittier Virtual PICU Children’s Hospital Los Angeles, Los Angeles, 90027, CA, United States",USA
+2-s2.0-85083953891,"Idiap Research Institute, Martigny, Switzerland",CHE
+2-s2.0-85083953891,"Ecole Polytechnique Fédérale de Lausanne (EPFL), Lausanne, Switzerland",CHE

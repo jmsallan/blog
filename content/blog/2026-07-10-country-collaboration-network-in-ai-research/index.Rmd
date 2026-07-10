@@ -1,0 +1,239 @@
+---
+title: Country Collaboration Network in AI Research
+author: Jose M Sallan
+date: '2026-07-10'
+slug: country-collaboration-network-in-ai-research
+categories:
+  - data analysis
+tags:
+  - academia
+  - complex networks
+  - IA
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r, message=FALSE}
+source("04b_curveball_functions.R")
+library(kableExtra)
+iclr_countries <-read_csv("iclr_2025_aff_country.csv",
+                          show_col_types = FALSE) # 1393 rows
+
+# removing affiliations and keeping unique pairs country-article
+iclr_iso3c <- iclr_countries |>
+  select(-affiliations) |>
+  distinct()
+```
+
+
+In the previous post, I reported the contributions by country to the 2025 edition of the  **International Conference for Learning Representations (ICLR)**. ICLR is one of the world’s premier artificial intelligence and machine learning conferences, focused on representation learning, the study of how computers can automatically learn meaningful and useful representations of data to solve complex tasks. The posts of this series are motivated by the work of Dmytro Lopushanskyy exploring affiliations of the 2025 edition of ICLR.
+
+While the advance of scientific research calls for international collaboration, it can be hindered by the strategic competition between countries to develop the best AI models. To examine the extent to which international collaboration in learning representations is fostered or hindered, in this post I will present a preliminary analysis of the patterns of international collaboration present of the contributions presented in ICLR 2025.
+
+## The Network of Scientific Collaboration
+
+To examine between-country collaboration, I will be using the distinct **article-country pairs** of the conference, obtained from the records of the main conference papers registered in Scopus. Each article is represented by its Scopus `eid`, and each country by its `iso3c` code.
+
+```{r}
+iclr_iso3c
+```
+
+```{r}
+articles <- length(unique(iclr_iso3c$eid))
+countries <- length(unique(iclr_iso3c$iso3c))
+```
+
+
+The table above reports `r nrow(iclr_iso3c)` article-country pairs, involving `r articles` articles and `r countries` countries. Those data allow building the **article country network**. It is a bipartite, undirected and unweighted network where each article is connected with the countries of its authors. This network can be described with a binary matrix $B_{ac}$ with as many rows as articles and as many columns of involved countries.
+
+From this bipartite graph, we can obtain the **country collaboration network**. It is an undirected, weighted network with weights $w_{ij}$ equal to the number of papers with authors from countries $i$ and $j$. The weights matrix $W$ can be obtained from the article-country network as:
+
+$$ W = B^TB $$
+
+```{r}
+ac_matrix <- get_b_ac(iclr_iso3c)       # article country matrix
+c_graph <- get_country_graph(ac_matrix) # contry collaborations graph and matrix
+```
+
+For 2025 the country collaboration network has `r length(V(c_graph$graph))` node and `r length(E(c_graph$graph))` edges.
+
+For weighted networks, we have two indicators of centrality:
+
+- **Node strength** is the analogous to node degree for weighted networks, and it is equal to the sum of weights arriving or departing from a node. 
+- **Weighted node betweenness** is an indicator of the role of a country as an intermediary between two non-connected countries. In graphs where weight is a proxy for intensity of collaboration, the inverse of weight is used to calculate weighted node betweenness. 
+
+Here is a listing of countries ordered by value of strength:
+
+```{r}
+iclr_2025_collaborations <-
+  left_join(iclr_iso3c, 
+          iclr_iso3c, 
+          by = "eid", relationship = "many-to-many") |>
+  filter(iso3c.x < iso3c.y) |>
+  rename(org = iso3c.x, dst = iso3c.y) |>
+  group_by(org, dst) |>
+  summarise(weight = n(), .groups = "drop")
+
+iclr_2025_network <- as_tbl_graph(iclr_2025_collaborations,
+                               directed = FALSE)
+
+iclr_2025_network <- iclr_2025_network |>
+  activate(nodes) |>
+  mutate(strength = centrality_degree(weights = weight),
+         btw = centrality_betweenness(weights = 1/weight))
+
+iclr_2025_network |>
+  activate(nodes) |>
+  as_tibble() |>
+  arrange(-strength) |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+For this graph, there is a strong relationship between strength and betweenness: the countries with higher strength are the ones with highest betweenness. The United States (USA) and China (CHN) appear as the countries with most collaborations, followed by Great Britain (GBR), Canada (CAN) and Germany (DEU). Unsurprisingly, the countries with most contributions are the ones with more collaborations with other countries.
+
+As for specific edge weights, they can be appreciated in the following graph.
+
+```{r, out.width='100%', warning=FALSE}
+iclr_2025_network |>
+  ggraph(layout = "circle") +
+  geom_edge_link(aes(linewidth = weight),
+                 start_cap = circle(3, "mm"),
+                 end_cap = circle(3, "mm"), alpha = 0.5) +
+  geom_node_text(aes(label = name)) +
+  theme_graph() +
+  theme(legend.position = "none")
+```
+
+This graph shows that the most intense collaborations are between USA and China and with USA and GBR.
+
+## Comparison with a Null Model
+
+The above result apparently presents preliminary evidence that the two main players in the AI competition, China and USA, pursue a strong collaboration in the development of AI-related scientific research. Nevertheless, this result must be taken with caution. As China and USA are countries producing more articles, it is quite likely that a paper can have Chinese and American co-authors.
+
+To elucidate if this volume of collaboration represents an intention to pursue joint collaborations or an statistical artifact, I have compared the edge weights with the weights of a collection of networks obtained with a **null model**, a randomized version of the network that preserves structural features but removes the specific patterns present in the real-world network.
+
+The null model is based on the article-country network. I have used the **Curveball algorithm** (Strona et al., 2014) to create an article-country randomized matrix $B_{rand}$ that preserves the sums of rows and columns of $B_{ac}$. This means that in the randomized network the number of countries of authors of each article (sums of rows) and number of articles of each country (sums of columns) is preserved. Once obtained the author-country network, I obtain the country collaboration network using the identity $W_{rand} = B^T_{rand}B_{rand}$
+
+Using this framework, I have created 1,000 instances of the null model. I have used these instances to bootstrap the distribution of edge weight in the null model, and to test the null hypothesis that observed edge weight is equal to the population mean of the corresponding weight of the null model.
+
+```{r}
+set.seed(1111)
+null_sample <- map(1:1000, ~ null_country_graph(ac_matrix)$matrix)
+```
+
+To illustrate this, in the following figure I present the histogram of weights of the China-USA edge in the null model, together with the observed edge weight.
+
+```{r, message=FALSE}
+# function extracting the values of the (i, j) positions of the matrices as a vector
+
+values_null <- function(i, j){
+  values <- map_dbl(null_sample, ~ .[i, j])
+  return(values)
+}
+
+china_usa <- values_null(1, 4)
+
+tibble(x = china_usa) |>
+  ggplot(aes(x)) +
+  geom_histogram(bins = 20, color = "#A0A0A0") +
+  geom_segment(x = c_graph$matrix[1, 4], xend = c_graph$matrix[1, 4], y = 0, yend = Inf, color = "red", linetype = "dashed") +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, title = "China-USA Edge Weight")
+```
+
+The distribution of the edge weight in the null model is approximately normal, and the observed value is in the lower tail of the distribution. The t-test of the null hypothesis that the mean of the null model is equal to the observed edge weight has the following result:
+
+```{r}
+t.test(china_usa, mu = c_graph$matrix[1, 4])
+```
+
+From this evidence, we can confirm that **the level of collaboration between China and USA is below the expected** if country collaborations were chosen randomly, in spite of its large absolute value. This fact provides preliminary support to the hypothesis that USA and China are constraining mutual collaboration in AI-related research.
+
+I have extended this analysis to the rest of edge weights, obtaining the t-value and the effect sizes for each of the edge weights. Values of $|t| > 1.95$ show statistical significance, whil statistical relevance is measured by **effect size**. Values of effect size $|z| \in [0.5, 0.8]$ are considered moderate, and values $|z| > 0.8$ show evidence of a large effect size.
+
+```{r}
+countries <- dim(c_graph$matrix)[1]
+
+iso3c_table <- tibble(pos = 1:countries,
+                      iso3c = colnames(c_graph$matrix))
+
+edges <- 
+  expand_grid(org = 1:countries, dst = 1:countries) |>
+  filter(org > dst)
+
+edges <- edges |>
+  left_join(iso3c_table, by = c("org" = "pos")) |>
+  rename(c_org = iso3c)
+
+edges <- edges |>
+  left_join(iso3c_table, by = c("dst" = "pos")) |>
+  rename(c_dst = iso3c)
+
+edges <- edges |>
+  relocate(c_org, c_dst)
+
+edges <- edges |>
+  mutate(mean_null = map2_dbl(org, dst, ~ values_null(.x, .y) |> mean()),
+         sd_null = map2_dbl(org, dst, ~ values_null(.x, .y) |> sd()),
+         obs_weight = map2_dbl(org, dst, ~ c_graph$matrix[.x, .y]))
+
+#' z_value: z value for the mean test (H0: mean_null = obs_weight)
+
+edges <- edges |>
+  mutate(t_value = (mean_null - obs_weight)*sqrt(1000)/sd_null,
+         z = (mean_null - obs_weight)/sd_null)
+```
+
+Here are the results for edges with observed weights equal or larger than five. A **positive effect size** represents a intensity of collaboration **smaller than expected** by chance: the expected mean weight is larger than the observed weight. A **negative effect size**, on the contrary, shows a intensity of collaboration **larger than expected**.
+
+```{r}
+edges |>
+  filter(obs_weight >= 5) |>
+  arrange(-obs_weight) |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+USA and China are the two countries with largest contributions to the conference, so it is not strange that many of the edges involve any of these two countries. To examine the collaborations of USA, I have filtered the edge weights significantly different from the null model, with an absolute value of effect size equal or larger than 0.8.
+
+```{r}
+edges |>
+  filter(obs_weight >= 5,
+         c_org == "USA" | c_dst == "USA",
+         abs(z) >= 0.8) |>
+  arrange(-obs_weight) |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+The only countries with a strong relationship with USA regarding AI research are the United Kingdom and Korea. It is noteworthy that USA constrains collaboration not only with China, but also with a potential ally such as France.
+
+```{r}
+edges |>
+  filter(obs_weight >= 5,
+         c_org == "CHN" | c_dst == "CHN",
+         abs(z) >= 0.8) |>
+  arrange(-obs_weight) |>
+  kbl() |>
+  kable_styling(full_width = FALSE)
+```
+
+The countries with a strong collaboration pattern with China are Hong Kong, Singapore and Australia. The presence of Australia in this list can be surprising, but we must take into account Australia's large population of Chinese-origin researchers and doctoral students, and the intense collaboration between Australian and Chinese academic institutions. On the other hand, the levels of scientific collaboration of China with USA, Great Britain and Canada are smaller than expected by their volume of contributions.
+
+## Conclusions
+
+The analysis of patterns of collaboration drawn from conference papers presented at the 2025 ICLR Conference shows that the competition in the AI industry has been transferred to the academic community of AI research. USA and China, the two countries with the largest communities in AI, restrain their collaboration to values lower than expected if country collaborations were selected randomly. USA collaborates with Great Britain and Korea, and China with Hong Kong, Singapore and Australia. This pattern of scientific collaboration mimicks political and economic blocks in the present multi-polar world order, with the exception of Australia. Although Australia is aligned with USA and NATO countries, the large volume of Chinese scientists in Australian universities strengthens their academic relationship with China.
+
+This study presents preliminary evidences, and must be extended in the scope of scientific collaborations, including conferences and journal papers. A longitudinal research can also be useful, as it could allow to examine how patterns of collaboration between countries evolve along time.
+
+## References
+
+-   Strona, G., Nappo, D., Boccacci, F., Fattorini, S., & San-Miguel-Ayanz, J. (2014). A fast and unbiased procedure to randomize ecological binary matrices with fixed row and column totals. Nature Communications, 5, 4114. <https://doi.org/10.1038/ncomms5114>.
+
+
