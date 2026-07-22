@@ -1,0 +1,515 @@
+---
+title: Cleaning Keywords from ICLR 2026
+author: Jose M Sallan
+date: '2026-07-22'
+slug: cleaning-keywords-from-iclr-2026
+categories:
+  - R
+tags:
+  - data cleaning
+meta_img: images/image.png
+description: Description for the page
+---
+
+
+
+<p>In scientific literature, <strong>keywords</strong> are a small set of tokens that identify the main topics, methods or field of study of a scientific communication outlet (manuscript, conference paper, academic journal article). As each article has a small set of keywords, they can be useful to integrate information of a large database of scientific literature. Some examples of use of keywords are document classification, information retrieval or scientiometric analysis.</p>
+<p>There are two types of keywords: <strong>author keywords</strong> or <strong>indexed keywords</strong>. The former are defined by authors themselves, and the later are assigned using a controlled vocabulary. While author keywords can provide a better description of the document, these tend to be less specific and standardized. For instance, referring to LLMs we can use:</p>
+<ul>
+<li>LLM</li>
+<li>LLMs</li>
+<li>large language models</li>
+<li>large langauge models</li>
+<li>large language model</li>
+</ul>
+<p>Note that the fourth variant is badly spelled. This is frequent when dealing with author’s keywords.</p>
+<p>In this post, I will use the information of the 2026 ICLR papers retrieved by Dmytro Lopushanskyy to present a workflow to normalize the keywords of a large set of documents in a specially “dirty” dataset, as control about keyword contents is expected to be looser in a conference than in a journal editorial system. I will be using the tidyverse and and also the <code>stringdist</code> package for string distance.</p>
+<pre class="r"><code>library(tidyverse)
+library(stringdist)</code></pre>
+<p>I start reading a .csv file containing two columns:</p>
+<ul>
+<li><code>id</code> for article identification.</li>
+<li><code>keywords</code> containing a string of keyword articles separated by semicolon.</li>
+</ul>
+<pre class="r"><code>id_keyword_url &lt;- &quot;https://gist.githubusercontent.com/jmsallan/ee7e27a432950004e31888f04eaa74ba/raw/5a9a17000e0373d935281a76e34f03c9ed2c5f94/id_keyword.csv&quot;
+data_github &lt;- read_csv(id_keyword_url, show_col_types = FALSE)</code></pre>
+<p>One of the articles separates keywords by points instead of semicolons:</p>
+<pre class="r"><code>data_github |&gt;
+  filter(str_detect(keywords, &quot;\\.&quot;))</code></pre>
+<pre><code>## # A tibble: 1 × 2
+##      id keywords                                                      
+##   &lt;dbl&gt; &lt;chr&gt;                                                         
+## 1    35 Machine Learning. Self-Supervised Learning. Difficult Examples</code></pre>
+<p>I have replaced points by semicolons in the whole file before any other operation:</p>
+<pre class="r"><code>data_github &lt;- data_github |&gt;
+  mutate(keywords = str_replace_all(keywords, &quot;\\.&quot;, &quot;;&quot;))</code></pre>
+<p>As each article has a different number of keywords, I need to set this dataset in <strong>long format</strong>, so it becomes <strong>tidy data</strong>. I use for this <code>tidyr::separate_longer_delim()</code> and then I rename the keyword column with <code>dplyr::rename()</code>.</p>
+<pre class="r"><code>art_keyword &lt;- data_github |&gt;
+  separate_longer_delim(keywords, &quot;; &quot;) |&gt;
+  rename(keyword = keywords) # 19983 keywords
+art_keyword</code></pre>
+<pre><code>## # A tibble: 19,985 × 2
+##       id keyword              
+##    &lt;dbl&gt; &lt;chr&gt;                
+##  1     1 LLM                  
+##  2     1 decoding             
+##  3     1 sampling             
+##  4     1 truncation           
+##  5     1 inference            
+##  6     1 information-theoretic
+##  7     1 information-theory   
+##  8     1 hyperparameterless   
+##  9     1 hyperparameter-free  
+## 10     1 entropy              
+## # ℹ 19,975 more rows</code></pre>
+<p>Author’s keywords are generated in a non-normalized fashion. The job now is to reduce variability among keywords finding <strong>representatives</strong> of keywords that appear with several variants. A first step to accomplish this is to transform all keywords:</p>
+<ul>
+<li>turning capital letters to lower case with <code>stringr::tolower()</code>.</li>
+<li>removing spaces at the beginning and the end, and multiple spaces in the middle with <code>stringr::str_squish()</code>.</li>
+</ul>
+<pre class="r"><code>art_keyword &lt;- art_keyword |&gt;
+  mutate(keyword = tolower(keyword)) |&gt;
+  mutate(keyword = str_squish(keyword))</code></pre>
+<p>And finally I retrieve all the distinct keywords we can find in the dataset in the <code>raw_keywords</code> table.</p>
+<pre class="r"><code>raw_keywords &lt;- art_keyword |&gt;
+  select(keyword) |&gt;
+  distinct()
+raw_keywords</code></pre>
+<pre><code>## # A tibble: 9,275 × 1
+##    keyword              
+##    &lt;chr&gt;                
+##  1 llm                  
+##  2 decoding             
+##  3 sampling             
+##  4 truncation           
+##  5 inference            
+##  6 information-theoretic
+##  7 information-theory   
+##  8 hyperparameterless   
+##  9 hyperparameter-free  
+## 10 entropy              
+## # ℹ 9,265 more rows</code></pre>
+<div id="detecting-similar-keywords" class="section level2">
+<h2>Detecting Similar Keywords</h2>
+<p>As the contents of <code>raw_keywords</code> are human-generated, they may contain several variants of the same keyword, like in the example presented in the beginning of the post:</p>
+<ul>
+<li>LLM</li>
+<li>LLMs</li>
+<li>large language models</li>
+<li>large langauge models</li>
+<li>large language model</li>
+</ul>
+<p>To identify similar keywords among the 9275 unique keywords I have used the Jaro-Winkler distance. This metric compares matching characters within each pair of keywords and penalizes transpositions. Distances are stored in <code>string_matrix</code>.</p>
+<pre class="r"><code>string_matrix &lt;- stringdistmatrix(raw_keywords$keyword, method = &quot;jw&quot;) |&gt;
+  as.matrix()
+rownames(string_matrix) &lt;- colnames(string_matrix) &lt;- raw_keywords$keyword</code></pre>
+<p>Then, I define an arbitrary <code>threshold</code> distance and identify all pairs of keywords with a distance smaller than this value, and store the result in the <code>pairs</code> table.</p>
+<pre class="r"><code># defining a threshold
+threshold &lt;- 0.05
+
+# get row/col indices where distance is low (excluding the diagonal)
+low_idx &lt;- which(string_matrix &lt; threshold &amp; string_matrix &gt; 0, arr.ind = TRUE)
+
+# turn into a readable data frame
+pairs &lt;- tibble(
+  word1 = rownames(string_matrix)[low_idx[, 1]],
+  word2 = colnames(string_matrix)[low_idx[, 2]],
+  distance = string_matrix[low_idx]
+) |&gt;
+  filter(low_idx[,1] &lt; low_idx[,2]) |&gt;
+  arrange(distance)
+
+pairs</code></pre>
+<pre><code>## # A tibble: 653 × 3
+##    word1                                         word2                  distance
+##    &lt;chr&gt;                                         &lt;chr&gt;                     &lt;dbl&gt;
+##  1 reinforcement learning with verifiable reward reinforcement learnin…  0.00725
+##  2 machine learning interatomic potential        machine learning inte…  0.00855
+##  3 referring expression comprehension            referring expression …  0.00952
+##  4 structure representation learning             structured representa…  0.00980
+##  5 reinforcement learning finetuning             reinforcement learnin…  0.00980
+##  6 multimodal large language models              multi-modal large lan…  0.0101 
+##  7 multi-modal large language model              multi-modal large lan…  0.0101 
+##  8 knowledge graph foundation models             knowledge graph found…  0.0101 
+##  9 multimodel large language models              multi-model large lan…  0.0101 
+## 10 multimodal large language models              multimodal large lang…  0.0104 
+## # ℹ 643 more rows</code></pre>
+<p>I have checked each of the 653 manually, and assigned a <strong>representative</strong> for each pair. This representative is a normalized keyword that replaces a set of similar keywords. As a generic criterion, most of the time I have chosen singular over plural and I have avoided abbreviations. For instance, large language model is the representative of all variants of LLMs in the keyword set.</p>
+<p>Additionally, I have manually incorporated to the table some keywords with three or less characters that likely are <strong>abbreviations</strong>. For instance <code>llm</code> has <code>large language model</code> as representative and <code>lr</code> is represented by <code>reinforcement learning</code>.</p>
+<p>I have uploaded the manually generated table of paired keywords and representatives in a Github gist, together with the original article-keyword table.</p>
+</div>
+<div id="defining-representatives" class="section level2">
+<h2>Defining Representatives</h2>
+<p>Let’s read the table of paired keywords, removing the rows with no representative. These rows correspond to paired keywords with small distance but with different meaning, for instance <code>dataset creation</code> versus <code>dataset curation</code>.</p>
+<pre class="r"><code>paired_representatives_url &lt;- &quot;https://gist.githubusercontent.com/jmsallan/ee7e27a432950004e31888f04eaa74ba/raw/5a9a17000e0373d935281a76e34f03c9ed2c5f94/paired_keywords_representatives.csv&quot;
+paired_representatives &lt;- read_csv(paired_representatives_url,
+                                   show_col_types = FALSE)
+paired_representatives &lt;- paired_representatives |&gt;
+  filter(!is.na(representative))
+paired_representatives</code></pre>
+<pre><code>## # A tibble: 639 × 3
+##    word1                    word2                   representative         
+##    &lt;chr&gt;                    &lt;chr&gt;                   &lt;chr&gt;                  
+##  1 3d gaussian splatting    3d gaussian spaltting   3d gaussian splatting  
+##  2 3d generation            3d genearation          3d generation          
+##  3 3d hand reconstructin    3d hand reconstruction  3d hand reconstruction 
+##  4 3d large language models 3d large language model 3d large language model
+##  5 3d scene understanding   3d scene undertstanding 3d scene understanding 
+##  6 abstractions             abstraction             abstraction            
+##  7 action representations   action representation   action representation  
+##  8 activations              activation              activation             
+##  9 adaptations              adaptation              adaptation             
+## 10 adaptive optimizer       adaptive optimizers     adaptive optimizer     
+## # ℹ 629 more rows</code></pre>
+<p>The significant pairings are stored in the <code>paired_representatives</code> table, which has 639 rows. I need to transform this table as tidy data, including all keyword-representative correspondences:</p>
+<pre class="r"><code>paired_representatives &lt;-  paired_representatives |&gt;
+  pivot_longer(-representative, names_to = &quot;word&quot;, values_to = &quot;keyword&quot;) |&gt;
+  select(- word) |&gt;
+  distinct()
+paired_representatives</code></pre>
+<pre><code>## # A tibble: 1,020 × 2
+##    representative          keyword                 
+##    &lt;chr&gt;                   &lt;chr&gt;                   
+##  1 3d gaussian splatting   3d gaussian splatting   
+##  2 3d gaussian splatting   3d gaussian spaltting   
+##  3 3d generation           3d generation           
+##  4 3d generation           3d genearation          
+##  5 3d hand reconstruction  3d hand reconstructin   
+##  6 3d hand reconstruction  3d hand reconstruction  
+##  7 3d large language model 3d large language models
+##  8 3d large language model 3d large language model 
+##  9 3d scene understanding  3d scene understanding  
+## 10 3d scene understanding  3d scene undertstanding 
+## # ℹ 1,010 more rows</code></pre>
+<p>Now <code>paired_representatives</code> has 1020 rows. Now I need to split the raw keywords in two subsets:</p>
+<ul>
+<li><code>raw_keywords_paired</code> includes original keywords with a short distance from another keyword of the same meaning.</li>
+<li><code>raw_keywords_not_paired</code> contains original keywords which are not close to any other keyword.</li>
+</ul>
+<pre class="r"><code>raw_keywords_paired &lt;- raw_keywords |&gt;
+  filter(keyword %in% paired_representatives$keyword) # 1020 rows
+
+raw_keywords_not_paired &lt;- raw_keywords |&gt;
+  filter(!keyword %in% paired_representatives$keyword) # 8255 rows</code></pre>
+<p>The representative for the elements of <code>raw_keywords_not_paired</code> is the keyword itself.</p>
+<pre class="r"><code>raw_keywords_not_paired &lt;- raw_keywords_not_paired |&gt;
+  mutate(representative = keyword)</code></pre>
+<p>We assign the representative to each element of <code>raw_keywords_paired</code> with a merge with <code>paired_representatives</code> and join the two tables in <code>raw_keywords_representative</code>.</p>
+<pre class="r"><code>raw_keywords_paired &lt;- raw_keywords_paired |&gt;
+  left_join(paired_representatives, by = &quot;keyword&quot;)
+
+raw_keywords_representative &lt;- bind_rows(raw_keywords_paired, raw_keywords_not_paired)</code></pre>
+<p>The resulting table has 9275 rows. For a sanity check, I look for distinct values of <code>keyword</code>.</p>
+<pre class="r"><code># number of raw keywords
+raw_keywords_representative |&gt;
+  select(keyword) |&gt;
+  distinct()</code></pre>
+<pre><code>## # A tibble: 9,275 × 1
+##    keyword              
+##    &lt;chr&gt;                
+##  1 llm                  
+##  2 sampling             
+##  3 information-theory   
+##  4 efficient            
+##  5 video generation     
+##  6 kernel methods       
+##  7 point processes      
+##  8 large language models
+##  9 llm evaluation       
+## 10 large language model 
+## # ℹ 9,265 more rows</code></pre>
+<p>The unique values of keyword are the same as table rows, so keywords are not duplicated. Let’s see the number of representatives:</p>
+<pre class="r"><code>raw_keywords_representative |&gt;
+  select(representative) |&gt;
+  distinct()</code></pre>
+<pre><code>## # A tibble: 8,698 × 1
+##    representative      
+##    &lt;chr&gt;               
+##  1 large language model
+##  2 sampling            
+##  3 information theory  
+##  4 efficient           
+##  5 video generation    
+##  6 kernel method       
+##  7 point process       
+##  8 llm-based agent     
+##  9 decision making     
+## 10 evaluation          
+## # ℹ 8,688 more rows</code></pre>
+<p>Let’s see the largest families of representatives:</p>
+<pre class="r"><code>raw_keywords_representative |&gt; 
+  group_by(representative) |&gt; 
+  count(sort = TRUE)</code></pre>
+<pre><code>## # A tibble: 8,698 × 2
+## # Groups:   representative [8,698]
+##    representative                      n
+##    &lt;chr&gt;                           &lt;int&gt;
+##  1 large language model               17
+##  2 vision language model              10
+##  3 multimodal large language model     9
+##  4 computer use agent                  7
+##  5 multiagent system                   6
+##  6 reinforcement learning              6
+##  7 vision-language-action model        6
+##  8 diffusion large language model      5
+##  9 diffusion model                     5
+## 10 large vision language model         5
+## # ℹ 8,688 more rows</code></pre>
+<p>Unsurprisingly, the large language model representative is the one emcompassing more variations:</p>
+<pre class="r"><code>raw_keywords_representative |&gt; 
+  filter(representative == &quot;large language model&quot;)</code></pre>
+<pre><code>## # A tibble: 17 × 2
+##    keyword                      representative      
+##    &lt;chr&gt;                        &lt;chr&gt;               
+##  1 llm                          large language model
+##  2 large language models        large language model
+##  3 llm evaluation               large language model
+##  4 large language model         large language model
+##  5 llms                         large language model
+##  6 large language models (llm)  large language model
+##  7 large language models (llms) large language model
+##  8 mllm evaluation              large language model
+##  9 large language model (llm)   large language model
+## 10 large language modes         large language model
+## 11 (large) language models      large language model
+## 12 large langage models         large language model
+## 13 large lanugage model         large language model
+## 14 large lanugae model          large language model
+## 15 large languge models         large language model
+## 16 large language models+       large language model
+## 17 large language mode          large language model</code></pre>
+<p>Here can be appreciated the different sources of variations (misspellings, plurals, use of abbreviation and odd variants) that call for keyword normalization.</p>
+</div>
+<div id="adding-representatives-to-article-keyword-table" class="section level2">
+<h2>Adding Representatives to Article Keyword Table</h2>
+<p>The final step is adding representatives to the article-keyword table:</p>
+<pre class="r"><code>art_keyword_representative &lt;- art_keyword |&gt;
+  left_join(raw_keywords_representative, by = &quot;keyword&quot;) |&gt;
+  distinct()
+
+art_keyword_representative</code></pre>
+<pre><code>## # A tibble: 19,976 × 3
+##       id keyword               representative       
+##    &lt;dbl&gt; &lt;chr&gt;                 &lt;chr&gt;                
+##  1     1 llm                   large language model 
+##  2     1 decoding              decoding             
+##  3     1 sampling              sampling             
+##  4     1 truncation            truncation           
+##  5     1 inference             inference            
+##  6     1 information-theoretic information-theoretic
+##  7     1 information-theory    information theory   
+##  8     1 hyperparameterless    hyperparameterless   
+##  9     1 hyperparameter-free   hyperparameter-free  
+## 10     1 entropy               entropy              
+## # ℹ 19,966 more rows</code></pre>
+<p>The final table has 19976 article-keyword pairings.</p>
+</div>
+<div id="conclusions" class="section level2">
+<h2>Conclusions</h2>
+<p><strong>Keyword normalization</strong> is a specific example of data cleaning. As author keywords in scientific outputs (journal articles, communications in conferences, etc.) are generated by a set of different human authors, they need to be normalized to account for keywords with similar meaning. This task can be automated in some steps, like finding tokens with similar spelling. and performed with a human in the loop in others, like assessing pairings of similar keywords and define <strong>representatives</strong> of sets of keywords with similar meaning.</p>
+<p>In this post, I have used the keywords of the communications to the ICLR 2026 conference to present a workflow of keyword normalization using the tidyverse packages of the R language. The results of this analysis can be used for scientiometric analysis.</p>
+</div>
+<div id="references" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Gist with post data: <a href="https://gist.github.com/jmsallan/ee7e27a432950004e31888f04eaa74ba" class="uri">https://gist.github.com/jmsallan/ee7e27a432950004e31888f04eaa74ba</a></li>
+</ul>
+</div>
+<div id="session-info" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.6.1 (2026-06-24)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0  LAPACK version 3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] stringdist_0.9.17 lubridate_1.9.5   forcats_1.0.1     stringr_1.6.0    
+##  [5] dplyr_1.2.1       purrr_1.2.2       readr_2.2.0       tidyr_1.3.2      
+##  [9] tibble_3.3.1      ggplot2_4.0.3     tidyverse_2.0.0  
+## 
+## loaded via a namespace (and not attached):
+##  [1] utf8_1.2.6         sass_0.4.10        generics_0.1.4     blogdown_1.23     
+##  [5] stringi_1.8.7      hms_1.1.4          digest_0.6.39      magrittr_2.0.5    
+##  [9] evaluate_1.0.5     grid_4.6.1         timechange_0.4.0   RColorBrewer_1.1-3
+## [13] bookdown_0.46      fastmap_1.2.0      jsonlite_2.0.0     scales_1.4.0      
+## [17] jquerylib_0.1.4    cli_3.6.6          crayon_1.5.3       rlang_1.2.0       
+## [21] bit64_4.8.0        withr_3.0.2        cachem_1.1.0       yaml_2.3.12       
+## [25] otel_0.2.0         tools_4.6.1        parallel_4.6.1     tzdb_0.5.0        
+## [29] curl_7.1.0         vctrs_0.7.3        R6_2.6.1           lifecycle_1.0.5   
+## [33] bit_4.6.0          vroom_1.7.1        pkgconfig_2.0.3    pillar_1.11.1     
+## [37] bslib_0.10.0       gtable_0.3.6       glue_1.8.1         xfun_0.57         
+## [41] tidyselect_1.2.1   rstudioapi_0.18.0  knitr_1.51         farver_2.1.2      
+## [45] htmltools_0.5.9    rmarkdown_2.31     compiler_4.6.1     S7_0.2.2</code></pre>
+<p>ric analysis.</p>
+</div>
+<div id="references-1" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Gist with post data: <a href="https://gist.github.com/jmsallan/ee7e27a432950004e31888f04eaa74ba" class="uri">https://gist.github.com/jmsallan/ee7e27a432950004e31888f04eaa74ba</a></li>
+</ul>
+</div>
+<div id="session-info-1" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.6.1 (2026-06-24)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0  LAPACK version 3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] stringdist_0.9.17 lubridate_1.9.5   forcats_1.0.1     stringr_1.6.0    
+##  [5] dplyr_1.2.1       purrr_1.2.2       readr_2.2.0       tidyr_1.3.2      
+##  [9] tibble_3.3.1      ggplot2_4.0.3     tidyverse_2.0.0  
+## 
+## loaded via a namespace (and not attached):
+##  [1] utf8_1.2.6         sass_0.4.10        generics_0.1.4     blogdown_1.23     
+##  [5] stringi_1.8.7      hms_1.1.4          digest_0.6.39      magrittr_2.0.5    
+##  [9] evaluate_1.0.5     grid_4.6.1         timechange_0.4.0   RColorBrewer_1.1-3
+## [13] bookdown_0.46      fastmap_1.2.0      jsonlite_2.0.0     scales_1.4.0      
+## [17] jquerylib_0.1.4    cli_3.6.6          crayon_1.5.3       rlang_1.2.0       
+## [21] bit64_4.8.0        withr_3.0.2        cachem_1.1.0       yaml_2.3.12       
+## [25] otel_0.2.0         tools_4.6.1        parallel_4.6.1     tzdb_0.5.0        
+## [29] curl_7.1.0         vctrs_0.7.3        R6_2.6.1           lifecycle_1.0.5   
+## [33] bit_4.6.0          vroom_1.7.1        pkgconfig_2.0.3    pillar_1.11.1     
+## [37] bslib_0.10.0       gtable_0.3.6       glue_1.8.1         xfun_0.57         
+## [41] tidyselect_1.2.1   rstudioapi_0.18.0  knitr_1.51         farver_2.1.2      
+## [45] htmltools_0.5.9    rmarkdown_2.31     compiler_4.6.1     S7_0.2.2</code></pre>
+<p>ric analysis.</p>
+</div>
+<div id="references-2" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Gist with post data: <a href="https://gist.github.com/jmsallan/ee7e27a432950004e31888f04eaa74ba" class="uri">https://gist.github.com/jmsallan/ee7e27a432950004e31888f04eaa74ba</a></li>
+</ul>
+</div>
+<div id="session-info-2" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.6.1 (2026-06-24)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0  LAPACK version 3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] stringdist_0.9.17 lubridate_1.9.5   forcats_1.0.1     stringr_1.6.0    
+##  [5] dplyr_1.2.1       purrr_1.2.2       readr_2.2.0       tidyr_1.3.2      
+##  [9] tibble_3.3.1      ggplot2_4.0.3     tidyverse_2.0.0  
+## 
+## loaded via a namespace (and not attached):
+##  [1] utf8_1.2.6         sass_0.4.10        generics_0.1.4     blogdown_1.23     
+##  [5] stringi_1.8.7      hms_1.1.4          digest_0.6.39      magrittr_2.0.5    
+##  [9] evaluate_1.0.5     grid_4.6.1         timechange_0.4.0   RColorBrewer_1.1-3
+## [13] bookdown_0.46      fastmap_1.2.0      jsonlite_2.0.0     scales_1.4.0      
+## [17] jquerylib_0.1.4    cli_3.6.6          crayon_1.5.3       rlang_1.2.0       
+## [21] bit64_4.8.0        withr_3.0.2        cachem_1.1.0       yaml_2.3.12       
+## [25] otel_0.2.0         tools_4.6.1        parallel_4.6.1     tzdb_0.5.0        
+## [29] curl_7.1.0         vctrs_0.7.3        R6_2.6.1           lifecycle_1.0.5   
+## [33] bit_4.6.0          vroom_1.7.1        pkgconfig_2.0.3    pillar_1.11.1     
+## [37] bslib_0.10.0       gtable_0.3.6       glue_1.8.1         xfun_0.57         
+## [41] tidyselect_1.2.1   rstudioapi_0.18.0  knitr_1.51         farver_2.1.2      
+## [45] htmltools_0.5.9    rmarkdown_2.31     compiler_4.6.1     S7_0.2.2</code></pre>
+<p>The final table has 19976 article-keyword pairings.</p>
+</div>
+<div id="conclusions-1" class="section level2">
+<h2>Conclusions</h2>
+<p><strong>Keyword normalization</strong> is a specific example of data cleaning. As author keywords in scientific outputs (journal articles, communications in conferences, etc.) are generated by a set of different human authors, they need to be normalized to account for keywords with similar meaning. This task can be automated in some steps, like finding tokens with similar spelling. and performed with a human in the loop in others, like assessing pairings of similar keywords and define <strong>representatives</strong> of sets of keywords with similar meaning.</p>
+<p>In this post, I have used the keywords of the communications to the ICLR 2026 conference to present a workflow of keyword normalization using the tidyverse packages of the R language. The results of this analysis can be used for scientiometric analysis.</p>
+</div>
+<div id="references-3" class="section level2">
+<h2>References</h2>
+<ul>
+<li>Gist with post data: <a href="https://gist.github.com/jmsallan/ee7e27a432950004e31888f04eaa74ba" class="uri">https://gist.github.com/jmsallan/ee7e27a432950004e31888f04eaa74ba</a></li>
+</ul>
+</div>
+<div id="session-info-3" class="section level2">
+<h2>Session Info</h2>
+<pre><code>## R version 4.6.1 (2026-06-24)
+## Platform: x86_64-pc-linux-gnu
+## Running under: Linux Mint 21.1
+## 
+## Matrix products: default
+## BLAS:   /usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0 
+## LAPACK: /usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0  LAPACK version 3.10.0
+## 
+## locale:
+##  [1] LC_CTYPE=es_ES.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=es_ES.UTF-8        LC_COLLATE=es_ES.UTF-8    
+##  [5] LC_MONETARY=es_ES.UTF-8    LC_MESSAGES=es_ES.UTF-8   
+##  [7] LC_PAPER=es_ES.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=es_ES.UTF-8 LC_IDENTIFICATION=C       
+## 
+## time zone: Europe/Madrid
+## tzcode source: system (glibc)
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] stringdist_0.9.17 lubridate_1.9.5   forcats_1.0.1     stringr_1.6.0    
+##  [5] dplyr_1.2.1       purrr_1.2.2       readr_2.2.0       tidyr_1.3.2      
+##  [9] tibble_3.3.1      ggplot2_4.0.3     tidyverse_2.0.0  
+## 
+## loaded via a namespace (and not attached):
+##  [1] utf8_1.2.6         sass_0.4.10        generics_0.1.4     blogdown_1.23     
+##  [5] stringi_1.8.7      hms_1.1.4          digest_0.6.39      magrittr_2.0.5    
+##  [9] evaluate_1.0.5     grid_4.6.1         timechange_0.4.0   RColorBrewer_1.1-3
+## [13] bookdown_0.46      fastmap_1.2.0      jsonlite_2.0.0     scales_1.4.0      
+## [17] jquerylib_0.1.4    cli_3.6.6          crayon_1.5.3       rlang_1.2.0       
+## [21] bit64_4.8.0        withr_3.0.2        cachem_1.1.0       yaml_2.3.12       
+## [25] otel_0.2.0         tools_4.6.1        parallel_4.6.1     tzdb_0.5.0        
+## [29] curl_7.1.0         vctrs_0.7.3        R6_2.6.1           lifecycle_1.0.5   
+## [33] bit_4.6.0          vroom_1.7.1        pkgconfig_2.0.3    pillar_1.11.1     
+## [37] bslib_0.10.0       gtable_0.3.6       glue_1.8.1         xfun_0.57         
+## [41] tidyselect_1.2.1   rstudioapi_0.18.0  knitr_1.51         farver_2.1.2      
+## [45] htmltools_0.5.9    rmarkdown_2.31     compiler_4.6.1     S7_0.2.2</code></pre>
+</div>

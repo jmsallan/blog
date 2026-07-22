@@ -1,0 +1,300 @@
+---
+title: Cleaning Keywords from ICLR 2026
+author: Jose M Sallan
+date: '2026-07-22'
+slug: cleaning-keywords-from-iclr-2026
+categories:
+  - R
+tags:
+  - data cleaning
+meta_img: images/image.png
+description: Description for the page
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In scientific literature, **keywords** are a small set of tokens that identify the main topics, methods or field of study of a scientific communication outlet (manuscript, conference paper, academic journal article). As each article has a small set of keywords, they can be useful to integrate information of a large database of scientific literature. Some examples of use of keywords are document classification, information retrieval or scientiometric analysis.
+
+There are two types of keywords: **author keywords** or **indexed keywords**. The former are defined by authors themselves, and the later are assigned using a controlled vocabulary. While author keywords can provide a better description of the document, these tend to be less specific and standardized. For instance, referring to LLMs we can use:
+
+- LLM
+- LLMs
+- large language models
+- large langauge models
+- large language model
+
+Note that the fourth variant is badly spelled. This is frequent when dealing with author's keywords.
+
+In this post, I will use the information of the 2026 ICLR papers retrieved by Dmytro Lopushanskyy to present a workflow to normalize the keywords of a large set of documents in a specially "dirty" dataset, as control about keyword contents is expected to be looser in a conference than in a journal editorial system. I will be using the tidyverse and and also the `stringdist` package for string distance.
+
+```{r, message=FALSE}
+library(tidyverse)
+library(stringdist)
+```
+
+I start reading a .csv file containing two columns:
+
+- `id` for article identification.
+- `keywords` containing a string of keyword articles separated by semicolon.
+
+```{r}
+id_keyword_url <- "https://gist.githubusercontent.com/jmsallan/ee7e27a432950004e31888f04eaa74ba/raw/5a9a17000e0373d935281a76e34f03c9ed2c5f94/id_keyword.csv"
+data_github <- read_csv(id_keyword_url, show_col_types = FALSE)
+```
+
+One of the articles separates keywords by points instead of semicolons:
+
+```{r}
+data_github |>
+  filter(str_detect(keywords, "\\."))
+```
+
+I have replaced points by semicolons in the whole file before any other operation:
+
+```{r}
+data_github <- data_github |>
+  mutate(keywords = str_replace_all(keywords, "\\.", ";"))
+```
+
+As each article has a different number of keywords, I need to set this dataset in **long format**, so it becomes **tidy data**. I use for this `tidyr::separate_longer_delim()` and then I rename the keyword column with `dplyr::rename()`.
+
+```{r}
+art_keyword <- data_github |>
+  separate_longer_delim(keywords, "; ") |>
+  rename(keyword = keywords) # 19983 keywords
+art_keyword
+```
+
+Author's keywords are generated in a non-normalized fashion. The job now is to reduce variability among keywords finding **representatives** of keywords that appear with several variants. A first step to accomplish this is to transform all keywords:
+
+- turning capital letters to lower case with `stringr::tolower()`.
+- removing spaces at the beginning and the end, and multiple spaces in the middle with `stringr::str_squish()`.
+
+```{r}
+art_keyword <- art_keyword |>
+  mutate(keyword = tolower(keyword)) |>
+  mutate(keyword = str_squish(keyword))
+```
+
+And finally I retrieve all the distinct keywords we can find in the dataset in the `raw_keywords` table.
+
+```{r}
+raw_keywords <- art_keyword |>
+  select(keyword) |>
+  distinct()
+raw_keywords
+```
+
+## Detecting Similar Keywords
+
+As the contents of `raw_keywords` are human-generated, they may contain several variants of the same keyword, like in the example presented in the beginning of the post:
+
+- LLM
+- LLMs
+- large language models
+- large langauge models
+- large language model
+
+To identify similar keywords among the `r nrow(raw_keywords)` unique keywords I have used the Jaro-Winkler distance. This metric compares matching characters within each pair of keywords and penalizes transpositions. Distances are stored in `string_matrix`.
+
+```{r}
+string_matrix <- stringdistmatrix(raw_keywords$keyword, method = "jw") |>
+  as.matrix()
+rownames(string_matrix) <- colnames(string_matrix) <- raw_keywords$keyword
+
+```
+
+Then, I define an arbitrary `threshold` distance and identify all pairs of keywords with a distance smaller than this value, and store the result in the `pairs` table.
+
+```{r}
+# defining a threshold
+threshold <- 0.05
+
+# get row/col indices where distance is low (excluding the diagonal)
+low_idx <- which(string_matrix < threshold & string_matrix > 0, arr.ind = TRUE)
+
+# turn into a readable data frame
+pairs <- tibble(
+  word1 = rownames(string_matrix)[low_idx[, 1]],
+  word2 = colnames(string_matrix)[low_idx[, 2]],
+  distance = string_matrix[low_idx]
+) |>
+  filter(low_idx[,1] < low_idx[,2]) |>
+  arrange(distance)
+
+pairs
+```
+
+I have checked each of the `r nrow(pairs)` manually, and assigned a **representative** for each pair. This representative is a normalized keyword that replaces a set of similar keywords. As a generic criterion, most of the time I have chosen singular over plural and I have avoided abbreviations. For instance, large language model is the representative of all variants of LLMs in the keyword set.
+
+Additionally, I have manually incorporated to the table some keywords with three or less characters that likely are **abbreviations**. For instance `llm` has `large language model` as representative and `lr` is represented by `reinforcement learning`.
+
+I have uploaded the manually generated table of paired keywords and representatives in a Github gist, together with the original article-keyword table.
+
+## Defining Representatives
+
+Let's read the table of paired keywords, removing the rows with no representative. These rows correspond to paired keywords with small distance but with different meaning, for instance `dataset creation` versus `dataset curation`.
+
+```{r}
+paired_representatives_url <- "https://gist.githubusercontent.com/jmsallan/ee7e27a432950004e31888f04eaa74ba/raw/5a9a17000e0373d935281a76e34f03c9ed2c5f94/paired_keywords_representatives.csv"
+paired_representatives <- read_csv(paired_representatives_url,
+                                   show_col_types = FALSE)
+paired_representatives <- paired_representatives |>
+  filter(!is.na(representative))
+paired_representatives
+```
+
+The significant pairings are stored in the `paired_representatives` table, which has `r nrow(paired_representatives)` rows. I need to transform this table as tidy data, including all keyword-representative correspondences:
+
+```{r}
+paired_representatives <-  paired_representatives |>
+  pivot_longer(-representative, names_to = "word", values_to = "keyword") |>
+  select(- word) |>
+  distinct()
+paired_representatives
+```
+
+Now `paired_representatives` has `r nrow(paired_representatives)` rows. Now I need to split the raw keywords in two subsets:
+
+- `raw_keywords_paired` includes original keywords with a short distance from another keyword of the same meaning.
+- `raw_keywords_not_paired` contains original keywords which are not close to any other keyword.
+
+```{r}
+raw_keywords_paired <- raw_keywords |>
+  filter(keyword %in% paired_representatives$keyword) # 1020 rows
+
+raw_keywords_not_paired <- raw_keywords |>
+  filter(!keyword %in% paired_representatives$keyword) # 8255 rows
+```
+
+The representative for the elements of `raw_keywords_not_paired` is the keyword itself.
+
+```{r}
+raw_keywords_not_paired <- raw_keywords_not_paired |>
+  mutate(representative = keyword)
+```
+
+We assign the representative to each element of `raw_keywords_paired` with a merge with `paired_representatives` and join the two tables in `raw_keywords_representative`.
+
+```{r}
+raw_keywords_paired <- raw_keywords_paired |>
+  left_join(paired_representatives, by = "keyword")
+
+raw_keywords_representative <- bind_rows(raw_keywords_paired, raw_keywords_not_paired)
+```
+
+The resulting table has `r nrow(raw_keywords_representative)` rows. For a sanity check, I look for distinct values of `keyword
+`.
+
+```{r}
+# number of raw keywords
+raw_keywords_representative |>
+  select(keyword) |>
+  distinct()
+```
+
+The unique values of keyword are the same as table rows, so keywords are not duplicated. Let's see the number of representatives:
+
+```{r}
+raw_keywords_representative |>
+  select(representative) |>
+  distinct()
+```
+
+
+Let's see the largest families of representatives:
+
+```{r}
+raw_keywords_representative |> 
+  group_by(representative) |> 
+  count(sort = TRUE)
+```
+
+Unsurprisingly, the large language model representative is the one emcompassing more variations:
+
+```{r}
+raw_keywords_representative |> 
+  filter(representative == "large language model")
+```
+
+Here can be appreciated the different sources of variations (misspellings, plurals, use of abbreviation and odd variants) that call for keyword normalization.
+
+## Adding Representatives to Article Keyword Table
+
+The final step is adding representatives to the article-keyword table:
+
+```{r}
+art_keyword_representative <- art_keyword |>
+  left_join(raw_keywords_representative, by = "keyword") |>
+  distinct()
+
+art_keyword_representative
+```
+
+The final table has `r nrow(art_keyword_representative)` article-keyword pairings.
+
+## Conclusions
+
+**Keyword normalization** is a specific example of data cleaning. As author keywords in scientific outputs (journal articles, communications in conferences, etc.) are generated by a set of different human authors, they need to be normalized to account for keywords with similar meaning. This task can be automated in some steps, like finding tokens with similar spelling. and performed with a human in the loop in others, like assessing pairings of similar keywords and define **representatives** of sets of keywords with similar meaning.
+
+In this post, I have used the keywords of the communications to the ICLR 2026 conference to present a workflow of keyword normalization using the tidyverse packages of the R language. The results of this analysis can be used for scientiometric analysis.
+
+## References
+
+- Gist with post data: <https://gist.github.com/jmsallan/ee7e27a432950004e31888f04eaa74ba>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+
+```
+
+ric analysis.
+
+## References
+
+- Gist with post data: <https://gist.github.com/jmsallan/ee7e27a432950004e31888f04eaa74ba>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+ric analysis.
+
+## References
+
+- Gist with post data: <https://gist.github.com/jmsallan/ee7e27a432950004e31888f04eaa74ba>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
+The final table has `r nrow(art_keyword_representative)` article-keyword pairings.
+
+## Conclusions
+
+**Keyword normalization** is a specific example of data cleaning. As author keywords in scientific outputs (journal articles, communications in conferences, etc.) are generated by a set of different human authors, they need to be normalized to account for keywords with similar meaning. This task can be automated in some steps, like finding tokens with similar spelling. and performed with a human in the loop in others, like assessing pairings of similar keywords and define **representatives** of sets of keywords with similar meaning.
+
+In this post, I have used the keywords of the communications to the ICLR 2026 conference to present a workflow of keyword normalization using the tidyverse packages of the R language. The results of this analysis can be used for scientiometric analysis.
+
+## References
+
+- Gist with post data: <https://gist.github.com/jmsallan/ee7e27a432950004e31888f04eaa74ba>
+
+## Session Info
+
+```{r, echo=FALSE}
+sessionInfo()
+```
+
+
+
+
